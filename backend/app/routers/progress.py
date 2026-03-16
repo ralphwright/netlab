@@ -110,74 +110,104 @@ async def test_save_pipeline(db: AsyncSession = Depends(get_db)):
 
 @router.post("/save")
 async def save_progress(req: SaveProgress, db: AsyncSession = Depends(get_db)):
-    """Simple bulk save. The frontend sends current state, we upsert everything.
-    This is the primary save mechanism — simpler and more reliable than step-by-step.
-    """
-    # Auto-create user
-    await db.execute(text("""
-        INSERT INTO users (username, display_name)
-        VALUES (:user, :user)
-        ON CONFLICT (username) DO NOTHING
-    """), {"user": req.user_id})
+    """Simple bulk save — wrapped in try/catch to surface the actual error."""
+    import traceback
 
-    # Get lab ID
-    lab_r = await db.execute(text("SELECT id FROM labs WHERE slug = :slug"), {"slug": req.lab_slug})
-    lab_row = lab_r.mappings().first()
-    if not lab_row:
-        raise HTTPException(422, f"Lab not found: {req.lab_slug}")
-    lab_id = lab_row["id"]
+    try:
+        # Auto-create user
+        await db.execute(text("""
+            INSERT INTO users (username, display_name)
+            VALUES (:user, :user)
+            ON CONFLICT (username) DO NOTHING
+        """), {"user": req.user_id})
 
-    # Get user ID
-    user_r = await db.execute(text("SELECT id FROM users WHERE username = :user"), {"user": req.user_id})
-    user_row = user_r.mappings().first()
-    user_id = user_row["id"]
+        # Get lab ID
+        lab_r = await db.execute(text("SELECT id FROM labs WHERE slug = :slug"), {"slug": req.lab_slug})
+        lab_row = lab_r.mappings().first()
+        if not lab_row:
+            return {"error": f"Lab not found: {req.lab_slug}"}
+        lab_id = lab_row["id"]
 
-    # Get total step count
-    count_r = await db.execute(text("SELECT count(*) FROM lab_steps WHERE lab_id = :lid"), {"lid": lab_id})
-    total_steps = count_r.scalar() or 0
+        # Get user ID
+        user_r = await db.execute(text("SELECT id FROM users WHERE username = :user"), {"user": req.user_id})
+        user_row = user_r.mappings().first()
+        user_id = user_row["id"]
 
-    is_complete = len(req.completed_steps) >= total_steps and total_steps > 0
-    status = "completed" if is_complete else "in_progress" if req.completed_steps else "in_progress"
+        # Get total step count
+        count_r = await db.execute(text("SELECT count(*) FROM lab_steps WHERE lab_id = :lid"), {"lid": lab_id})
+        total_steps = count_r.scalar() or 0
 
-    # Upsert lab-level progress
-    await db.execute(text("""
-        INSERT INTO user_lab_progress
-            (user_id, lab_id, status, current_step, total_points, started_at, completed_at)
-        VALUES (:uid, :lid, :status, :step, :pts, NOW(),
-                CASE WHEN :done THEN NOW() ELSE NULL END)
-        ON CONFLICT (user_id, lab_id) DO UPDATE SET
-            current_step = :step,
-            total_points = :pts,
-            status = :status::lab_status,
-            completed_at = CASE WHEN :done THEN NOW() ELSE user_lab_progress.completed_at END
-    """), {
-        "uid": user_id, "lid": lab_id,
-        "status": status, "step": req.current_step,
-        "pts": req.total_points, "done": is_complete,
-    })
+        is_complete = len(req.completed_steps) >= total_steps and total_steps > 0
 
-    # Upsert each completed step
-    if req.completed_steps:
-        for step_num in req.completed_steps:
+        # Upsert lab-level progress — use separate INSERT/UPDATE to avoid type cast issues
+        existing = await db.execute(text("""
+            SELECT id FROM user_lab_progress WHERE user_id = :uid AND lab_id = :lid
+        """), {"uid": user_id, "lid": lab_id})
+        exists = existing.mappings().first()
+
+        if exists:
+            if is_complete:
+                await db.execute(text("""
+                    UPDATE user_lab_progress SET
+                        current_step = :step, total_points = :pts,
+                        status = 'completed', completed_at = NOW()
+                    WHERE user_id = :uid AND lab_id = :lid
+                """), {"uid": user_id, "lid": lab_id, "step": req.current_step, "pts": req.total_points})
+            else:
+                await db.execute(text("""
+                    UPDATE user_lab_progress SET
+                        current_step = :step, total_points = :pts,
+                        status = 'in_progress'
+                    WHERE user_id = :uid AND lab_id = :lid
+                """), {"uid": user_id, "lid": lab_id, "step": req.current_step, "pts": req.total_points})
+        else:
+            if is_complete:
+                await db.execute(text("""
+                    INSERT INTO user_lab_progress (user_id, lab_id, status, current_step, total_points, started_at, completed_at)
+                    VALUES (:uid, :lid, 'completed', :step, :pts, NOW(), NOW())
+                """), {"uid": user_id, "lid": lab_id, "step": req.current_step, "pts": req.total_points})
+            else:
+                await db.execute(text("""
+                    INSERT INTO user_lab_progress (user_id, lab_id, status, current_step, total_points, started_at)
+                    VALUES (:uid, :lid, 'in_progress', :step, :pts, NOW())
+                """), {"uid": user_id, "lid": lab_id, "step": req.current_step, "pts": req.total_points})
+
+        # Upsert each completed step
+        for step_num in (req.completed_steps or []):
             step_r = await db.execute(text(
                 "SELECT id FROM lab_steps WHERE lab_id = :lid AND step_number = :sn"
             ), {"lid": lab_id, "sn": step_num})
             step_row = step_r.mappings().first()
             if step_row:
-                await db.execute(text("""
-                    INSERT INTO user_step_progress (user_id, lab_id, step_id, status, attempts, completed_at)
-                    VALUES (:uid, :lid, :sid, 'completed', 1, NOW())
-                    ON CONFLICT (user_id, step_id) DO UPDATE SET status = 'completed'
-                """), {"uid": user_id, "lid": lab_id, "sid": step_row["id"]})
+                # Check if already exists
+                existing_step = await db.execute(text(
+                    "SELECT id FROM user_step_progress WHERE user_id = :uid AND step_id = :sid"
+                ), {"uid": user_id, "sid": step_row["id"]})
+                if existing_step.mappings().first():
+                    await db.execute(text("""
+                        UPDATE user_step_progress SET status = 'completed'
+                        WHERE user_id = :uid AND step_id = :sid
+                    """), {"uid": user_id, "sid": step_row["id"]})
+                else:
+                    await db.execute(text("""
+                        INSERT INTO user_step_progress (user_id, lab_id, step_id, status, attempts, completed_at)
+                        VALUES (:uid, :lid, :sid, 'completed', 1, NOW())
+                    """), {"uid": user_id, "lid": lab_id, "sid": step_row["id"]})
 
-    await db.commit()
+        await db.commit()
 
-    return {
-        "status": "saved",
-        "lab_status": status,
-        "completed_steps": len(req.completed_steps),
-        "total_steps": total_steps,
-    }
+        return {
+            "status": "saved",
+            "completed_steps": len(req.completed_steps),
+            "total_steps": total_steps,
+        }
+
+    except Exception as e:
+        await db.rollback()
+        tb = traceback.format_exc()
+        print(f"[netlab] SAVE ERROR: {e}\n{tb}")
+        # Return the actual error so the frontend displays it
+        return {"error": str(e), "detail": str(e)}
 
 
 # ── Get all lab progress for a user ──────────────────────────

@@ -35,15 +35,21 @@ export default function LabView() {
 
     setSaveStatus('saving');
     try {
-      await api.saveProgress({
+      const res = await api.saveProgress({
         user_id: 'student',
         lab_slug: slug,
         current_step: state.currentStep || 1,
         completed_steps: steps,
         total_points: state.totalPoints || 0,
       });
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus((s) => s === 'saved' ? null : s), 2000);
+      // Check if server returned an error in the body (200 + {error: ...})
+      if (res.error) {
+        console.error('Save returned error:', res.error);
+        setSaveStatus(`error: ${res.error}`);
+      } else {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus((s) => s === 'saved' ? null : s), 2000);
+      }
     } catch (err) {
       console.error('Save failed:', err);
       setSaveStatus(`error: ${err.message}`);
