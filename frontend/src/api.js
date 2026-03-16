@@ -1,7 +1,11 @@
-// In production, VITE_API_URL is set at build time (e.g. https://netlab-api-xyz.up.railway.app)
-// In dev, falls back to localhost:8000
-// If empty string, uses same-origin (single-container mode)
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// VITE_API_URL is baked at build time:
+//   - Production (single-container): "" → same-origin fetch (just /api/...)
+//   - Production (multi-service): "https://backend.up.railway.app"
+//   - Dev: undefined → falls back to localhost:8000
+//
+// typeof check distinguishes "" (set but empty) from undefined (not set at all)
+const VITE_VAL = import.meta.env.VITE_API_URL;
+const API_BASE = typeof VITE_VAL === 'string' ? VITE_VAL : 'http://localhost:8000';
 
 async function request(path, options = {}) {
   const url = API_BASE ? `${API_BASE}${path}` : path;
