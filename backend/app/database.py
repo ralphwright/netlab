@@ -1,7 +1,6 @@
 """Async database engine & session factory."""
 
 import os
-import ssl
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
@@ -20,24 +19,33 @@ def _build_url() -> str:
     elif url.startswith("postgresql://") and "+asyncpg" not in url:
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-    log.info(f"[netlab] DB URL scheme: {url.split('@')[0].split('://')[0] if '@' in url else 'unknown'}://***")
+    # Strip sslmode from URL query params — we handle SSL via connect_args
+    # Railway URLs sometimes include ?sslmode=require which conflicts
+    if "?" in url:
+        base, params = url.split("?", 1)
+        filtered = "&".join(
+            p for p in params.split("&")
+            if not p.startswith("sslmode=")
+        )
+        url = f"{base}?{filtered}" if filtered else base
+
+    log.info(f"[netlab] DB host: {'Railway' if _is_railway() else 'local'}")
     return url
+
+
+def _is_railway() -> bool:
+    return bool(
+        os.getenv("RAILWAY_ENVIRONMENT")
+        or os.getenv("RAILWAY_PROJECT_ID")
+        or os.getenv("RAILWAY_SERVICE_ID")
+    )
 
 
 DATABASE_URL = _build_url()
 
-# Railway Postgres may require SSL — detect and configure
-_is_railway = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
-_connect_args = {}
-
-if _is_railway:
-    # Railway managed Postgres uses SSL but self-signed certs
-    _ssl_ctx = ssl.create_default_context()
-    _ssl_ctx.check_hostname = False
-    _ssl_ctx.verify_mode = ssl.CERT_NONE
-    _connect_args["ssl"] = _ssl_ctx
-    log.info("[netlab] Railway detected — SSL enabled for DB connection")
-
+# Railway private networking: no SSL needed (services share a VPC).
+# Do NOT pass an ssl.SSLContext — it causes "unexpected eof" / "connection reset"
+# because asyncpg's SSLContext negotiation clashes with Railway's Postgres config.
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
@@ -45,7 +53,6 @@ engine = create_async_engine(
     max_overflow=5,
     pool_pre_ping=True,
     pool_recycle=300,
-    connect_args=_connect_args,
 )
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
