@@ -33,6 +33,8 @@ export const api = {
   // Progress
   getProgress: (user = 'student') => request(`/api/progress/${user}`),
   getLabProgress: (slug, user = 'student') => request(`/api/progress/${user}/${slug}`),
+  saveProgress: (body) =>
+    request('/api/progress/save', { method: 'POST', body: JSON.stringify(body) }),
   completeStep: (body) =>
     request('/api/progress/complete-step', { method: 'POST', body: JSON.stringify(body) }),
   updateProgress: (body) =>

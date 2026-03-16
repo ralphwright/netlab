@@ -17,12 +17,41 @@ export default function LabView() {
   const [loading, setLoading] = useState(true);
   const [showExplanation, setShowExplanation] = useState(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [savingStep, setSavingStep] = useState(false);
-
-  // Key to force-remount terminal on reset
+  const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'saved' | 'error: ...'
   const [terminalKey, setTerminalKey] = useState(0);
 
-  // Load lab data AND saved progress on mount / slug change
+  // Refs to hold latest state for save function (avoids stale closures)
+  const progressRef = useRef({ currentStep: 1, completedSteps: new Set(), totalPoints: 0 });
+
+  // Keep ref in sync
+  useEffect(() => {
+    progressRef.current = { currentStep, completedSteps, totalPoints };
+  }, [currentStep, completedSteps, totalPoints]);
+
+  // ── Core save function ──────────────────────────────────
+  const saveToBackend = useCallback(async (overrides = {}) => {
+    const state = { ...progressRef.current, ...overrides };
+    const steps = Array.from(state.completedSteps || []);
+    if (steps.length === 0 && state.currentStep <= 1) return; // nothing to save
+
+    setSaveStatus('saving');
+    try {
+      await api.saveProgress({
+        user_id: 'student',
+        lab_slug: slug,
+        current_step: state.currentStep,
+        completed_steps: steps,
+        total_points: state.totalPoints,
+      });
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus((s) => s === 'saved' ? null : s), 2000);
+    } catch (err) {
+      console.error('Save failed:', err);
+      setSaveStatus(`error: ${err.message}`);
+    }
+  }, [slug]);
+
+  // ── Load lab + saved progress ───────────────────────────
   useEffect(() => {
     setLoading(true);
     setCompletedSteps(new Set());
@@ -30,6 +59,7 @@ export default function LabView() {
     setCurrentStep(1);
     setShowExplanation(null);
     setShowResetConfirm(false);
+    setSaveStatus(null);
 
     Promise.all([
       api.getLab(slug),
@@ -42,17 +72,15 @@ export default function LabView() {
 
         // Restore saved progress
         if (progressData && progressData.completed_steps?.length > 0) {
-          setCompletedSteps(new Set(progressData.completed_steps));
+          const restoredSteps = new Set(progressData.completed_steps);
+          setCompletedSteps(restoredSteps);
           setTotalPoints(progressData.total_points || 0);
 
-          // Resume at next uncompleted step
           const allStepNums = (labData.steps || []).map((s) => s.step_number).sort((a, b) => a - b);
-          const doneSet = new Set(progressData.completed_steps);
-          const nextUndone = allStepNums.find((n) => !doneSet.has(n));
+          const nextUndone = allStepNums.find((n) => !restoredSteps.has(n));
           const resumeStep = nextUndone || progressData.current_step || 1;
           setCurrentStep(resumeStep);
 
-          // Select the target device for the resumed step
           const resumeStepData = labData.steps?.find((s) => s.step_number === resumeStep);
           if (resumeStepData?.target_device) {
             setSelectedDevice(resumeStepData.target_device);
@@ -60,7 +88,6 @@ export default function LabView() {
             setSelectedDevice(topoData.devices[0].name);
           }
         } else {
-          // Fresh start — select first step's device
           if (labData.steps?.length > 0 && labData.steps[0].target_device) {
             setSelectedDevice(labData.steps[0].target_device);
           } else if (topoData.devices?.length > 0) {
@@ -72,40 +99,55 @@ export default function LabView() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  const [saveError, setSaveError] = useState(null);
+  // ── Save on page leave / tab close ──────────────────────
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const state = progressRef.current;
+      const steps = Array.from(state.completedSteps || []);
+      if (steps.length === 0 && state.currentStep <= 1) return;
 
+      // Use sendBeacon for reliable fire-on-close
+      const VITE_VAL = import.meta.env.VITE_API_URL;
+      const base = typeof VITE_VAL === 'string' ? VITE_VAL : '';
+      navigator.sendBeacon(
+        `${base}/api/progress/save`,
+        new Blob([JSON.stringify({
+          user_id: 'student',
+          lab_slug: slug,
+          current_step: state.currentStep,
+          completed_steps: steps,
+          total_points: state.totalPoints,
+        })], { type: 'application/json' })
+      );
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      // Cleanup: save when navigating away via React Router
+      handleBeforeUnload();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [slug]);
+
+  // ── Step completion handler ─────────────────────────────
   const handleStepComplete = useCallback(async (stepNum, points) => {
-    // Update local state immediately
     setCompletedSteps((prev) => {
-      if (prev.has(stepNum)) return prev; // already done, don't double-count
+      if (prev.has(stepNum)) return prev;
       return new Set([...prev, stepNum]);
     });
     setTotalPoints((prev) => prev + (points || 0));
     setShowExplanation(stepNum);
-    setSaveError(null);
 
-    // Persist to backend — await so we catch failures
-    setSavingStep(true);
-    try {
-      const res = await api.completeStep({
-        user_id: 'student',
-        lab_slug: slug,
-        step_number: stepNum,
-        points: points || 0,
-      });
-      // Check for error in response body (shouldn't happen with new backend, but just in case)
-      if (res.error) {
-        console.error('Save returned error:', res.error);
-        setSaveError(`Save failed: ${res.error}`);
-      }
-    } catch (err) {
-      console.error('Failed to save step progress:', err);
-      setSaveError(`Save failed: ${err.message}`);
-    } finally {
-      setSavingStep(false);
-    }
+    // Save immediately with the NEW completed step included
+    const updatedSteps = new Set([...progressRef.current.completedSteps, stepNum]);
+    const updatedPoints = progressRef.current.totalPoints + (points || 0);
+    await saveToBackend({
+      completedSteps: updatedSteps,
+      totalPoints: updatedPoints,
+      currentStep: stepNum,
+    });
 
-    // Auto-advance after brief delay
+    // Auto-advance
     setTimeout(() => {
       const nextStep = stepNum + 1;
       if (lab && nextStep <= (lab.steps?.length || 0)) {
@@ -116,8 +158,19 @@ export default function LabView() {
         }
       }
     }, 500);
-  }, [lab, slug]);
+  }, [lab, saveToBackend]);
 
+  // ── Step navigation with auto-save ──────────────────────
+  const goToStep = useCallback((stepNum) => {
+    setCurrentStep(stepNum);
+    const stepData = lab?.steps?.find((s) => s.step_number === stepNum);
+    if (stepData?.target_device) setSelectedDevice(stepData.target_device);
+
+    // Save current position
+    saveToBackend({ currentStep: stepNum });
+  }, [lab, saveToBackend]);
+
+  // ── Reset handler ───────────────────────────────────────
   const handleResetLab = useCallback(async () => {
     try {
       await api.resetLabProgress(slug);
@@ -126,9 +179,8 @@ export default function LabView() {
       setCurrentStep(1);
       setShowExplanation(null);
       setShowResetConfirm(false);
-      setTerminalKey((k) => k + 1); // force terminal remount
-
-      // Re-select first device
+      setSaveStatus(null);
+      setTerminalKey((k) => k + 1);
       if (lab?.steps?.length > 0 && lab.steps[0].target_device) {
         setSelectedDevice(lab.steps[0].target_device);
       }
@@ -140,6 +192,8 @@ export default function LabView() {
   const handleDeviceSelect = useCallback((deviceName) => {
     setSelectedDevice(deviceName);
   }, []);
+
+  // ── Render ──────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -174,7 +228,7 @@ export default function LabView() {
         marginBottom: 'var(--space-lg)', gap: 'var(--space-md)', flexWrap: 'wrap'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-          <Link to="/" className="btn btn-ghost btn-sm">
+          <Link to="/" className="btn btn-ghost btn-sm" onClick={() => saveToBackend()}>
             <ArrowLeft size={16} /> Labs
           </Link>
           <div>
@@ -196,22 +250,17 @@ export default function LabView() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-          {/* Saving indicator */}
-          {savingStep && (
-            <span style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-              saving...
-            </span>
-          )}
-          {saveError && (
-            <span
-              style={{
-                fontSize: '0.6875rem', color: 'var(--color-error)', fontFamily: 'var(--font-mono)',
-                cursor: 'pointer', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}
-              title={saveError}
-              onClick={() => setSaveError(null)}
-            >
-              ⚠ {saveError}
+          {/* Save status indicator */}
+          {saveStatus && (
+            <span style={{
+              fontSize: '0.6875rem', fontFamily: 'var(--font-mono)',
+              color: saveStatus === 'saved' ? 'var(--color-success)'
+                : saveStatus === 'saving' ? 'var(--accent)'
+                : 'var(--color-error)',
+            }}>
+              {saveStatus === 'saving' ? '● saving...'
+                : saveStatus === 'saved' ? '✓ saved'
+                : `⚠ ${saveStatus}`}
             </span>
           )}
 
@@ -239,8 +288,6 @@ export default function LabView() {
             >
               <RotateCcw size={15} />
             </button>
-
-            {/* Reset confirmation dropdown */}
             {showResetConfirm && (
               <div style={{
                 position: 'absolute', top: '100%', right: 0, marginTop: 8,
@@ -252,20 +299,8 @@ export default function LabView() {
                   Reset all progress for this lab? This clears completed steps, points, and command history.
                 </p>
                 <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                  <button
-                    className="btn btn-sm"
-                    style={{ background: 'var(--color-error)', color: '#fff', flex: 1 }}
-                    onClick={handleResetLab}
-                  >
-                    Reset Lab
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ flex: 1 }}
-                    onClick={() => setShowResetConfirm(false)}
-                  >
-                    Cancel
-                  </button>
+                  <button className="btn btn-sm" style={{ background: 'var(--color-error)', color: '#fff', flex: 1 }} onClick={handleResetLab}>Reset Lab</button>
+                  <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => setShowResetConfirm(false)}>Cancel</button>
                 </div>
               </div>
             )}
@@ -286,10 +321,7 @@ export default function LabView() {
           return (
             <button
               key={step.step_number}
-              onClick={() => {
-                setCurrentStep(step.step_number);
-                if (step.target_device) setSelectedDevice(step.target_device);
-              }}
+              onClick={() => goToStep(step.step_number)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', border: 'none', borderRadius: 'var(--radius-sm)',
@@ -308,90 +340,40 @@ export default function LabView() {
         })}
       </div>
 
-      {/* Main Grid: Topology + Steps left, Terminal right */}
+      {/* Main Grid */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gridTemplateRows: 'auto 1fr',
-        gap: 'var(--space-md)',
-        minHeight: 600,
+        display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: 'auto 1fr',
+        gap: 'var(--space-md)', minHeight: 600,
       }}>
-        {/* Topology (top left) */}
         <div style={{ gridColumn: '1 / -1' }}>
-          <TopologyGraph
-            topology={topology}
-            selectedDevice={selectedDevice}
-            onDeviceSelect={handleDeviceSelect}
-            currentStep={currentStepData}
-          />
+          <TopologyGraph topology={topology} selectedDevice={selectedDevice} onDeviceSelect={handleDeviceSelect} currentStep={currentStepData} />
         </div>
 
-        {/* Step Panel (bottom left) */}
         <div>
           <StepPanel
-            step={currentStepData}
-            stepNumber={currentStep}
-            totalSteps={steps.length}
+            step={currentStepData} stepNumber={currentStep} totalSteps={steps.length}
             isCompleted={completedSteps.has(currentStep)}
-            onPrev={() => {
-              if (currentStep > 1) {
-                const prev = currentStep - 1;
-                setCurrentStep(prev);
-                const s = steps.find((s) => s.step_number === prev);
-                if (s?.target_device) setSelectedDevice(s.target_device);
-              }
-            }}
-            onNext={() => {
-              if (currentStep < steps.length) {
-                const next = currentStep + 1;
-                setCurrentStep(next);
-                const s = steps.find((s) => s.step_number === next);
-                if (s?.target_device) setSelectedDevice(s.target_device);
-              }
-            }}
+            onPrev={() => currentStep > 1 && goToStep(currentStep - 1)}
+            onNext={() => currentStep < steps.length && goToStep(currentStep + 1)}
           />
-
-          {/* Explanation popup */}
           {showExplanation && (() => {
             const expStep = steps.find((s) => s.step_number === showExplanation);
             if (!expStep?.explanation) return null;
             return (
-              <div className="card" style={{
-                marginTop: 'var(--space-md)',
-                background: 'rgba(0,230,118,0.05)',
-                border: '1px solid rgba(0,230,118,0.2)',
-              }}>
+              <div className="card" style={{ marginTop: 'var(--space-md)', background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
                   <Lightbulb size={16} color="var(--color-success)" />
                   <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-success)' }}>Why this works</span>
-                  <button
-                    onClick={() => setShowExplanation(null)}
-                    style={{
-                      marginLeft: 'auto', background: 'none', border: 'none',
-                      color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem'
-                    }}
-                  >
-                    Dismiss
-                  </button>
+                  <button onClick={() => setShowExplanation(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem' }}>Dismiss</button>
                 </div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
-                  {expStep.explanation}
-                </p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>{expStep.explanation}</p>
               </div>
             );
           })()}
         </div>
 
-        {/* Terminal (bottom right) */}
         <div>
-          <TerminalEmulator
-            key={terminalKey}
-            labSlug={slug}
-            deviceName={selectedDevice}
-            step={currentStepData}
-            onStepComplete={handleStepComplete}
-            completedSteps={completedSteps}
-          />
+          <TerminalEmulator key={terminalKey} labSlug={slug} deviceName={selectedDevice} step={currentStepData} onStepComplete={handleStepComplete} completedSteps={completedSteps} />
         </div>
       </div>
     </div>

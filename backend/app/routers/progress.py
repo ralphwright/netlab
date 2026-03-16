@@ -1,6 +1,6 @@
 """User progress tracking endpoints."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from sqlalchemy import text
@@ -23,6 +23,161 @@ class StepComplete(BaseModel):
     lab_slug: str
     step_number: int
     points: int = 0
+
+
+class SaveProgress(BaseModel):
+    """Simple bulk save — the frontend sends everything it knows."""
+    user_id: str = "student"
+    lab_slug: str
+    current_step: int = 1
+    completed_steps: List[int] = []
+    total_points: int = 0
+
+
+# ── TEST: verify the save pipeline works ─────────────────────
+
+@router.get("/test-save")
+async def test_save_pipeline(db: AsyncSession = Depends(get_db)):
+    """Hit this in a browser to verify DB writes work end-to-end."""
+    results = {}
+
+    # 1. Check user exists
+    r = await db.execute(text("SELECT id, username FROM users WHERE username = 'student'"))
+    user = r.mappings().first()
+    results["user"] = dict(user) if user else "MISSING — this is the problem"
+    if not user:
+        # Try to create
+        await db.execute(text(
+            "INSERT INTO users (username, display_name) VALUES ('student', 'Student') ON CONFLICT DO NOTHING"
+        ))
+        await db.commit()
+        r2 = await db.execute(text("SELECT id FROM users WHERE username = 'student'"))
+        u2 = r2.mappings().first()
+        results["user_created"] = bool(u2)
+
+    # 2. Check a lab with steps exists
+    r = await db.execute(text("""
+        SELECT l.slug, l.id, count(ls.id) as step_count
+        FROM labs l LEFT JOIN lab_steps ls ON ls.lab_id = l.id
+        GROUP BY l.id HAVING count(ls.id) > 0 LIMIT 1
+    """))
+    lab = r.mappings().first()
+    results["lab_with_steps"] = dict(lab) if lab else "NO LABS HAVE STEPS"
+
+    if not lab:
+        return results
+
+    # 3. Check that steps have expected_commands
+    r = await db.execute(text("""
+        SELECT step_number, title, expected_commands
+        FROM lab_steps WHERE lab_id = :lid ORDER BY step_number LIMIT 3
+    """), {"lid": lab["id"]})
+    steps = [dict(s) for s in r.mappings().all()]
+    results["sample_steps"] = steps
+
+    # 4. Try writing to user_lab_progress
+    if user:
+        try:
+            await db.execute(text("""
+                INSERT INTO user_lab_progress (user_id, lab_id, status, current_step, total_points, started_at)
+                VALUES (:uid, :lid, 'in_progress', 1, 0, NOW())
+                ON CONFLICT (user_id, lab_id) DO UPDATE SET current_step = 1
+            """), {"uid": user["id"], "lid": lab["id"]})
+            await db.commit()
+            results["write_test"] = "SUCCESS"
+        except Exception as e:
+            results["write_test"] = f"FAILED: {e}"
+
+        # 5. Read back
+        r = await db.execute(text("""
+            SELECT status, current_step, total_points
+            FROM user_lab_progress WHERE user_id = :uid AND lab_id = :lid
+        """), {"uid": user["id"], "lid": lab["id"]})
+        row = r.mappings().first()
+        results["read_back"] = dict(row) if row else "NOTHING — write didn't persist"
+
+        # 6. Clean up
+        await db.execute(text(
+            "DELETE FROM user_lab_progress WHERE user_id = :uid AND lab_id = :lid"
+        ), {"uid": user["id"], "lid": lab["id"]})
+        await db.commit()
+        results["cleanup"] = "done"
+
+    return results
+
+
+# ── SIMPLE SAVE: bulk-save from frontend ─────────────────────
+
+@router.post("/save")
+async def save_progress(req: SaveProgress, db: AsyncSession = Depends(get_db)):
+    """Simple bulk save. The frontend sends current state, we upsert everything.
+    This is the primary save mechanism — simpler and more reliable than step-by-step.
+    """
+    # Auto-create user
+    await db.execute(text("""
+        INSERT INTO users (username, display_name)
+        VALUES (:user, :user)
+        ON CONFLICT (username) DO NOTHING
+    """), {"user": req.user_id})
+
+    # Get lab ID
+    lab_r = await db.execute(text("SELECT id FROM labs WHERE slug = :slug"), {"slug": req.lab_slug})
+    lab_row = lab_r.mappings().first()
+    if not lab_row:
+        raise HTTPException(422, f"Lab not found: {req.lab_slug}")
+    lab_id = lab_row["id"]
+
+    # Get user ID
+    user_r = await db.execute(text("SELECT id FROM users WHERE username = :user"), {"user": req.user_id})
+    user_row = user_r.mappings().first()
+    user_id = user_row["id"]
+
+    # Get total step count
+    count_r = await db.execute(text("SELECT count(*) FROM lab_steps WHERE lab_id = :lid"), {"lid": lab_id})
+    total_steps = count_r.scalar() or 0
+
+    is_complete = len(req.completed_steps) >= total_steps and total_steps > 0
+    status = "completed" if is_complete else "in_progress" if req.completed_steps else "in_progress"
+
+    # Upsert lab-level progress
+    await db.execute(text("""
+        INSERT INTO user_lab_progress
+            (user_id, lab_id, status, current_step, total_points, started_at, completed_at)
+        VALUES (:uid, :lid, :status, :step, :pts, NOW(),
+                CASE WHEN :done THEN NOW() ELSE NULL END)
+        ON CONFLICT (user_id, lab_id) DO UPDATE SET
+            current_step = :step,
+            total_points = :pts,
+            status = :status::lab_status,
+            completed_at = CASE WHEN :done THEN NOW() ELSE user_lab_progress.completed_at END
+    """), {
+        "uid": user_id, "lid": lab_id,
+        "status": status, "step": req.current_step,
+        "pts": req.total_points, "done": is_complete,
+    })
+
+    # Upsert each completed step
+    if req.completed_steps:
+        for step_num in req.completed_steps:
+            step_r = await db.execute(text(
+                "SELECT id FROM lab_steps WHERE lab_id = :lid AND step_number = :sn"
+            ), {"lid": lab_id, "sn": step_num})
+            step_row = step_r.mappings().first()
+            if step_row:
+                await db.execute(text("""
+                    INSERT INTO user_step_progress (user_id, lab_id, step_id, status, attempts, completed_at)
+                    VALUES (:uid, :lid, :sid, 'completed', 1, NOW())
+                    ON CONFLICT (user_id, step_id) DO UPDATE SET status = 'completed'
+                """), {"uid": user_id, "lid": lab_id, "sid": step_row["id"]})
+
+    await db.commit()
+
+    return {
+        "status": "saved",
+        "lab_status": status,
+        "completed_steps": len(req.completed_steps),
+        "total_steps": total_steps,
+    }
 
 
 # ── Get all lab progress for a user ──────────────────────────
