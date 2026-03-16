@@ -30,7 +30,7 @@ function colorizeCommand(cmd) {
   });
 }
 
-export default function TerminalEmulator({ labSlug, deviceName, step, onStepComplete }) {
+export default function TerminalEmulator({ labSlug, deviceName, step, onStepComplete, completedSteps }) {
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -125,8 +125,8 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
       const newEntered = [...enteredCommands, trimmed];
       setEnteredCommands(newEntered);
 
-      // Check if step is now complete
-      if (step?.expected_commands) {
+      // Check if step is now complete (skip if already completed from saved progress)
+      if (step?.expected_commands && !(completedSteps && completedSteps.has(step.step_number))) {
         const expected = step.expected_commands.map((c) => c.toLowerCase());
         const matched = expected.every((exp) =>
           newEntered.some((cmd) => cmd.toLowerCase().includes(exp) || exp.includes(cmd.toLowerCase()))

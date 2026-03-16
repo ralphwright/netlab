@@ -29,7 +29,16 @@ export const api = {
     request('/api/cli/execute', { method: 'POST', body: JSON.stringify(body) }),
   validateStep: (body) =>
     request('/api/cli/validate-step', { method: 'POST', body: JSON.stringify(body) }),
+
+  // Progress
   getProgress: (user = 'student') => request(`/api/progress/${user}`),
+  getLabProgress: (slug, user = 'student') => request(`/api/progress/${user}/${slug}`),
+  completeStep: (body) =>
+    request('/api/progress/complete-step', { method: 'POST', body: JSON.stringify(body) }),
   updateProgress: (body) =>
     request('/api/progress/update', { method: 'POST', body: JSON.stringify(body) }),
+  resetLabProgress: (slug, user = 'student') =>
+    request(`/api/progress/${user}/${slug}`, { method: 'DELETE' }),
+  resetAllProgress: (user = 'student') =>
+    request(`/api/progress/${user}`, { method: 'DELETE' }),
 };

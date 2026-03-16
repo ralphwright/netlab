@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
 import TopologyGraph from './TopologyGraph';
 import TerminalEmulator from './TerminalEmulator';
 import StepPanel from './StepPanel';
-import { ArrowLeft, CheckCircle, Circle, ChevronRight, BookOpen, Lightbulb, Info } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Circle, ChevronRight, BookOpen, Lightbulb, Info, RotateCcw } from 'lucide-react';
 
 export default function LabView() {
   const { slug } = useParams();
@@ -16,21 +16,56 @@ export default function LabView() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showExplanation, setShowExplanation] = useState(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [savingStep, setSavingStep] = useState(false);
 
+  // Key to force-remount terminal on reset
+  const [terminalKey, setTerminalKey] = useState(0);
+
+  // Load lab data AND saved progress on mount / slug change
   useEffect(() => {
     setLoading(true);
+    setCompletedSteps(new Set());
+    setTotalPoints(0);
+    setCurrentStep(1);
+    setShowExplanation(null);
+    setShowResetConfirm(false);
+
     Promise.all([
       api.getLab(slug),
       api.getTopology(slug).catch(() => ({ devices: [], interfaces: [], links: [] })),
+      api.getLabProgress(slug).catch(() => null),
     ])
-      .then(([labData, topoData]) => {
+      .then(([labData, topoData, progressData]) => {
         setLab(labData);
         setTopology(topoData);
-        // Auto-select first device target
-        if (labData.steps?.length > 0 && labData.steps[0].target_device) {
-          setSelectedDevice(labData.steps[0].target_device);
-        } else if (topoData.devices?.length > 0) {
-          setSelectedDevice(topoData.devices[0].name);
+
+        // Restore saved progress
+        if (progressData && progressData.completed_steps?.length > 0) {
+          setCompletedSteps(new Set(progressData.completed_steps));
+          setTotalPoints(progressData.total_points || 0);
+
+          // Resume at next uncompleted step
+          const allStepNums = (labData.steps || []).map((s) => s.step_number).sort((a, b) => a - b);
+          const doneSet = new Set(progressData.completed_steps);
+          const nextUndone = allStepNums.find((n) => !doneSet.has(n));
+          const resumeStep = nextUndone || progressData.current_step || 1;
+          setCurrentStep(resumeStep);
+
+          // Select the target device for the resumed step
+          const resumeStepData = labData.steps?.find((s) => s.step_number === resumeStep);
+          if (resumeStepData?.target_device) {
+            setSelectedDevice(resumeStepData.target_device);
+          } else if (topoData.devices?.length > 0) {
+            setSelectedDevice(topoData.devices[0].name);
+          }
+        } else {
+          // Fresh start — select first step's device
+          if (labData.steps?.length > 0 && labData.steps[0].target_device) {
+            setSelectedDevice(labData.steps[0].target_device);
+          } else if (topoData.devices?.length > 0) {
+            setSelectedDevice(topoData.devices[0].name);
+          }
         }
       })
       .catch(console.error)
@@ -38,9 +73,24 @@ export default function LabView() {
   }, [slug]);
 
   const handleStepComplete = useCallback((stepNum, points) => {
-    setCompletedSteps((prev) => new Set([...prev, stepNum]));
+    // Update local state immediately
+    setCompletedSteps((prev) => {
+      if (prev.has(stepNum)) return prev; // already done, don't double-count
+      return new Set([...prev, stepNum]);
+    });
     setTotalPoints((prev) => prev + (points || 0));
     setShowExplanation(stepNum);
+
+    // Persist to backend (fire-and-forget, don't block UI)
+    setSavingStep(true);
+    api.completeStep({
+      user_id: 'student',
+      lab_slug: slug,
+      step_number: stepNum,
+      points: points || 0,
+    })
+      .catch((err) => console.warn('Failed to save step progress:', err))
+      .finally(() => setSavingStep(false));
 
     // Auto-advance after brief delay
     setTimeout(() => {
@@ -53,7 +103,26 @@ export default function LabView() {
         }
       }
     }, 500);
-  }, [lab]);
+  }, [lab, slug]);
+
+  const handleResetLab = useCallback(async () => {
+    try {
+      await api.resetLabProgress(slug);
+      setCompletedSteps(new Set());
+      setTotalPoints(0);
+      setCurrentStep(1);
+      setShowExplanation(null);
+      setShowResetConfirm(false);
+      setTerminalKey((k) => k + 1); // force terminal remount
+
+      // Re-select first device
+      if (lab?.steps?.length > 0 && lab.steps[0].target_device) {
+        setSelectedDevice(lab.steps[0].target_device);
+      }
+    } catch (err) {
+      console.error('Failed to reset lab:', err);
+    }
+  }, [slug, lab]);
 
   const handleDeviceSelect = useCallback((deviceName) => {
     setSelectedDevice(deviceName);
@@ -82,6 +151,7 @@ export default function LabView() {
   const maxPoints = steps.reduce((sum, s) => sum + (s.points || 0), 0);
   const progress = steps.length > 0 ? (completedSteps.size / steps.length) * 100 : 0;
   const currentStepData = steps.find((s) => s.step_number === currentStep);
+  const isLabComplete = completedSteps.size === steps.length && steps.length > 0;
 
   return (
     <div className="fade-in">
@@ -95,13 +165,31 @@ export default function LabView() {
             <ArrowLeft size={16} /> Labs
           </Link>
           <div>
-            <h2 style={{ fontSize: '1.5rem' }}>{lab.title}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+              <h2 style={{ fontSize: '1.5rem' }}>{lab.title}</h2>
+              {isLabComplete && (
+                <span style={{
+                  fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', fontWeight: 600,
+                  color: 'var(--color-success)', background: 'rgba(0,230,118,0.1)',
+                  padding: '2px 10px', borderRadius: 99, border: '1px solid rgba(0,230,118,0.3)',
+                }}>
+                  ✓ COMPLETED
+                </span>
+              )}
+            </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
               {lab.subtitle}
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+          {/* Saving indicator */}
+          {savingStep && (
+            <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              saving...
+            </span>
+          )}
+
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', color: 'var(--accent)' }}>
               {totalPoints} / {maxPoints} pts
@@ -114,6 +202,48 @@ export default function LabView() {
             <div className="progress-bar">
               <div className="progress-fill" style={{ width: `${progress}%` }} />
             </div>
+          </div>
+
+          {/* Reset button */}
+          <div style={{ position: 'relative' }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowResetConfirm(!showResetConfirm)}
+              title="Reset lab progress"
+              style={{ color: completedSteps.size > 0 ? 'var(--color-error)' : 'var(--text-muted)' }}
+            >
+              <RotateCcw size={15} />
+            </button>
+
+            {/* Reset confirmation dropdown */}
+            {showResetConfirm && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: 8,
+                background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-md)', padding: 'var(--space-md)',
+                boxShadow: 'var(--shadow-elevated)', zIndex: 50, width: 240,
+              }}>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+                  Reset all progress for this lab? This clears completed steps, points, and command history.
+                </p>
+                <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: 'var(--color-error)', color: '#fff', flex: 1 }}
+                    onClick={handleResetLab}
+                  >
+                    Reset Lab
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ flex: 1 }}
+                    onClick={() => setShowResetConfirm(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -230,10 +360,12 @@ export default function LabView() {
         {/* Terminal (bottom right) */}
         <div>
           <TerminalEmulator
+            key={terminalKey}
             labSlug={slug}
             deviceName={selectedDevice}
             step={currentStepData}
             onStepComplete={handleStepComplete}
+            completedSteps={completedSteps}
           />
         </div>
       </div>
