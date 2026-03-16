@@ -24,6 +24,7 @@ if not os.path.isdir(SQL_DIR):
 
 INIT_SQL = os.path.join(SQL_DIR, "init.sql")
 SEED_SQL = os.path.join(SQL_DIR, "seed.sql")
+MIGRATE_SQL = os.path.join(SQL_DIR, "migrate_steps.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -161,6 +162,7 @@ async def _init_db():
         if count and count > 0:
             log.info(f"[netlab] Database ready — {count} labs found")
             await _ensure_default_user()
+            await _run_migrations()
             return
         else:
             log.info("[netlab] Tables exist but are empty — running seed only")
@@ -184,6 +186,7 @@ async def _init_db():
 
     # Always ensure default user exists (seed may have partially failed)
     await _ensure_default_user()
+    await _run_migrations()
 
 
 async def _ensure_default_user():
@@ -198,6 +201,28 @@ async def _ensure_default_user():
         log.info("[netlab] Default user 'student' ensured")
     except Exception as e:
         log.warning(f"[netlab] Could not ensure default user: {e}")
+
+
+async def _run_migrations():
+    """Run migration SQL if labs are missing steps."""
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text("""
+                SELECT count(*) FROM labs l
+                WHERE NOT EXISTS (SELECT 1 FROM lab_steps ls WHERE ls.lab_id = l.id)
+            """))
+            labs_without_steps = result.scalar() or 0
+
+        if labs_without_steps > 0:
+            log.info(f"[netlab] {labs_without_steps} labs missing steps — running migration")
+            ok, errs = await _run_sql_file(MIGRATE_SQL)
+            log.info(f"[netlab] Migration: {ok} statements OK, {len(errs)} errors")
+            for e in errs[:5]:
+                log.warning(f"  {e}")
+        else:
+            log.info("[netlab] All labs have steps — no migration needed")
+    except Exception as e:
+        log.warning(f"[netlab] Migration check failed: {e}")
 
 
 @asynccontextmanager
@@ -248,6 +273,7 @@ async def health():
     lab_count = 0
     user_count = 0
     step_progress_count = 0
+    total_lab_steps = 0
     try:
         async with engine.connect() as conn:
             result = await conn.execute(text("SELECT count(*) FROM labs"))
@@ -256,6 +282,8 @@ async def health():
             user_count = result2.scalar() or 0
             result3 = await conn.execute(text("SELECT count(*) FROM user_step_progress"))
             step_progress_count = result3.scalar() or 0
+            result4 = await conn.execute(text("SELECT count(*) FROM lab_steps"))
+            total_lab_steps = result4.scalar() or 0
             db_ok = True
     except Exception:
         pass
@@ -265,11 +293,13 @@ async def health():
         "service": "netlab-api",
         "db_connected": db_ok,
         "lab_count": lab_count,
+        "total_lab_steps": total_lab_steps,
         "user_count": user_count,
         "saved_step_completions": step_progress_count,
         "sql_dir": SQL_DIR,
         "init_sql_exists": os.path.isfile(INIT_SQL),
         "seed_sql_exists": os.path.isfile(SEED_SQL),
+        "migrate_sql_exists": os.path.isfile(MIGRATE_SQL),
     }
 
 

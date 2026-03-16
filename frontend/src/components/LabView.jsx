@@ -32,16 +32,15 @@ export default function LabView() {
   const saveToBackend = useCallback(async (overrides = {}) => {
     const state = { ...progressRef.current, ...overrides };
     const steps = Array.from(state.completedSteps || []);
-    if (steps.length === 0 && state.currentStep <= 1) return; // nothing to save
 
     setSaveStatus('saving');
     try {
       await api.saveProgress({
         user_id: 'student',
         lab_slug: slug,
-        current_step: state.currentStep,
+        current_step: state.currentStep || 1,
         completed_steps: steps,
-        total_points: state.totalPoints,
+        total_points: state.totalPoints || 0,
       });
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus((s) => s === 'saved' ? null : s), 2000);
@@ -70,9 +69,16 @@ export default function LabView() {
         setLab(labData);
         setTopology(topoData);
 
-        // Restore saved progress
-        if (progressData && progressData.completed_steps?.length > 0) {
-          const restoredSteps = new Set(progressData.completed_steps);
+        // Restore saved progress — check for ANY saved state, not just completed steps
+        const hasProgress = progressData && (
+          (progressData.completed_steps && progressData.completed_steps.length > 0) ||
+          (progressData.current_step && progressData.current_step > 1) ||
+          progressData.status === 'in_progress' ||
+          progressData.status === 'completed'
+        );
+
+        if (hasProgress) {
+          const restoredSteps = new Set(progressData.completed_steps || []);
           setCompletedSteps(restoredSteps);
           setTotalPoints(progressData.total_points || 0);
 
@@ -104,7 +110,6 @@ export default function LabView() {
     const handleBeforeUnload = () => {
       const state = progressRef.current;
       const steps = Array.from(state.completedSteps || []);
-      if (steps.length === 0 && state.currentStep <= 1) return;
 
       // Use sendBeacon for reliable fire-on-close
       const VITE_VAL = import.meta.env.VITE_API_URL;
