@@ -99,12 +99,33 @@ app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])
 # --- Serve frontend static build if present (single-container mode) ---
 STATIC_DIR = "/app/static"
 if os.path.isdir(STATIC_DIR):
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, HTMLResponse
 
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def serve_spa(full_path: str):
-        file_path = os.path.join(STATIC_DIR, full_path)
-        if os.path.isfile(file_path):
+    # Mount /assets for JS/CSS/images with correct MIME types and caching
+    assets_dir = os.path.join(STATIC_DIR, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount(
+            "/assets",
+            StaticFiles(directory=assets_dir),
+            name="static-assets",
+        )
+
+    # Serve other static root files (favicon, manifest, robots.txt, etc.)
+    @app.get("/{filename:path}", include_in_schema=False)
+    async def serve_spa(filename: str):
+        # Don't intercept /api or /health or /docs or /openapi.json
+        if filename.startswith(("api/", "health", "docs", "openapi.json", "redoc")):
+            return  # falls through to 404, but these are already routed above
+
+        file_path = os.path.join(STATIC_DIR, filename)
+        if filename and os.path.isfile(file_path):
             return FileResponse(file_path)
-        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+        # SPA fallback — serve index.html for client-side routing
+        index = os.path.join(STATIC_DIR, "index.html")
+        if os.path.isfile(index):
+            return FileResponse(index)
+
+        return HTMLResponse("<h1>NetLab</h1><p>Frontend not built.</p>", status_code=404)
+
 
