@@ -160,11 +160,13 @@ async def _init_db():
 
         if count and count > 0:
             log.info(f"[netlab] Database ready — {count} labs found")
+            await _ensure_default_user()
             return
         else:
             log.info("[netlab] Tables exist but are empty — running seed only")
             ok, errs = await _run_sql_file(SEED_SQL)
             log.info(f"[netlab] Seed: {ok} statements OK, {len(errs)} errors")
+            await _ensure_default_user()
             return
 
     # Tables don't exist — run full init + seed
@@ -179,6 +181,23 @@ async def _init_db():
     log.info(f"[netlab] Seed: {ok2} statements OK, {len(errs2)} errors")
     for e in errs2[:5]:
         log.warning(f"  {e}")
+
+    # Always ensure default user exists (seed may have partially failed)
+    await _ensure_default_user()
+
+
+async def _ensure_default_user():
+    """Guarantee the 'student' user row exists."""
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("""
+                INSERT INTO users (username, display_name)
+                VALUES ('student', 'Network Student')
+                ON CONFLICT (username) DO NOTHING
+            """))
+        log.info("[netlab] Default user 'student' ensured")
+    except Exception as e:
+        log.warning(f"[netlab] Could not ensure default user: {e}")
 
 
 @asynccontextmanager
@@ -227,10 +246,16 @@ async def health():
     """Health check with DB status."""
     db_ok = False
     lab_count = 0
+    user_count = 0
+    step_progress_count = 0
     try:
         async with engine.connect() as conn:
             result = await conn.execute(text("SELECT count(*) FROM labs"))
             lab_count = result.scalar() or 0
+            result2 = await conn.execute(text("SELECT count(*) FROM users"))
+            user_count = result2.scalar() or 0
+            result3 = await conn.execute(text("SELECT count(*) FROM user_step_progress"))
+            step_progress_count = result3.scalar() or 0
             db_ok = True
     except Exception:
         pass
@@ -240,6 +265,8 @@ async def health():
         "service": "netlab-api",
         "db_connected": db_ok,
         "lab_count": lab_count,
+        "user_count": user_count,
+        "saved_step_completions": step_progress_count,
         "sql_dir": SQL_DIR,
         "init_sql_exists": os.path.isfile(INIT_SQL),
         "seed_sql_exists": os.path.isfile(SEED_SQL),

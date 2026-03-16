@@ -72,7 +72,9 @@ export default function LabView() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  const handleStepComplete = useCallback((stepNum, points) => {
+  const [saveError, setSaveError] = useState(null);
+
+  const handleStepComplete = useCallback(async (stepNum, points) => {
     // Update local state immediately
     setCompletedSteps((prev) => {
       if (prev.has(stepNum)) return prev; // already done, don't double-count
@@ -80,17 +82,28 @@ export default function LabView() {
     });
     setTotalPoints((prev) => prev + (points || 0));
     setShowExplanation(stepNum);
+    setSaveError(null);
 
-    // Persist to backend (fire-and-forget, don't block UI)
+    // Persist to backend — await so we catch failures
     setSavingStep(true);
-    api.completeStep({
-      user_id: 'student',
-      lab_slug: slug,
-      step_number: stepNum,
-      points: points || 0,
-    })
-      .catch((err) => console.warn('Failed to save step progress:', err))
-      .finally(() => setSavingStep(false));
+    try {
+      const res = await api.completeStep({
+        user_id: 'student',
+        lab_slug: slug,
+        step_number: stepNum,
+        points: points || 0,
+      });
+      // Check for error in response body (shouldn't happen with new backend, but just in case)
+      if (res.error) {
+        console.error('Save returned error:', res.error);
+        setSaveError(`Save failed: ${res.error}`);
+      }
+    } catch (err) {
+      console.error('Failed to save step progress:', err);
+      setSaveError(`Save failed: ${err.message}`);
+    } finally {
+      setSavingStep(false);
+    }
 
     // Auto-advance after brief delay
     setTimeout(() => {
@@ -185,8 +198,20 @@ export default function LabView() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
           {/* Saving indicator */}
           {savingStep && (
-            <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            <span style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
               saving...
+            </span>
+          )}
+          {saveError && (
+            <span
+              style={{
+                fontSize: '0.6875rem', color: 'var(--color-error)', fontFamily: 'var(--font-mono)',
+                cursor: 'pointer', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}
+              title={saveError}
+              onClick={() => setSaveError(null)}
+            >
+              ⚠ {saveError}
             </span>
           )}
 

@@ -111,6 +111,13 @@ async def get_lab_progress(username: str, lab_slug: str, db: AsyncSession = Depe
 async def complete_step(req: StepComplete, db: AsyncSession = Depends(get_db)):
     """Mark a specific step as completed and update lab-level progress."""
 
+    # Auto-create user if they don't exist (seed may have partially failed)
+    await db.execute(text("""
+        INSERT INTO users (username, display_name)
+        VALUES (:user, :user)
+        ON CONFLICT (username) DO NOTHING
+    """), {"user": req.user_id})
+
     # Get IDs
     ids = await db.execute(text("""
         SELECT u.id AS user_id, l.id AS lab_id, ls.id AS step_id
@@ -121,7 +128,12 @@ async def complete_step(req: StepComplete, db: AsyncSession = Depends(get_db)):
     row = ids.mappings().first()
 
     if not row:
-        return {"error": "User, lab, or step not found"}
+        # Return 422 so frontend .catch() actually fires
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=422,
+            detail=f"Lookup failed: user={req.user_id}, lab={req.lab_slug}, step={req.step_number}"
+        )
 
     user_id = row["user_id"]
     lab_id = row["lab_id"]
