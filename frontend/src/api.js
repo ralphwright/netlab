@@ -43,4 +43,8 @@ export const api = {
     request(`/api/progress/${user}/${slug}`, { method: 'DELETE' }),
   resetAllProgress: (user = 'student') =>
     request(`/api/progress/${user}`, { method: 'DELETE' }),
+
+  // Theory
+  getTheoryList: () => request('/api/theory/'),
+  getTheory: (slug) => request(`/api/theory/${slug}`),
 };

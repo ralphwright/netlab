@@ -2,6 +2,8 @@ import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import LabView from './components/LabView';
+import TheoryList from './components/TheoryList';
+import TheoryPage from './components/TheoryPage';
 import { Network } from 'lucide-react';
 
 export default function App() {
@@ -18,6 +20,9 @@ export default function App() {
           <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
             Labs
           </Link>
+          <Link to="/theory" className={location.pathname.startsWith('/theory') ? 'active' : ''}>
+            Theory
+          </Link>
           <a href="https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/fundamentals/command/Cisco_IOS_Configuration_Fundamentals_Command_Reference.html"
              target="_blank" rel="noopener noreferrer">
             IOS Reference
@@ -29,6 +34,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/lab/:slug" element={<LabView />} />
+          <Route path="/theory" element={<TheoryList />} />
+          <Route path="/theory/:slug" element={<TheoryPage />} />
         </Routes>
       </main>
     </div>

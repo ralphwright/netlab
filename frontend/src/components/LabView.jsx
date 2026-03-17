@@ -257,6 +257,18 @@ export default function LabView() {
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
               {lab.subtitle}
+              {lab.topic_slugs && lab.topic_slugs.length > 0 && !lab.is_integration && (
+                <Link
+                  to={`/theory/${lab.topic_slugs[0]}`}
+                  style={{
+                    marginLeft: 'var(--space-sm)', fontSize: '0.75rem',
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    color: 'var(--accent)', textDecoration: 'none',
+                  }}
+                >
+                  <BookOpen size={12} /> Read Theory
+                </Link>
+              )}
             </p>
           </div>
         </div>

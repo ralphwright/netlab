@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from app.routers import labs, topology, cli, progress
+from app.routers import labs, topology, cli, progress, theory
 from app.database import engine
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
@@ -25,6 +25,7 @@ if not os.path.isdir(SQL_DIR):
 INIT_SQL = os.path.join(SQL_DIR, "init.sql")
 SEED_SQL = os.path.join(SQL_DIR, "seed.sql")
 MIGRATE_SQL = os.path.join(SQL_DIR, "migrate_steps.sql")
+THEORY_SQL = os.path.join(SQL_DIR, "migrate_theory.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -221,6 +222,29 @@ async def _run_migrations():
                 log.warning(f"  {e}")
         else:
             log.info("[netlab] All labs have steps — no migration needed")
+
+        # Run theory content migration
+        async with engine.connect() as conn:
+            result = await conn.execute(text("""
+                SELECT EXISTS (SELECT FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'topic_content')
+            """))
+            theory_table_exists = result.scalar()
+
+        if not theory_table_exists:
+            log.info("[netlab] Running theory content migration")
+            ok, errs = await _run_sql_file(THEORY_SQL)
+            log.info(f"[netlab] Theory: {ok} statements OK, {len(errs)} errors")
+        else:
+            async with engine.connect() as conn:
+                result = await conn.execute(text("SELECT count(*) FROM topic_content"))
+                theory_count = result.scalar() or 0
+            if theory_count < 22:
+                log.info(f"[netlab] Only {theory_count}/22 theory entries — running migration")
+                ok, errs = await _run_sql_file(THEORY_SQL)
+                log.info(f"[netlab] Theory: {ok} statements OK, {len(errs)} errors")
+            else:
+                log.info(f"[netlab] Theory content complete ({theory_count} entries)")
     except Exception as e:
         log.warning(f"[netlab] Migration check failed: {e}")
 
@@ -356,6 +380,7 @@ app.include_router(labs.router, prefix="/api/labs", tags=["Labs"])
 app.include_router(topology.router, prefix="/api/topology", tags=["Topology"])
 app.include_router(cli.router, prefix="/api/cli", tags=["CLI"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])
+app.include_router(theory.router, prefix="/api/theory", tags=["Theory"])
 
 # ── Serve frontend static build (single-container mode) ──────
 
