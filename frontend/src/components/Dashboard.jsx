@@ -104,10 +104,7 @@ export default function Dashboard() {
       </section>
 
       {/* Stats */}
-      <section style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-md)',
-        marginBottom: 'var(--space-2xl)'
-      }}>
+      <section className="stats-grid">
         {[
           { icon: Terminal, label: 'Labs', value: labs.length, color: 'var(--accent)' },
           { icon: CheckCircle, label: 'Completed', value: completedCount, color: 'var(--color-success)' },
@@ -180,16 +177,14 @@ export default function Dashboard() {
       )}
 
       {/* Filters */}
-      <section style={{
-        display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-xl)',
-        flexWrap: 'wrap', alignItems: 'center'
-      }}>
-        <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+      <section className="filter-bar">
+        <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
           Filter:
         </div>
         <button
           className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setFilter('all')}
+          style={{ flexShrink: 0 }}
         >
           All Topics
         </button>
@@ -198,17 +193,18 @@ export default function Dashboard() {
             key={t.slug}
             className={`btn btn-sm ${filter === t.slug ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setFilter(t.slug)}
-            style={filter === t.slug ? {} : { borderColor: t.color + '40', color: t.color }}
+            style={{ flexShrink: 0, ...(filter === t.slug ? {} : { borderColor: t.color + '40', color: t.color }) }}
           >
             {t.name}
           </button>
         ))}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--space-sm)' }}>
+        <div className="filter-levels">
           {['all', ...DIFFICULTY_ORDER].map((d) => (
             <button
               key={d}
               className={`btn btn-sm ${diffFilter === d ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setDiffFilter(d)}
+              style={{ flexShrink: 0 }}
             >
               {d === 'all' ? 'All Levels' : d.charAt(0).toUpperCase() + d.slice(1)}
             </button>

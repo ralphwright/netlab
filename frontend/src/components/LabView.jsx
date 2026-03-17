@@ -237,17 +237,14 @@ export default function LabView() {
   return (
     <div className="fade-in">
       {/* Header Bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 'var(--space-lg)', gap: 'var(--space-md)', flexWrap: 'wrap'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+      <div className="lab-header">
+        <div className="lab-header-left">
           <Link to="/" className="btn btn-ghost btn-sm" onClick={() => saveToBackend()}>
             <ArrowLeft size={16} /> Labs
           </Link>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-              <h2 style={{ fontSize: '1.5rem' }}>{lab.title}</h2>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+              <h2 style={{ fontSize: '1.5rem', wordBreak: 'break-word' }}>{lab.title}</h2>
               {isLabComplete && (
                 <span style={{
                   fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', fontWeight: 600,
@@ -275,7 +272,7 @@ export default function LabView() {
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+        <div className="lab-header-right">
           {/* Save status indicator */}
           {saveStatus && (
             <span style={{
@@ -298,7 +295,7 @@ export default function LabView() {
               {completedSteps.size} / {steps.length} steps
             </div>
           </div>
-          <div style={{ width: 160 }}>
+          <div style={{ width: 120, minWidth: 80, flexShrink: 1 }}>
             <div className="progress-bar">
               <div className="progress-fill" style={{ width: `${progress}%` }} />
             </div>
@@ -335,12 +332,7 @@ export default function LabView() {
       </div>
 
       {/* Step Progress Dots */}
-      <div style={{
-        display: 'flex', gap: 4, marginBottom: 'var(--space-lg)',
-        padding: 'var(--space-sm) var(--space-md)',
-        background: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--border-subtle)', overflowX: 'auto'
-      }}>
+      <div className="step-dots-bar">
         {steps.map((step) => {
           const isCompleted = completedSteps.has(step.step_number);
           const isCurrent = step.step_number === currentStep;
@@ -352,7 +344,7 @@ export default function LabView() {
                 display: 'flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', border: 'none', borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '0.75rem',
-                fontFamily: 'var(--font-mono)',
+                fontFamily: 'var(--font-mono)', flexShrink: 0,
                 background: isCurrent ? 'var(--accent-glow-strong)' : 'transparent',
                 color: isCompleted ? 'var(--color-success)' : isCurrent ? 'var(--accent)' : 'var(--text-muted)',
                 border: isCurrent ? '1px solid var(--accent)' : '1px solid transparent',
@@ -367,11 +359,8 @@ export default function LabView() {
       </div>
 
       {/* Main Grid */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: 'auto 1fr',
-        gap: 'var(--space-md)', minHeight: 600,
-      }}>
-        <div style={{ gridColumn: '1 / -1' }}>
+      <div className="lab-workspace">
+        <div className="lab-workspace-topo">
           <TopologyGraph topology={topology} selectedDevice={selectedDevice} onDeviceSelect={handleDeviceSelect} currentStep={currentStepData} />
         </div>
 

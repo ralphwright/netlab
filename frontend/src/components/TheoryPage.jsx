@@ -277,22 +277,14 @@ export default function TheoryPage() {
       </div>
 
       {/* Tab bar */}
-      <div style={{
-        display: 'flex', gap: 2, marginBottom: 'var(--space-xl)',
-        background: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)',
-        padding: 3, border: '1px solid var(--border-subtle)',
-      }}>
+      <div className="theory-tabs">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '10px 16px', border: 'none', borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600,
               background: activeTab === tab.id ? 'var(--accent-glow-strong)' : 'transparent',
               color: activeTab === tab.id ? 'var(--accent)' : 'var(--text-muted)',
-              transition: 'all 0.15s',
             }}
           >
             <tab.icon size={15} />
