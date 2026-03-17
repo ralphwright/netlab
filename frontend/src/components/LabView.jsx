@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
+import { useUser, getUserId } from '../useUser';
 import TopologyGraph from './TopologyGraph';
 import TerminalEmulator from './TerminalEmulator';
 import StepPanel from './StepPanel';
@@ -8,6 +9,7 @@ import { ArrowLeft, CheckCircle, Circle, ChevronRight, BookOpen, Lightbulb, Info
 
 export default function LabView() {
   const { slug } = useParams();
+  const { userId } = useUser();
   const [lab, setLab] = useState(null);
   const [topology, setTopology] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -36,7 +38,7 @@ export default function LabView() {
     setSaveStatus('saving');
     try {
       const res = await api.saveProgress({
-        user_id: 'student',
+        user_id: userId,
         lab_slug: slug,
         current_step: state.currentStep || 1,
         completed_steps: steps,
@@ -54,10 +56,11 @@ export default function LabView() {
       console.error('Save failed:', err);
       setSaveStatus(`error: ${err.message}`);
     }
-  }, [slug]);
+  }, [slug, userId]);
 
   // ── Load lab + saved progress ───────────────────────────
   useEffect(() => {
+    if (!userId) return;
     setLoading(true);
     setCompletedSteps(new Set());
     setTotalPoints(0);
@@ -69,7 +72,7 @@ export default function LabView() {
     Promise.all([
       api.getLab(slug),
       api.getTopology(slug).catch(() => ({ devices: [], interfaces: [], links: [] })),
-      api.getLabProgress(slug).catch(() => null),
+      api.getLabProgress(slug, userId).catch(() => null),
     ])
       .then(([labData, topoData, progressData]) => {
         setLab(labData);
@@ -109,13 +112,14 @@ export default function LabView() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [slug, userId]);
 
   // ── Save on page leave / tab close ──────────────────────
   useEffect(() => {
     const handleBeforeUnload = () => {
       const state = progressRef.current;
       const steps = Array.from(state.completedSteps || []);
+      const uid = getUserId(); // raw getter, no hook — safe in event handlers
 
       // Use sendBeacon for reliable fire-on-close
       const VITE_VAL = import.meta.env.VITE_API_URL;
@@ -123,7 +127,7 @@ export default function LabView() {
       navigator.sendBeacon(
         `${base}/api/progress/save`,
         new Blob([JSON.stringify({
-          user_id: 'student',
+          user_id: uid,
           lab_slug: slug,
           current_step: state.currentStep,
           completed_steps: steps,
@@ -134,7 +138,6 @@ export default function LabView() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
-      // Cleanup: save when navigating away via React Router
       handleBeforeUnload();
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
@@ -184,7 +187,7 @@ export default function LabView() {
   // ── Reset handler ───────────────────────────────────────
   const handleResetLab = useCallback(async () => {
     try {
-      await api.resetLabProgress(slug);
+      await api.resetLabProgress(slug, userId);
       setCompletedSteps(new Set());
       setTotalPoints(0);
       setCurrentStep(1);
@@ -198,7 +201,7 @@ export default function LabView() {
     } catch (err) {
       console.error('Failed to reset lab:', err);
     }
-  }, [slug, lab]);
+  }, [slug, lab, userId]);
 
   const handleDeviceSelect = useCallback((deviceName) => {
     setSelectedDevice(deviceName);
@@ -396,7 +399,7 @@ export default function LabView() {
         </div>
 
         <div>
-          <TerminalEmulator key={terminalKey} labSlug={slug} deviceName={selectedDevice} step={currentStepData} onStepComplete={handleStepComplete} completedSteps={completedSteps} />
+          <TerminalEmulator key={terminalKey} labSlug={slug} deviceName={selectedDevice} step={currentStepData} onStepComplete={handleStepComplete} completedSteps={completedSteps} userId={userId} />
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { useUser } from '../useUser';
 import {
   Layers, GitBranch, Route, Combine, Server, Globe, Network as NetworkIcon,
   Tag, ArrowRightLeft, Building, Hash, Laptop, Terminal, Shield, Repeat,
@@ -20,6 +21,7 @@ const ICON_MAP = {
 const DIFFICULTY_ORDER = ['beginner', 'intermediate', 'advanced', 'expert'];
 
 export default function Dashboard() {
+  const { userId, isReady } = useUser();
   const [labs, setLabs] = useState([]);
   const [topics, setTopics] = useState([]);
   const [progress, setProgress] = useState({}); // slug -> { status, current_step, total_points, total_steps }
@@ -30,16 +32,16 @@ export default function Dashboard() {
   const [resetting, setResetting] = useState(false);
 
   const loadData = () => {
+    if (!userId) return;
     setLoading(true);
     Promise.all([
       api.getLabs(),
       api.getTopics(),
-      api.getProgress('student').catch(() => []),
+      api.getProgress(userId).catch(() => []),
     ])
       .then(([labData, topicData, progressData]) => {
         setLabs(labData);
         setTopics(topicData);
-        // Build lookup map: lab_slug -> progress row
         const map = {};
         (progressData || []).forEach((p) => {
           map[p.lab_slug] = p;
@@ -50,12 +52,12 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (isReady) loadData(); }, [isReady, userId]);
 
   const handleResetAll = async () => {
     setResetting(true);
     try {
-      await api.resetAllProgress('student');
+      await api.resetAllProgress(userId);
       setProgress({});
       setShowResetAll(false);
     } catch (err) {

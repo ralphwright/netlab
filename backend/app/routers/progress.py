@@ -34,7 +34,23 @@ class SaveProgress(BaseModel):
     total_points: int = 0
 
 
-# ── TEST: verify the save pipeline works ─────────────────────
+class SetName(BaseModel):
+    user_id: str
+    display_name: str = ""
+
+
+# ── Set display name ─────────────────────────────────────────
+
+@router.post("/set-name")
+async def set_display_name(req: SetName, db: AsyncSession = Depends(get_db)):
+    """Set or update a user's display name. Auto-creates user if needed."""
+    await db.execute(text("""
+        INSERT INTO users (username, display_name)
+        VALUES (:uid, :name)
+        ON CONFLICT (username) DO UPDATE SET display_name = :name
+    """), {"uid": req.user_id, "name": req.display_name or req.user_id})
+    await db.commit()
+    return {"status": "ok"}
 
 @router.get("/test-save")
 async def test_save_pipeline(db: AsyncSession = Depends(get_db)):

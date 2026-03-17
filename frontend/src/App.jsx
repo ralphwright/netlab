@@ -1,12 +1,14 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { UserProvider } from './useUser';
 import Dashboard from './components/Dashboard';
 import LabView from './components/LabView';
 import TheoryList from './components/TheoryList';
 import TheoryPage from './components/TheoryPage';
+import UserBadge from './components/UserBadge';
 import { Network } from 'lucide-react';
 
-export default function App() {
+function AppInner() {
   const location = useLocation();
 
   return (
@@ -27,6 +29,7 @@ export default function App() {
              target="_blank" rel="noopener noreferrer">
             IOS Reference
           </a>
+          <UserBadge />
         </nav>
       </header>
 
@@ -39,5 +42,13 @@ export default function App() {
         </Routes>
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <UserProvider>
+      <AppInner />
+    </UserProvider>
   );
 }

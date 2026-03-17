@@ -319,7 +319,13 @@ async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db
                 is_valid = True
             hint = step_row["hint"]
 
-    # Log command
+    # Log command — auto-create user if needed
+    user_id_val = req.user_id or "student"
+    await db.execute(text("""
+        INSERT INTO users (username, display_name)
+        VALUES (:user, :user)
+        ON CONFLICT (username) DO NOTHING
+    """), {"user": user_id_val})
     await db.execute(text("""
         INSERT INTO command_history (user_id, lab_id, device_name, command, output, is_valid)
         SELECT u.id, l.id, :device, :command, :output, :valid
@@ -330,7 +336,7 @@ async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db
         "command": req.command,
         "output": output,
         "valid": is_valid,
-        "user": req.user_id or "student",
+        "user": user_id_val,
         "slug": req.lab_slug,
     })
     await db.commit()
@@ -366,7 +372,7 @@ async def validate_step(req: CommandRequest, db: AsyncSession = Depends(get_db))
         WHERE u.username = :user AND l.slug = :slug AND ch.device_name = :device
         ORDER BY ch.entered_at
     """), {
-        "user": req.user_id or "student",
+        "user": req.user_id or "unknown",
         "slug": req.lab_slug,
         "device": req.device_name,
     })

@@ -30,18 +30,18 @@ export const api = {
   validateStep: (body) =>
     request('/api/cli/validate-step', { method: 'POST', body: JSON.stringify(body) }),
 
-  // Progress
-  getProgress: (user = 'student') => request(`/api/progress/${user}`),
-  getLabProgress: (slug, user = 'student') => request(`/api/progress/${user}/${slug}`),
+  // Progress — user param is the UUID from useUser()
+  getProgress: (user) => request(`/api/progress/${user}`),
+  getLabProgress: (slug, user) => request(`/api/progress/${user}/${slug}`),
   saveProgress: (body) =>
     request('/api/progress/save', { method: 'POST', body: JSON.stringify(body) }),
   completeStep: (body) =>
     request('/api/progress/complete-step', { method: 'POST', body: JSON.stringify(body) }),
   updateProgress: (body) =>
     request('/api/progress/update', { method: 'POST', body: JSON.stringify(body) }),
-  resetLabProgress: (slug, user = 'student') =>
+  resetLabProgress: (slug, user) =>
     request(`/api/progress/${user}/${slug}`, { method: 'DELETE' }),
-  resetAllProgress: (user = 'student') =>
+  resetAllProgress: (user) =>
     request(`/api/progress/${user}`, { method: 'DELETE' }),
 
   // Theory

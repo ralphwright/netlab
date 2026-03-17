@@ -30,7 +30,7 @@ function colorizeCommand(cmd) {
   });
 }
 
-export default function TerminalEmulator({ labSlug, deviceName, step, onStepComplete, completedSteps }) {
+export default function TerminalEmulator({ labSlug, deviceName, step, onStepComplete, completedSteps, userId }) {
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -105,6 +105,7 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
         device_name: deviceName,
         command: trimmed,
         step_number: step?.step_number,
+        user_id: userId,
       });
 
       if (res.output) {
@@ -148,7 +149,7 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
         { type: 'error', text: `Error: ${err.message}` },
       ]);
     }
-  }, [deviceName, labSlug, step, prompt, enteredCommands, onStepComplete]);
+  }, [deviceName, labSlug, step, prompt, enteredCommands, onStepComplete, userId]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
