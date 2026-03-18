@@ -251,7 +251,7 @@ export default function LabView() {
           </Link>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '1.5rem', wordBreak: 'break-word' }}>{lab.title}</h2>
+              <h2 className="lab-title">{lab.title}</h2>
               {isLabComplete && (
                 <span style={{
                   fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', fontWeight: 600,
@@ -294,15 +294,11 @@ export default function LabView() {
             </span>
           )}
 
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', color: 'var(--accent)' }}>
-              {totalPoints} / {maxPoints} pts
-            </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {completedSteps.size} / {steps.length} steps
-            </div>
+          <div className="lab-score-desktop">
+            <div className="score-pts">{totalPoints} / {maxPoints} pts</div>
+            <div className="score-steps">{completedSteps.size} / {steps.length} steps</div>
           </div>
-          <div style={{ width: 120, minWidth: 80, flexShrink: 1 }}>
+          <div className="lab-progress-desktop">
             <div className="progress-bar">
               <div className="progress-fill" style={{ width: `${progress}%` }} />
             </div>

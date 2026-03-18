@@ -38,14 +38,14 @@ export default function TheoryList() {
   return (
     <div className="fade-in">
       {/* Hero */}
-      <section style={{ marginBottom: 'var(--space-3xl)', textAlign: 'center' }}>
+      <section className="dashboard-hero">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
           <BookOpen size={36} color="var(--accent)" />
         </div>
-        <h1 style={{ fontSize: '2.75rem', marginBottom: 'var(--space-md)', fontWeight: 800 }}>
+        <h1 className="dashboard-title">
           Network Engineering <span style={{ color: 'var(--accent)' }}>Theory</span>
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.125rem', maxWidth: 660, margin: '0 auto' }}>
+        <p className="dashboard-subtitle">
           Comprehensive theory and practical reference for all 22 networking topics.
           Each page covers the concepts, IOS commands, design patterns, and common pitfalls.
         </p>

@@ -253,7 +253,7 @@ export default function TheoryPage() {
         </Link>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-            <h1 style={{ fontSize: '2rem', margin: 0 }}>{content.name}</h1>
+            <h1 className="lab-title">{content.name}</h1>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-md)', marginTop: 4, alignItems: 'center' }}>
             {content.osi_layer && (

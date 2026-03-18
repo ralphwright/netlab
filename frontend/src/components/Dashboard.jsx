@@ -93,11 +93,11 @@ export default function Dashboard() {
   return (
     <div className="fade-in">
       {/* Hero */}
-      <section style={{ marginBottom: 'var(--space-3xl)', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '2.75rem', marginBottom: 'var(--space-md)', fontWeight: 800 }}>
+      <section className="dashboard-hero">
+        <h1 className="dashboard-title">
           Interactive Network Engineering <span style={{ color: 'var(--accent)' }}>Labs</span>
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.125rem', maxWidth: 660, margin: '0 auto' }}>
+        <p className="dashboard-subtitle">
           22 hands-on labs covering VLANs, OSPF, BGP, MPLS, firewalls, wireless, and more.
           Configure real Cisco IOS commands on interactive topologies.
         </p>
@@ -111,21 +111,13 @@ export default function Dashboard() {
           { icon: Zap, label: 'In Progress', value: inProgressCount, color: 'var(--color-warning)' },
           { icon: Star, label: 'CLI Steps', value: labs.reduce((s, l) => s + (l.step_count || 0), 0), color: 'var(--color-info)' },
         ].map((stat, i) => (
-          <div key={i} className="card" style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-md) var(--space-lg)'
-          }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 'var(--radius-sm)',
-              background: `color-mix(in srgb, ${stat.color} 12%, transparent)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
+          <div key={i} className="card stat-card">
+            <div className="stat-icon" style={{ background: `color-mix(in srgb, ${stat.color} 12%, transparent)` }}>
               <stat.icon size={22} color={stat.color} />
             </div>
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, lineHeight: 1 }}>
-                {stat.value}
-              </div>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{stat.label}</div>
+              <div className="stat-value">{stat.value}</div>
+              <div className="stat-label">{stat.label}</div>
             </div>
           </div>
         ))}
