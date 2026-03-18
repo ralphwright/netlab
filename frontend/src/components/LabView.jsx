@@ -35,6 +35,11 @@ export default function LabView() {
     const state = { ...progressRef.current, ...overrides };
     const steps = Array.from(state.completedSteps || []);
 
+    // Don't save empty state (e.g. right after a reset)
+    if (steps.length === 0 && (state.currentStep || 1) <= 1 && (state.totalPoints || 0) === 0) {
+      return;
+    }
+
     setSaveStatus('saving');
     try {
       const res = await api.saveProgress({
@@ -119,7 +124,12 @@ export default function LabView() {
     const handleBeforeUnload = () => {
       const state = progressRef.current;
       const steps = Array.from(state.completedSteps || []);
-      const uid = getUserId(); // raw getter, no hook — safe in event handlers
+      const uid = getUserId();
+
+      // Don't save empty state (e.g. after reset)
+      if (steps.length === 0 && (state.currentStep || 1) <= 1 && (state.totalPoints || 0) === 0) {
+        return;
+      }
 
       // Use sendBeacon for reliable fire-on-close
       const VITE_VAL = import.meta.env.VITE_API_URL;

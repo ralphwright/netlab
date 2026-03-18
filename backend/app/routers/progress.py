@@ -153,6 +153,17 @@ async def save_progress(req: SaveProgress, db: AsyncSession = Depends(get_db)):
         count_r = await db.execute(text("SELECT count(*) FROM lab_steps WHERE lab_id = :lid"), {"lid": lab_id})
         total_steps = count_r.scalar() or 0
 
+        # If payload is empty (post-reset), clean up any stale progress
+        if not req.completed_steps and req.current_step <= 1 and req.total_points <= 0:
+            await db.execute(text(
+                "DELETE FROM user_step_progress WHERE user_id = :uid AND lab_id = :lid"
+            ), {"uid": user_id, "lid": lab_id})
+            await db.execute(text(
+                "DELETE FROM user_lab_progress WHERE user_id = :uid AND lab_id = :lid"
+            ), {"uid": user_id, "lid": lab_id})
+            await db.commit()
+            return {"status": "cleaned", "completed_steps": 0, "total_steps": total_steps}
+
         is_complete = len(req.completed_steps) >= total_steps and total_steps > 0
 
         # Upsert lab-level progress — use separate INSERT/UPDATE to avoid type cast issues
