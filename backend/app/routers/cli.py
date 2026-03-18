@@ -89,6 +89,15 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
             "GigabitEthernet0/1     unassigned      YES unset  up                    up\n"
             "GigabitEthernet0/2     unassigned      YES unset  up                    up\n"
             "GigabitEthernet0/10    unassigned      YES unset  up                    up\n"
+        ),
+        "HQ-SW1": (
+            "Interface              IP-Address      OK? Method Status                Protocol\n"
+            "Vlan10                 10.0.0.1        YES manual up                    up\n"
+            "Vlan20                 10.0.0.65       YES manual up                    up\n"
+            "Vlan30                 10.0.0.129      YES manual up                    up\n"
+            "Vlan40                 10.0.0.193      YES manual up                    up\n"
+            "GigabitEthernet0/1     unassigned      YES unset  up                    up\n"
+            "GigabitEthernet0/2     unassigned      YES unset  up                    up\n"
         )
     },
     "show vlans": {
@@ -124,6 +133,20 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
             "L        10.0.20.1/32 is directly connected, Vlan20\n"
             "C        10.0.30.0/24 is directly connected, Vlan30\n"
             "L        10.0.30.1/32 is directly connected, Vlan30\n"
+        ),
+        "HQ-SW1": (
+            "Codes: C - connected, S - static, O - OSPF, B - BGP\n"
+            "Gateway of last resort is not set\n"
+            "\n"
+            "      10.0.0.0/8 is variably subnetted, 8 subnets, 2 masks\n"
+            "C        10.0.0.0/26 is directly connected, Vlan10\n"
+            "L        10.0.0.1/32 is directly connected, Vlan10\n"
+            "C        10.0.0.64/26 is directly connected, Vlan20\n"
+            "L        10.0.0.65/32 is directly connected, Vlan20\n"
+            "C        10.0.0.128/26 is directly connected, Vlan30\n"
+            "L        10.0.0.129/32 is directly connected, Vlan30\n"
+            "C        10.0.0.192/26 is directly connected, Vlan40\n"
+            "L        10.0.0.193/32 is directly connected, Vlan40\n"
         )
     },
     "show ip ospf neighbor": {
@@ -201,6 +224,27 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
             "Vlan30 is up, line protocol is up\n"
             "  Hardware is EtherSVI, address is aabb.cc00.0100\n"
             "  Internet address is 10.0.30.1/24\n"
+            "  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec\n"
+        ),
+        "HQ-SW1": (
+            "Vlan10 is up, line protocol is up\n"
+            "  Hardware is EtherSVI, address is aabb.cc00.0200\n"
+            "  Internet address is 10.0.0.1/26\n"
+            "  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec\n"
+            "\n"
+            "Vlan20 is up, line protocol is up\n"
+            "  Hardware is EtherSVI, address is aabb.cc00.0200\n"
+            "  Internet address is 10.0.0.65/26\n"
+            "  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec\n"
+            "\n"
+            "Vlan30 is up, line protocol is up\n"
+            "  Hardware is EtherSVI, address is aabb.cc00.0200\n"
+            "  Internet address is 10.0.0.129/26\n"
+            "  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec\n"
+            "\n"
+            "Vlan40 is up, line protocol is up\n"
+            "  Hardware is EtherSVI, address is aabb.cc00.0200\n"
+            "  Internet address is 10.0.0.193/26\n"
             "  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec\n"
         )
     },

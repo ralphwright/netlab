@@ -26,6 +26,7 @@ export default function TheoryList() {
 
   // Group by OSI-like categories
   const groups = [
+    { title: 'IP Fundamentals', filter: (t) => ['ipv4-subnetting'].includes(t.slug) },
     { title: 'Layer 2 — Switching & LAN', filter: (t) => ['vlans', 'stp', 'lacp'].includes(t.slug) },
     { title: 'Layer 3 — Routing', filter: (t) => ['ospf', 'bgp', 'autonomous-systems', 'ipv6'].includes(t.slug) },
     { title: 'WAN & Transport', filter: (t) => ['mpls', 'tunneling', 'gre'].includes(t.slug) },

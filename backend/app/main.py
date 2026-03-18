@@ -28,6 +28,7 @@ MIGRATE_SQL = os.path.join(SQL_DIR, "migrate_steps.sql")
 THEORY_SQL = os.path.join(SQL_DIR, "migrate_theory.sql")
 VLAN_ROAS_SQL = os.path.join(SQL_DIR, "migrate_vlan_roas.sql")
 VLAN_SVI_SQL = os.path.join(SQL_DIR, "migrate_vlan_svi.sql")
+SUBNET_SQL = os.path.join(SQL_DIR, "migrate_subnetting.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -279,6 +280,33 @@ async def _run_migrations():
             log.info(f"[netlab] VLAN SVI: {ok} statements OK, {len(errs)} errors")
         else:
             log.info(f"[netlab] VLAN SVI steps present ({svi_steps} steps)")
+
+        # Run subnetting migration if topic doesn't exist
+        async with engine.connect() as conn:
+            result = await conn.execute(text(
+                "SELECT count(*) FROM topics WHERE slug = 'ipv4-subnetting'"
+            ))
+            has_subnet_topic = (result.scalar() or 0) > 0
+
+        if not has_subnet_topic:
+            log.info("[netlab] Subnetting topic missing — running migration")
+            ok, errs = await _run_sql_file(SUBNET_SQL)
+            log.info(f"[netlab] Subnetting: {ok} statements OK, {len(errs)} errors")
+        else:
+            # Check if integration lab has subnetting steps
+            async with engine.connect() as conn:
+                result = await conn.execute(text("""
+                    SELECT count(*) FROM lab_steps ls
+                    JOIN labs l ON l.id = ls.lab_id
+                    WHERE l.slug = 'full-enterprise-network' AND ls.step_number >= 17
+                """))
+                integ_sub_steps = result.scalar() or 0
+            if integ_sub_steps == 0:
+                log.info("[netlab] Integration lab missing subnetting+SVI steps — running migration")
+                ok, errs = await _run_sql_file(SUBNET_SQL)
+                log.info(f"[netlab] Subnetting: {ok} statements OK, {len(errs)} errors")
+            else:
+                log.info(f"[netlab] Subnetting content present")
 
     except Exception as e:
         log.warning(f"[netlab] Migration check failed: {e}")
