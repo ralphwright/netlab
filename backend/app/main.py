@@ -29,6 +29,7 @@ THEORY_SQL = os.path.join(SQL_DIR, "migrate_theory.sql")
 VLAN_ROAS_SQL = os.path.join(SQL_DIR, "migrate_vlan_roas.sql")
 VLAN_SVI_SQL = os.path.join(SQL_DIR, "migrate_vlan_svi.sql")
 SUBNET_SQL = os.path.join(SQL_DIR, "migrate_subnetting.sql")
+INTEG_REBUILD_SQL = os.path.join(SQL_DIR, "migrate_integration_rebuild.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -307,6 +308,22 @@ async def _run_migrations():
                 log.info(f"[netlab] Subnetting: {ok} statements OK, {len(errs)} errors")
             else:
                 log.info(f"[netlab] Subnetting content present")
+
+        # Rebuild integration lab steps if still using old ordering
+        async with engine.connect() as conn:
+            result = await conn.execute(text("""
+                SELECT count(*) FROM lab_steps ls
+                JOIN labs l ON l.id = ls.lab_id
+                WHERE l.slug = 'full-enterprise-network' AND ls.step_number = 25
+            """))
+            has_new_final = (result.scalar() or 0) > 0
+
+        if not has_new_final:
+            log.info("[netlab] Integration lab needs rebuild — running migration")
+            ok, errs = await _run_sql_file(INTEG_REBUILD_SQL)
+            log.info(f"[netlab] Integration rebuild: {ok} statements OK, {len(errs)} errors")
+        else:
+            log.info("[netlab] Integration lab already rebuilt (25 steps)")
 
     except Exception as e:
         log.warning(f"[netlab] Migration check failed: {e}")
