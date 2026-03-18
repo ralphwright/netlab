@@ -35,8 +35,8 @@ export default function LabView() {
     const state = { ...progressRef.current, ...overrides };
     const steps = Array.from(state.completedSteps || []);
 
-    // Don't save empty state (e.g. right after a reset)
-    if (steps.length === 0 && (state.currentStep || 1) <= 1 && (state.totalPoints || 0) === 0) {
+    // Only save if at least one step has been completed
+    if (steps.length === 0) {
       return;
     }
 
@@ -126,8 +126,8 @@ export default function LabView() {
       const steps = Array.from(state.completedSteps || []);
       const uid = getUserId();
 
-      // Don't save empty state (e.g. after reset)
-      if (steps.length === 0 && (state.currentStep || 1) <= 1 && (state.totalPoints || 0) === 0) {
+      // Only save if at least one step has been completed
+      if (steps.length === 0) {
         return;
       }
 
@@ -184,15 +184,12 @@ export default function LabView() {
     }, 500);
   }, [lab, saveToBackend]);
 
-  // ── Step navigation with auto-save ──────────────────────
+  // ── Step navigation (no save — just UI) ─────────────────
   const goToStep = useCallback((stepNum) => {
     setCurrentStep(stepNum);
     const stepData = lab?.steps?.find((s) => s.step_number === stepNum);
     if (stepData?.target_device) setSelectedDevice(stepData.target_device);
-
-    // Save current position
-    saveToBackend({ currentStep: stepNum });
-  }, [lab, saveToBackend]);
+  }, [lab]);
 
   // ── Reset handler ───────────────────────────────────────
   const handleResetLab = useCallback(async () => {
@@ -249,7 +246,7 @@ export default function LabView() {
       {/* Header Bar */}
       <div className="lab-header">
         <div className="lab-header-left">
-          <Link to="/" className="btn btn-ghost btn-sm" onClick={() => saveToBackend()}>
+          <Link to="/" className="btn btn-ghost btn-sm">
             <ArrowLeft size={16} /> Labs
           </Link>
           <div style={{ minWidth: 0 }}>
