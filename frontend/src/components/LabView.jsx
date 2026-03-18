@@ -338,6 +338,50 @@ export default function LabView() {
         </div>
       </div>
 
+      {/* Reset confirmation — also accessible from mobile score row */}
+      {showResetConfirm && (
+        <div style={{
+          background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-md)', padding: 'var(--space-md)',
+          boxShadow: 'var(--shadow-elevated)', marginBottom: 'var(--space-sm)',
+        }}
+        className="mobile-reset-confirm"
+        >
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+            Reset all progress for this lab?
+          </p>
+          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+            <button className="btn btn-sm" style={{ background: 'var(--color-error)', color: '#fff', flex: 1 }} onClick={handleResetLab}>Reset Lab</button>
+            <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => setShowResetConfirm(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile compact score row (hidden on desktop via CSS) */}
+      <div className="lab-score-row">
+        <span className="score-text">
+          {completedSteps.size}/{steps.length} steps · {totalPoints}/{maxPoints} pts
+        </span>
+        {saveStatus && (
+          <span style={{
+            fontSize: '0.625rem', fontFamily: 'var(--font-mono)',
+            color: saveStatus === 'saved' ? 'var(--color-success)' : saveStatus === 'saving' ? 'var(--accent)' : 'var(--color-error)',
+          }}>
+            {saveStatus === 'saving' ? '●' : saveStatus === 'saved' ? '✓' : '⚠'}
+          </span>
+        )}
+        <div className="progress-bar" style={{ flex: 1, maxWidth: 120 }}>
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
+        </div>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowResetConfirm(!showResetConfirm)}
+          style={{ color: completedSteps.size > 0 ? 'var(--color-error)' : 'var(--text-muted)', padding: '4px 6px' }}
+        >
+          <RotateCcw size={13} />
+        </button>
+      </div>
+
       {/* Step Progress Dots */}
       <div className="step-dots-bar">
         {steps.map((step) => {

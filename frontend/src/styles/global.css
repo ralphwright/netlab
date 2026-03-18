@@ -359,7 +359,8 @@ h4 { font-size: 1rem; }
 
 .terminal-body {
   padding: var(--space-md);
-  max-height: 400px;
+  min-height: 300px;
+  max-height: 500px;
   overflow-y: auto;
 }
 
@@ -609,6 +610,15 @@ h4 { font-size: 1rem; }
   transition: all 0.15s;
 }
 
+/* Score/progress compact row — visible on mobile */
+.lab-score-row {
+  display: none;
+}
+
+.mobile-reset-confirm {
+  display: none;
+}
+
 /* ── Tablet: ≤ 1024px ──────────────────────────────────── */
 
 @media (max-width: 1024px) {
@@ -642,7 +652,8 @@ h4 { font-size: 1rem; }
 
 @media (max-width: 768px) {
   .app-main {
-    padding: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    padding-bottom: var(--space-xl);
   }
 
   .lab-grid {
@@ -650,12 +661,11 @@ h4 { font-size: 1rem; }
   }
 
   h1 { font-size: 1.5rem; }
-  h2 { font-size: 1.25rem; }
+  h2 { font-size: 1.125rem; }
 
-  /* Header */
+  /* ── Header ── */
   .app-header {
     padding: var(--space-sm) var(--space-md);
-    flex-wrap: wrap;
     gap: var(--space-sm);
   }
 
@@ -664,27 +674,26 @@ h4 { font-size: 1rem; }
   }
 
   .app-header .logo svg {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
   }
 
   .app-header nav {
-    gap: var(--space-md);
+    gap: var(--space-sm);
     flex-wrap: wrap;
   }
 
   .app-header nav a {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
   }
 
-  /* Stats */
+  /* ── Dashboard ── */
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-sm);
     margin-bottom: var(--space-lg);
   }
 
-  /* Filters — horizontal scroll */
   .filter-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -699,36 +708,68 @@ h4 { font-size: 1rem; }
     flex-shrink: 0;
   }
 
-  /* Lab header */
+  /* ── Lab header — stack vertically ── */
   .lab-header {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-sm);
-  }
-
-  .lab-header-right {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
   }
 
   .lab-header-left {
-    flex-direction: column;
-    align-items: flex-start;
+    width: 100%;
     gap: var(--space-sm);
   }
 
-  /* Step dots — scrollable with fade hint */
-  .step-dots-bar {
-    padding: var(--space-xs) var(--space-sm);
-    gap: 2px;
-    margin-bottom: var(--space-md);
-    mask-image: linear-gradient(to right, black 90%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+  /* Hide the desktop score/progress from header on mobile */
+  .lab-header-right {
+    display: none;
   }
 
-  /* Lab workspace — stacked */
+  /* Show compact score row on mobile instead */
+  .lab-score-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-sm);
+  }
+
+  .mobile-reset-confirm {
+    display: block;
+  }
+
+  .lab-score-row .score-text {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+  }
+
+  .lab-score-row .progress-bar {
+    flex: 1;
+    max-width: 120px;
+    min-width: 60px;
+  }
+
+  /* ── Step dots — larger touch targets, scrollable ── */
+  .step-dots-bar {
+    padding: 6px var(--space-sm);
+    gap: 2px;
+    margin-bottom: var(--space-sm);
+  }
+
+  .step-dots-bar button {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px 8px !important;
+    font-size: 0.6875rem !important;
+  }
+
+  /* ── Lab workspace — stacked vertical ── */
   .lab-workspace {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
@@ -740,43 +781,103 @@ h4 { font-size: 1rem; }
     grid-column: 1;
   }
 
-  /* Terminal */
-  .terminal-body {
-    min-height: 250px !important;
-    max-height: 350px !important;
+  /* ── Topology — compact on mobile ── */
+  .topology-container {
+    border-radius: var(--radius-sm);
   }
 
-  /* Topology */
   .topology-container svg {
-    min-height: 200px;
+    min-height: 160px;
   }
 
-  /* Theory tabs */
-  .theory-tabs button {
-    padding: 8px 10px;
-    font-size: 0.8125rem;
-    gap: 4px;
+  .topology-header {
+    font-size: 0.6875rem;
+    padding: var(--space-xs) var(--space-sm);
   }
 
-  /* Cards */
-  .card {
-    padding: var(--space-md);
+  /* ── Terminal — taller, mobile keyboard friendly ── */
+  .terminal {
+    border-radius: var(--radius-sm);
   }
 
-  /* Step panel */
+  .terminal-body {
+    min-height: 200px !important;
+    max-height: 300px !important;
+    padding: var(--space-sm);
+    font-size: 0.75rem;
+  }
+
+  .terminal-input {
+    font-size: 16px !important; /* prevents iOS zoom on focus */
+    padding: 4px 0;
+  }
+
+  .terminal-header {
+    padding: 6px var(--space-sm);
+  }
+
+  .terminal-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  .terminal-title {
+    font-size: 0.6875rem;
+  }
+
+  .terminal-prompt {
+    font-size: 0.75rem;
+  }
+
+  .terminal-line {
+    font-size: 0.75rem;
+    line-height: 1.6;
+  }
+
+  /* ── Step panel — compact ── */
+  .step-panel {
+    border-radius: var(--radius-sm);
+  }
+
   .step-panel-header {
     padding: var(--space-sm) var(--space-md);
-    flex-wrap: wrap;
     gap: var(--space-sm);
   }
 
   .step-content {
-    padding: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
   }
 
-  /* Progress bar width */
+  .step-instruction {
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  .step-instruction code {
+    font-size: 0.75rem;
+    word-break: break-all;
+  }
+
+  .step-number {
+    width: 24px;
+    height: 24px;
+    font-size: 0.6875rem;
+  }
+
+  /* ── Theory tabs ── */
+  .theory-tabs button {
+    padding: 8px 6px;
+    font-size: 0.75rem;
+    gap: 3px;
+  }
+
+  /* ── Cards ── */
+  .card {
+    padding: var(--space-sm) var(--space-md);
+  }
+
   .progress-bar {
-    min-width: 80px;
+    min-width: 60px;
   }
 }
 
@@ -784,49 +885,71 @@ h4 { font-size: 1rem; }
 
 @media (max-width: 480px) {
   .app-main {
-    padding: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+    padding-bottom: var(--space-lg);
   }
 
-  h1 { font-size: 1.25rem; }
+  h1 { font-size: 1.125rem; }
+  h2 { font-size: 1rem; }
 
   .stats-grid {
     grid-template-columns: 1fr 1fr;
     gap: 6px;
   }
 
+  .app-header {
+    padding: 6px var(--space-sm);
+  }
+
   .app-header nav {
-    gap: var(--space-sm);
+    gap: 6px;
   }
 
   .app-header nav a {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
   }
 
   .btn {
-    padding: 8px 14px;
-    font-size: 0.8125rem;
+    padding: 6px 12px;
+    font-size: 0.75rem;
   }
 
   .btn-sm {
-    padding: 5px 10px;
-    font-size: 0.75rem;
+    padding: 4px 8px;
+    font-size: 0.6875rem;
   }
 
   .badge {
-    font-size: 0.625rem;
-    padding: 2px 6px;
+    font-size: 0.5625rem;
+    padding: 1px 5px;
   }
 
   .topic-tag {
-    font-size: 0.625rem;
-    padding: 1px 6px;
+    font-size: 0.5625rem;
+    padding: 1px 5px;
   }
 
-  .terminal {
+  .terminal-body {
+    min-height: 180px !important;
+    max-height: 260px !important;
+  }
+
+  .step-dots-bar button {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px 6px !important;
+    font-size: 0.625rem !important;
+  }
+
+  .step-instruction {
     font-size: 0.75rem;
   }
 
-  .terminal-input {
-    font-size: 0.75rem;
+  .lab-score-row .score-text {
+    font-size: 0.6875rem;
+  }
+
+  .topology-container svg {
+    min-height: 140px;
   }
 }

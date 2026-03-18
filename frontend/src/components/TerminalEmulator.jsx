@@ -201,7 +201,7 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
           {deviceName ? `${deviceName} — Cisco IOS CLI` : 'Select a device'}
         </span>
       </div>
-      <div className="terminal-body" ref={bodyRef} style={{ minHeight: 300, maxHeight: 500 }}>
+      <div className="terminal-body" ref={bodyRef}>
         {history.map((entry, i) => (
           <div key={i} className="terminal-line" style={{ marginBottom: 2 }}>
             {entry.type === 'input' && (

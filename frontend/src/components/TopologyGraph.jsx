@@ -25,9 +25,13 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
     const el = containerRef.current;
     if (!el) return;
     const obs = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width;
+      const isMobile = w < 500;
       setDimensions({
-        width: entry.contentRect.width,
-        height: Math.max(280, Math.min(400, entry.contentRect.width * 0.35)),
+        width: w,
+        height: isMobile
+          ? Math.max(180, Math.min(250, w * 0.5))
+          : Math.max(280, Math.min(400, w * 0.35)),
       });
     });
     obs.observe(el);
@@ -45,7 +49,8 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
     if (devices.length === 0) return;
 
     // Compute layout positions
-    const padding = 60;
+    const isMobile = width < 500;
+    const padding = isMobile ? 35 : 60;
     const xExtent = d3.extent(devices, (d) => d.x_pos || 0);
     const yExtent = d3.extent(devices, (d) => d.y_pos || 0);
     const xScale = d3.scaleLinear()
@@ -140,7 +145,7 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
         .attr('x2', edge.target.x)
         .attr('y2', edge.target.y)
         .attr('stroke', isTunnel ? '#76ff03' : isWireless ? '#039be5' : '#253148')
-        .attr('stroke-width', isTunnel ? 1.5 : 2)
+        .attr('stroke-width', isMobile ? 1 : (isTunnel ? 1.5 : 2))
         .attr('stroke-dasharray', isTunnel ? '6,4' : isWireless ? '3,3' : 'none')
         .attr('opacity', 0.7);
     });
@@ -163,10 +168,10 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
       // Selection ring
       if (isSelected) {
         g.append('circle')
-          .attr('r', 30)
+          .attr('r', isMobile ? 22 : 30)
           .attr('fill', 'none')
           .attr('stroke', '#00e5ff')
-          .attr('stroke-width', 2)
+          .attr('stroke-width', isMobile ? 1.5 : 2)
           .attr('stroke-dasharray', '4,3')
           .attr('filter', 'url(#glow)')
           .attr('opacity', 0.8);
@@ -175,7 +180,7 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
       // Target pulse
       if (isTarget && !isSelected) {
         g.append('circle')
-          .attr('r', 28)
+          .attr('r', isMobile ? 20 : 28)
           .attr('fill', 'none')
           .attr('stroke', '#ffab00')
           .attr('stroke-width', 1.5)
@@ -184,13 +189,13 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
       }
 
       // Device body
-      const bodySize = 22;
+      const bodySize = isMobile ? 16 : 22;
       g.append('rect')
         .attr('x', -bodySize)
         .attr('y', -bodySize)
         .attr('width', bodySize * 2)
         .attr('height', bodySize * 2)
-        .attr('rx', node.device_type === 'router' ? bodySize : node.device_type === 'cloud' || node.device_type === 'internet' ? 12 : 6)
+        .attr('rx', node.device_type === 'router' ? bodySize : node.device_type === 'cloud' || node.device_type === 'internet' ? (isMobile ? 8 : 12) : (isMobile ? 4 : 6))
         .attr('fill', isSelected ? 'rgba(0,229,255,0.12)' : 'rgba(20,28,43,0.9)')
         .attr('stroke', isSelected ? '#00e5ff' : icon.color)
         .attr('stroke-width', isSelected ? 2 : 1.5);
@@ -201,22 +206,22 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
         .attr('dy', '0.35em')
         .attr('fill', isSelected ? '#00e5ff' : icon.color)
         .attr('font-family', 'JetBrains Mono, monospace')
-        .attr('font-size', '11px')
+        .attr('font-size', isMobile ? '9px' : '11px')
         .attr('font-weight', '600')
         .text(icon.label);
 
       // Device name
       g.append('text')
         .attr('text-anchor', 'middle')
-        .attr('y', bodySize + 16)
+        .attr('y', bodySize + (isMobile ? 12 : 16))
         .attr('fill', isSelected ? '#e8edf5' : '#8b9ab8')
         .attr('font-family', 'IBM Plex Sans, sans-serif')
-        .attr('font-size', '11px')
+        .attr('font-size', isMobile ? '8px' : '11px')
         .attr('font-weight', isSelected ? '600' : '400')
         .text(node.name);
 
       // Model subtitle
-      if (node.model) {
+      if (node.model && !isMobile) {
         g.append('text')
           .attr('text-anchor', 'middle')
           .attr('y', bodySize + 30)
@@ -246,12 +251,12 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
 
   return (
     <div ref={containerRef} className="topology-container">
-      <div style={{
+      <div className="topology-header" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '8px 16px', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border-subtle)'
+        padding: '6px 12px', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border-subtle)'
       }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          TOPOLOGY — Click a device to select it for CLI
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+          TOPOLOGY — Tap a device for CLI
         </span>
         {selectedDevice && (
           <span style={{
