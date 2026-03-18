@@ -73,6 +73,36 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
             "GigabitEthernet0/0     10.0.1.1        YES manual up                    up\n"
             "GigabitEthernet0/1     10.0.2.1        YES manual up                    up\n"
             "Serial0/0/0            unassigned      YES unset  administratively down down\n"
+        ),
+        "R1": (
+            "Interface              IP-Address      OK? Method Status                Protocol\n"
+            "GigabitEthernet0/0     unassigned      YES unset  up                    up\n"
+            "GigabitEthernet0/0.10  10.0.10.1       YES manual up                    up\n"
+            "GigabitEthernet0/0.20  10.0.20.1       YES manual up                    up\n"
+            "GigabitEthernet0/1     unassigned      YES unset  administratively down down\n"
+        )
+    },
+    "show vlans": {
+        "_default": (
+            "Virtual LAN ID:  10 (IEEE 802.1Q Encapsulation)\n"
+            "   vLAN Trunk Interface:   GigabitEthernet0/0.10\n"
+            "    Protocols Configured:   Address:        Received:       Transmitted:\n"
+            "           IP              10.0.10.1               0               0\n"
+            "\n"
+            "Virtual LAN ID:  20 (IEEE 802.1Q Encapsulation)\n"
+            "   vLAN Trunk Interface:   GigabitEthernet0/0.20\n"
+            "    Protocols Configured:   Address:        Received:       Transmitted:\n"
+            "           IP              10.0.20.1               0               0\n"
+        )
+    },
+    "show ip route": {
+        "_default": (
+            "Codes: C - connected, S - static, O - OSPF, B - BGP\n"
+            "Gateway of last resort is not set\n"
+            "\n"
+            "      10.0.0.0/8 is variably subnetted\n"
+            "C        10.0.10.0/24 is directly connected, GigabitEthernet0/0.10\n"
+            "C        10.0.20.0/24 is directly connected, GigabitEthernet0/0.20\n"
         )
     },
     "show ip ospf neighbor": {
