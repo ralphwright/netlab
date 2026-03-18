@@ -80,6 +80,15 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
             "GigabitEthernet0/0.10  10.0.10.1       YES manual up                    up\n"
             "GigabitEthernet0/0.20  10.0.20.1       YES manual up                    up\n"
             "GigabitEthernet0/1     unassigned      YES unset  administratively down down\n"
+        ),
+        "L3-SW1": (
+            "Interface              IP-Address      OK? Method Status                Protocol\n"
+            "Vlan10                 10.0.10.1       YES manual up                    up\n"
+            "Vlan20                 10.0.20.1       YES manual up                    up\n"
+            "Vlan30                 10.0.30.1       YES manual up                    up\n"
+            "GigabitEthernet0/1     unassigned      YES unset  up                    up\n"
+            "GigabitEthernet0/2     unassigned      YES unset  up                    up\n"
+            "GigabitEthernet0/10    unassigned      YES unset  up                    up\n"
         )
     },
     "show vlans": {
@@ -103,6 +112,18 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
             "      10.0.0.0/8 is variably subnetted\n"
             "C        10.0.10.0/24 is directly connected, GigabitEthernet0/0.10\n"
             "C        10.0.20.0/24 is directly connected, GigabitEthernet0/0.20\n"
+        ),
+        "L3-SW1": (
+            "Codes: C - connected, S - static, O - OSPF, B - BGP\n"
+            "Gateway of last resort is not set\n"
+            "\n"
+            "      10.0.0.0/8 is variably subnetted, 6 subnets, 2 masks\n"
+            "C        10.0.10.0/24 is directly connected, Vlan10\n"
+            "L        10.0.10.1/32 is directly connected, Vlan10\n"
+            "C        10.0.20.0/24 is directly connected, Vlan20\n"
+            "L        10.0.20.1/32 is directly connected, Vlan20\n"
+            "C        10.0.30.0/24 is directly connected, Vlan30\n"
+            "L        10.0.30.1/32 is directly connected, Vlan30\n"
         )
     },
     "show ip ospf neighbor": {
@@ -162,6 +183,25 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
             "  Internet address is 10.255.0.1/30\n"
             "  Tunnel source 203.0.113.1, destination 198.51.100.2\n"
             "  Tunnel protocol/transport GRE/IP\n"
+        )
+    },
+    "show interfaces vlan": {
+        "_default": (
+            "Vlan10 is up, line protocol is up\n"
+            "  Hardware is EtherSVI, address is aabb.cc00.0100\n"
+            "  Internet address is 10.0.10.1/24\n"
+            "  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec\n"
+            "     reliability 255/255, txload 1/255, rxload 1/255\n"
+            "\n"
+            "Vlan20 is up, line protocol is up\n"
+            "  Hardware is EtherSVI, address is aabb.cc00.0100\n"
+            "  Internet address is 10.0.20.1/24\n"
+            "  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec\n"
+            "\n"
+            "Vlan30 is up, line protocol is up\n"
+            "  Hardware is EtherSVI, address is aabb.cc00.0100\n"
+            "  Internet address is 10.0.30.1/24\n"
+            "  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec\n"
         )
     },
     "show crypto isakmp sa": {
@@ -307,6 +347,7 @@ def simulate_output(command: str, device_name: str) -> tuple[str, str]:
         r"encapsulation\s+", r"overload", r"ip\s+route\s+", r"no\s+",
         r"banner\s+", r"enable\s+secret", r"service\s+", r"logging\s+",
         r"ntp\s+", r"snmp-server", r"access-class", r"exec-timeout",
+        r"ip\s+routing", r"ip\s+domain",
     ]
     for pat in config_patterns:
         if re.match(pat, cmd):

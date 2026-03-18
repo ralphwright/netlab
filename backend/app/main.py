@@ -27,6 +27,7 @@ SEED_SQL = os.path.join(SQL_DIR, "seed.sql")
 MIGRATE_SQL = os.path.join(SQL_DIR, "migrate_steps.sql")
 THEORY_SQL = os.path.join(SQL_DIR, "migrate_theory.sql")
 VLAN_ROAS_SQL = os.path.join(SQL_DIR, "migrate_vlan_roas.sql")
+VLAN_SVI_SQL = os.path.join(SQL_DIR, "migrate_vlan_svi.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -262,6 +263,22 @@ async def _run_migrations():
             log.info(f"[netlab] VLAN RoaS: {ok} statements OK, {len(errs)} errors")
         else:
             log.info(f"[netlab] VLAN RoaS steps present ({roas_steps} steps)")
+
+        # Run VLAN SVI migration if missing
+        async with engine.connect() as conn:
+            result = await conn.execute(text("""
+                SELECT count(*) FROM lab_steps ls
+                JOIN labs l ON l.id = ls.lab_id
+                WHERE l.slug = 'vlan-fundamentals' AND ls.step_number >= 15
+            """))
+            svi_steps = result.scalar() or 0
+
+        if svi_steps == 0:
+            log.info("[netlab] VLAN lab missing SVI steps — running migration")
+            ok, errs = await _run_sql_file(VLAN_SVI_SQL)
+            log.info(f"[netlab] VLAN SVI: {ok} statements OK, {len(errs)} errors")
+        else:
+            log.info(f"[netlab] VLAN SVI steps present ({svi_steps} steps)")
 
     except Exception as e:
         log.warning(f"[netlab] Migration check failed: {e}")
