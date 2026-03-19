@@ -206,8 +206,8 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
           <div key={i} className="terminal-line">
             {entry.type === 'input' && (
               <>
-                <span className="terminal-prompt">{entry.prompt} </span>
-                <span>{colorizeCommand(entry.text)}</span>
+                <span className="terminal-prompt">{entry.prompt}</span>
+                <span className="terminal-cmd">{colorizeCommand(entry.text)}</span>
               </>
             )}
             {entry.type === 'output' && (
@@ -225,7 +225,7 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
           </div>
         ))}
         <div className="terminal-input-line">
-          <span className="terminal-prompt">{prompt} </span>
+          <span className="terminal-prompt">{prompt}</span>
           <input
             ref={inputRef}
             className="terminal-input"
