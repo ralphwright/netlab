@@ -203,7 +203,7 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
       </div>
       <div className="terminal-body" ref={bodyRef}>
         {history.map((entry, i) => (
-          <div key={i} className="terminal-line" style={{ marginBottom: 2 }}>
+          <div key={i} className="terminal-line">
             {entry.type === 'input' && (
               <>
                 <span className="terminal-prompt">{entry.prompt} </span>

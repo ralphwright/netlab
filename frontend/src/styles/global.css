@@ -248,12 +248,20 @@ html .btn {
   border-color: #253148;
 }
 
+[data-theme="light"] .terminal-input-line {
+  border-top-color: rgba(255,255,255,0.06);
+}
+
 [data-theme="light"] .terminal-system {
   color: #5a6b87;
 }
 
 [data-theme="light"] .terminal-success {
   color: #00e676;
+}
+
+[data-theme="light"] .terminal-input::placeholder {
+  color: #5a6b87;
 }
 
 /* ── Reset ─────────────────────────────────────────────── */
@@ -503,6 +511,13 @@ h4 { font-size: 1rem; }
   overflow: hidden;
 }
 
+/* Force ALL terminal children to inherit the same font */
+.terminal * {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
 .terminal-header {
   display: flex;
   align-items: center;
@@ -522,7 +537,7 @@ h4 { font-size: 1rem; }
 .terminal-dot.green { background: #28c840; }
 
 .terminal-title {
-  font-size: 0.75rem;
+  font-size: 0.75rem !important;
   color: var(--text-muted);
   margin-left: var(--space-sm);
 }
@@ -537,6 +552,7 @@ h4 { font-size: 1rem; }
 .terminal-line {
   white-space: pre-wrap;
   word-break: break-all;
+  margin-bottom: 2px;
 }
 
 .terminal-prompt {
@@ -565,6 +581,9 @@ h4 { font-size: 1rem; }
   display: flex;
   align-items: center;
   gap: 0;
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid rgba(255,255,255,0.04);
 }
 
 .terminal-input {
@@ -572,10 +591,17 @@ h4 { font-size: 1rem; }
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
   outline: none;
   caret-color: var(--accent);
+  padding: 0;
+}
+
+.terminal-input::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 /* ── Step Panel ────────────────────────────────────────── */
@@ -943,13 +969,11 @@ h4 { font-size: 1rem; }
   .lab-workspace-topo { grid-column: 1; }
 
   .topology-container { border-radius: var(--radius-sm); }
-  .terminal { border-radius: var(--radius-sm); }
-  .terminal-body { min-height: 200px; max-height: 300px; padding: var(--space-sm); font-size: 0.75rem; }
-  .terminal-input { font-size: 16px !important; }
+  .terminal { border-radius: var(--radius-sm); font-size: 16px; } /* 16px prevents iOS zoom + keeps input uniform */
+  .terminal-body { min-height: 200px; max-height: 300px; padding: var(--space-sm); }
   .terminal-header { padding: 6px var(--space-sm); }
   .terminal-dot { width: 8px; height: 8px; }
-  .terminal-title { font-size: 0.6875rem; }
-  .terminal-prompt, .terminal-line { font-size: 0.75rem; }
+  .terminal-title { font-size: 0.6875rem !important; }
 
   .step-panel { border-radius: var(--radius-sm); }
   .step-panel-header { padding: var(--space-sm) var(--space-md); gap: var(--space-sm); }
