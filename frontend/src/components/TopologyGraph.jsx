@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
+import { useTheme } from '../useTheme';
 
 const DEVICE_ICONS = {
   router: { symbol: '⬡', label: 'R', color: '#2979ff' },
@@ -20,6 +21,7 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 900, height: 320 });
+  const { theme } = useTheme();
 
   useEffect(() => {
     const el = containerRef.current;
@@ -47,6 +49,19 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
 
     const devices = topology.devices || [];
     if (devices.length === 0) return;
+
+    // Read theme colors from CSS variables
+    const cs = getComputedStyle(document.documentElement);
+    const c = (v) => cs.getPropertyValue(v).trim();
+    const topoBg = c('--topo-bg') || '#080c14';
+    const topoGrid = c('--topo-grid') || '#1e2a3e';
+    const topoLink = c('--topo-link') || '#253148';
+    const topoNodeBg = c('--topo-node-bg') || 'rgba(20,28,43,0.9)';
+    const topoNodeSelBg = c('--topo-node-selected-bg') || 'rgba(0,229,255,0.12)';
+    const topoLabel = c('--topo-label') || '#8b9ab8';
+    const topoLabelSel = c('--topo-label-selected') || '#e8edf5';
+    const topoSublabel = c('--topo-sublabel') || '#5a6b87';
+    const accent = c('--accent') || '#00e5ff';
 
     // Compute layout positions
     const isMobile = width < 500;
@@ -88,13 +103,13 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
       .attr('cx', gridSize / 2)
       .attr('cy', gridSize / 2)
       .attr('r', 0.5)
-      .attr('fill', '#1e2a3e');
+      .attr('fill', topoGrid);
 
     // Background
     svg.append('rect')
       .attr('width', width)
       .attr('height', height)
-      .attr('fill', '#080c14');
+      .attr('fill', topoBg);
     svg.append('rect')
       .attr('width', width)
       .attr('height', height)
@@ -144,7 +159,7 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
         .attr('y1', edge.source.y)
         .attr('x2', edge.target.x)
         .attr('y2', edge.target.y)
-        .attr('stroke', isTunnel ? '#76ff03' : isWireless ? '#039be5' : '#253148')
+        .attr('stroke', isTunnel ? '#76ff03' : isWireless ? '#039be5' : topoLink)
         .attr('stroke-width', isMobile ? 1 : (isTunnel ? 1.5 : 2))
         .attr('stroke-dasharray', isTunnel ? '6,4' : isWireless ? '3,3' : 'none')
         .attr('opacity', 0.7);
@@ -170,7 +185,7 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
         g.append('circle')
           .attr('r', isMobile ? 22 : 30)
           .attr('fill', 'none')
-          .attr('stroke', '#00e5ff')
+          .attr('stroke', accent)
           .attr('stroke-width', isMobile ? 1.5 : 2)
           .attr('stroke-dasharray', '4,3')
           .attr('filter', 'url(#glow)')
@@ -196,15 +211,15 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
         .attr('width', bodySize * 2)
         .attr('height', bodySize * 2)
         .attr('rx', node.device_type === 'router' ? bodySize : node.device_type === 'cloud' || node.device_type === 'internet' ? (isMobile ? 8 : 12) : (isMobile ? 4 : 6))
-        .attr('fill', isSelected ? 'rgba(0,229,255,0.12)' : 'rgba(20,28,43,0.9)')
-        .attr('stroke', isSelected ? '#00e5ff' : icon.color)
+        .attr('fill', isSelected ? topoNodeSelBg : topoNodeBg)
+        .attr('stroke', isSelected ? accent : icon.color)
         .attr('stroke-width', isSelected ? 2 : 1.5);
 
       // Icon label
       g.append('text')
         .attr('text-anchor', 'middle')
         .attr('dy', '0.35em')
-        .attr('fill', isSelected ? '#00e5ff' : icon.color)
+        .attr('fill', isSelected ? accent : icon.color)
         .attr('font-family', 'JetBrains Mono, monospace')
         .attr('font-size', isMobile ? '9px' : '11px')
         .attr('font-weight', '600')
@@ -214,7 +229,7 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
       g.append('text')
         .attr('text-anchor', 'middle')
         .attr('y', bodySize + (isMobile ? 12 : 16))
-        .attr('fill', isSelected ? '#e8edf5' : '#8b9ab8')
+        .attr('fill', isSelected ? topoLabelSel : topoLabel)
         .attr('font-family', 'IBM Plex Sans, sans-serif')
         .attr('font-size', isMobile ? '8px' : '11px')
         .attr('font-weight', isSelected ? '600' : '400')
@@ -225,7 +240,7 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
         g.append('text')
           .attr('text-anchor', 'middle')
           .attr('y', bodySize + 30)
-          .attr('fill', '#5a6b87')
+          .attr('fill', topoSublabel)
           .attr('font-family', 'IBM Plex Sans, sans-serif')
           .attr('font-size', '9px')
           .text(node.model);
@@ -236,18 +251,18 @@ export default function TopologyGraph({ topology, selectedDevice, onDeviceSelect
         d3.select(this).select('rect')
           .transition().duration(150)
           .attr('stroke-width', 2.5)
-          .attr('fill', 'rgba(0,229,255,0.08)');
+          .attr('fill', topoNodeSelBg);
       }).on('mouseleave', function () {
         if (node.name !== selectedDevice) {
           d3.select(this).select('rect')
             .transition().duration(150)
             .attr('stroke-width', 1.5)
-            .attr('fill', 'rgba(20,28,43,0.9)');
+            .attr('fill', topoNodeBg);
         }
       });
     });
 
-  }, [topology, selectedDevice, dimensions, currentStep, onDeviceSelect]);
+  }, [topology, selectedDevice, dimensions, currentStep, onDeviceSelect, theme]);
 
   return (
     <div ref={containerRef} className="topology-container">

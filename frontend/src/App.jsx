@@ -1,11 +1,13 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { UserProvider } from './useUser';
+import { ThemeProvider } from './useTheme';
 import Dashboard from './components/Dashboard';
 import LabView from './components/LabView';
 import TheoryList from './components/TheoryList';
 import TheoryPage from './components/TheoryPage';
 import UserBadge from './components/UserBadge';
+import ThemeToggle from './components/ThemeToggle';
 import { Network } from 'lucide-react';
 
 function AppInner() {
@@ -29,6 +31,7 @@ function AppInner() {
              target="_blank" rel="noopener noreferrer">
             IOS Reference
           </a>
+          <ThemeToggle />
           <UserBadge />
         </nav>
       </header>
@@ -47,8 +50,10 @@ function AppInner() {
 
 export default function App() {
   return (
-    <UserProvider>
-      <AppInner />
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <AppInner />
+      </UserProvider>
+    </ThemeProvider>
   );
 }

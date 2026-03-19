@@ -84,6 +84,133 @@
   --shadow-card: 0 2px 12px rgba(0,0,0,0.4);
   --shadow-elevated: 0 8px 32px rgba(0,0,0,0.5);
   --shadow-glow: 0 0 20px var(--accent-glow);
+
+  /* Topology (used by D3 via getComputedStyle) */
+  --topo-bg: #080c14;
+  --topo-grid: #1e2a3e;
+  --topo-link: #253148;
+  --topo-node-bg: rgba(20,28,43,0.9);
+  --topo-node-selected-bg: rgba(0,229,255,0.12);
+  --topo-label: #8b9ab8;
+  --topo-label-selected: #e8edf5;
+  --topo-sublabel: #5a6b87;
+}
+
+/* ── Light Theme ──────────────────────────────────────── */
+
+[data-theme="light"] {
+  /* Surfaces */
+  --bg-root: #f5f7fa;
+  --bg-panel: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f3f7;
+  --bg-elevated: #f8f9fb;
+  --bg-terminal: #1a1f2e;
+  --bg-input: #f0f2f5;
+
+  /* Borders */
+  --border-subtle: #e2e6ed;
+  --border-default: #d0d5de;
+  --border-bright: #b8bfcc;
+
+  /* Text */
+  --text-primary: #1a1f2e;
+  --text-secondary: #4a5568;
+  --text-muted: #8895a7;
+  --text-inverse: #ffffff;
+
+  /* Accent — deeper cyan for contrast on light */
+  --accent: #0097a7;
+  --accent-dim: #00838f;
+  --accent-glow: rgba(0, 151, 167, 0.12);
+  --accent-glow-strong: rgba(0, 151, 167, 0.2);
+
+  /* Semantic — slightly deeper for light bg contrast */
+  --color-success: #00a65a;
+  --color-warning: #e68a00;
+  --color-error: #d32f2f;
+  --color-info: #1565c0;
+
+  /* Shadows */
+  --shadow-card: 0 1px 4px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 4px 16px rgba(0,0,0,0.1);
+  --shadow-glow: 0 0 12px var(--accent-glow);
+
+  /* Topology */
+  --topo-bg: #1a1f2e;
+  --topo-grid: #2a3040;
+  --topo-link: #3a4560;
+  --topo-node-bg: rgba(30,40,58,0.95);
+  --topo-node-selected-bg: rgba(0,151,167,0.15);
+  --topo-label: #94a3b8;
+  --topo-label-selected: #e8edf5;
+  --topo-sublabel: #64748b;
+}
+
+/* Theme transition — smooth color changes */
+html,
+html .app-container,
+html .app-header,
+html .card,
+html .terminal,
+html .step-panel,
+html .topology-container,
+html .btn {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+/* ── Light theme component overrides ──────────────────── */
+
+[data-theme="light"] .app-header {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .card {
+  box-shadow: var(--shadow-card);
+}
+
+[data-theme="light"] .step-panel {
+  box-shadow: var(--shadow-card);
+}
+
+[data-theme="light"] .badge-beginner {
+  color: #15803d;
+  border-color: rgba(21,128,61,0.3);
+  background: rgba(21,128,61,0.08);
+}
+
+[data-theme="light"] .badge-intermediate {
+  color: #b45309;
+  border-color: rgba(180,83,9,0.3);
+  background: rgba(180,83,9,0.08);
+}
+
+[data-theme="light"] .badge-advanced {
+  color: #dc2626;
+  border-color: rgba(220,38,38,0.3);
+  background: rgba(220,38,38,0.08);
+}
+
+[data-theme="light"] .badge-expert {
+  color: #9333ea;
+  border-color: rgba(147,51,234,0.3);
+  background: rgba(147,51,234,0.08);
+}
+
+[data-theme="light"] .btn-ghost {
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .btn-ghost:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+[data-theme="light"] .progress-fill {
+  background: linear-gradient(90deg, var(--accent), var(--accent-dim));
 }
 
 /* ── Reset ─────────────────────────────────────────────── */
