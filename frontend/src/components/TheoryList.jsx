@@ -24,15 +24,17 @@ export default function TheoryList() {
     );
   }
 
-  // Group by OSI-like categories
+  // Group by logical learning progression
   const groups = [
-    { title: 'IP Fundamentals', filter: (t) => ['ipv4-subnetting'].includes(t.slug) },
-    { title: 'Layer 2 — Switching & LAN', filter: (t) => ['vlans', 'stp', 'lacp'].includes(t.slug) },
-    { title: 'Layer 3 — Routing', filter: (t) => ['ospf', 'bgp', 'autonomous-systems', 'ipv6'].includes(t.slug) },
-    { title: 'WAN & Transport', filter: (t) => ['mpls', 'tunneling', 'gre'].includes(t.slug) },
-    { title: 'Network Services', filter: (t) => ['dhcp', 'dns', 'nat', 'pat'].includes(t.slug) },
-    { title: 'Security', filter: (t) => ['acls', 'firewalls', 'ssh', 'remote-access'].includes(t.slug) },
-    { title: 'Wireless', filter: (t) => ['wireless-ap', 'wireless-controller', 'wireless-security', 'wireless-topology'].includes(t.slug) },
+    { title: '1. Fundamentals', filter: (t) => ['ipv4-subnetting'].includes(t.slug) },
+    { title: '2. Layer 2 — Switching & LAN', filter: (t) => ['vlans', 'stp', 'lacp'].includes(t.slug) },
+    { title: '3. Routing & Network Services', filter: (t) => ['ospf', 'dhcp', 'dns'].includes(t.slug) },
+    { title: '4. Address Translation', filter: (t) => ['nat', 'pat'].includes(t.slug) },
+    { title: '5. Security', filter: (t) => ['acls', 'ssh', 'firewalls'].includes(t.slug) },
+    { title: '6. Inter-Domain & WAN', filter: (t) => ['autonomous-systems', 'bgp', 'tunneling', 'gre', 'mpls'].includes(t.slug) },
+    { title: '7. IPv6', filter: (t) => ['ipv6'].includes(t.slug) },
+    { title: '8. Wireless', filter: (t) => ['wireless-ap', 'wireless-controller', 'wireless-security', 'wireless-topology'].includes(t.slug) },
+    { title: '9. Remote Access', filter: (t) => ['remote-access'].includes(t.slug) },
   ];
 
   return (

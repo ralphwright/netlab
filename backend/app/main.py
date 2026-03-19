@@ -30,6 +30,7 @@ VLAN_ROAS_SQL = os.path.join(SQL_DIR, "migrate_vlan_roas.sql")
 VLAN_SVI_SQL = os.path.join(SQL_DIR, "migrate_vlan_svi.sql")
 SUBNET_SQL = os.path.join(SQL_DIR, "migrate_subnetting.sql")
 INTEG_REBUILD_SQL = os.path.join(SQL_DIR, "migrate_integration_rebuild.sql")
+REORDER_SQL = os.path.join(SQL_DIR, "migrate_reorder.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -324,6 +325,20 @@ async def _run_migrations():
             log.info(f"[netlab] Integration rebuild: {ok} statements OK, {len(errs)} errors")
         else:
             log.info("[netlab] Integration lab already rebuilt (25 steps)")
+
+        # Reorder topics and labs if not already done
+        async with engine.connect() as conn:
+            result = await conn.execute(text(
+                "SELECT sort_order FROM topics WHERE slug = 'ipv4-subnetting'"
+            ))
+            subnet_order = result.scalar()
+
+        if subnet_order is None or subnet_order != 1:
+            log.info("[netlab] Topics/labs not in logical order — running reorder migration")
+            ok, errs = await _run_sql_file(REORDER_SQL)
+            log.info(f"[netlab] Reorder: {ok} statements OK, {len(errs)} errors")
+        else:
+            log.info("[netlab] Topics/labs already in logical order")
 
     except Exception as e:
         log.warning(f"[netlab] Migration check failed: {e}")
