@@ -213,6 +213,49 @@ html .btn {
   background: linear-gradient(90deg, var(--accent), var(--accent-dim));
 }
 
+/* Terminal stays dark — force light text colors */
+[data-theme="light"] .terminal-header {
+  background: #141c2b;
+  border-color: #253148;
+}
+
+[data-theme="light"] .terminal-title {
+  color: #5a6b87;
+}
+
+[data-theme="light"] .terminal-prompt {
+  color: #00e5ff;
+}
+
+[data-theme="light"] .terminal-output {
+  color: #8b9ab8;
+}
+
+[data-theme="light"] .terminal-error {
+  color: #ff1744;
+}
+
+[data-theme="light"] .terminal-input {
+  color: #e8edf5;
+  caret-color: #00e5ff;
+}
+
+[data-theme="light"] .terminal-line {
+  color: #e8edf5;
+}
+
+[data-theme="light"] .terminal {
+  border-color: #253148;
+}
+
+[data-theme="light"] .terminal-system {
+  color: #5a6b87;
+}
+
+[data-theme="light"] .terminal-success {
+  color: #00e676;
+}
+
 /* ── Reset ─────────────────────────────────────────────── */
 
 *, *::before, *::after {
@@ -506,6 +549,16 @@ h4 { font-size: 1rem; }
 
 .terminal-error {
   color: var(--color-error);
+}
+
+.terminal-system {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.terminal-success {
+  color: var(--color-success);
+  font-weight: 600;
 }
 
 .terminal-input-line {

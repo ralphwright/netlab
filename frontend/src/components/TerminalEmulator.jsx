@@ -217,10 +217,10 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
               <span className="terminal-error">{entry.text}</span>
             )}
             {entry.type === 'system' && (
-              <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{entry.text}</span>
+              <span className="terminal-system">{entry.text}</span>
             )}
             {entry.type === 'success' && (
-              <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>{entry.text}</span>
+              <span className="terminal-success">{entry.text}</span>
             )}
           </div>
         ))}
