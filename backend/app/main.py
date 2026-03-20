@@ -310,21 +310,26 @@ async def _run_migrations():
             else:
                 log.info(f"[netlab] Subnetting content present")
 
-        # Rebuild integration lab steps if still using old ordering
+        # Rebuild integration lab if using old step ordering
         async with engine.connect() as conn:
             result = await conn.execute(text("""
-                SELECT count(*) FROM lab_steps ls
+                SELECT title FROM lab_steps ls
                 JOIN labs l ON l.id = ls.lab_id
-                WHERE l.slug = 'full-enterprise-network' AND ls.step_number = 25
+                WHERE l.slug = 'full-enterprise-network' AND ls.step_number = 11
             """))
-            has_new_final = (result.scalar() or 0) > 0
+            step11_title = result.scalar() or ''
 
-        if not has_new_final:
-            log.info("[netlab] Integration lab needs rebuild — running migration")
+        needs_rebuild = (
+            'NAT' not in step11_title  # v2 has NAT/PAT at step 11
+            or step11_title == ''       # or no steps at all
+        )
+
+        if needs_rebuild:
+            log.info("[netlab] Integration lab needs rebuild (reordering phases) — running migration")
             ok, errs = await _run_sql_file(INTEG_REBUILD_SQL)
             log.info(f"[netlab] Integration rebuild: {ok} statements OK, {len(errs)} errors")
         else:
-            log.info("[netlab] Integration lab already rebuilt (25 steps)")
+            log.info("[netlab] Integration lab already in correct order")
 
         # Reorder topics and labs if not already done
         async with engine.connect() as conn:
