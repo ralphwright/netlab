@@ -330,7 +330,7 @@ async def _run_migrations():
     try:
         async with engine.connect() as conn:
             result = await conn.execute(text("""
-                SELECT title FROM lab_steps ls
+                SELECT ls.title FROM lab_steps ls
                 JOIN labs l ON l.id = ls.lab_id
                 WHERE l.slug = 'full-enterprise-network' AND ls.step_number = 11
             """))
@@ -373,7 +373,7 @@ async def _run_migrations():
     try:
         async with engine.connect() as conn:
             result = await conn.execute(text(
-                "SELECT title FROM lab_steps ls JOIN labs l ON l.id = ls.lab_id "
+                "SELECT ls.title FROM lab_steps ls JOIN labs l ON l.id = ls.lab_id "
                 "WHERE l.slug = 'stp-loop-prevention' AND ls.step_number = 1"
             ))
             stp_step1 = result.scalar() or ''
