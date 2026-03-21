@@ -130,15 +130,15 @@ async def _run_sql_file(filepath: str) -> tuple[int, list[str]]:
     success = 0
     errors = []
 
-    async with engine.begin() as conn:
-        for i, stmt in enumerate(statements):
-            try:
+    for i, stmt in enumerate(statements):
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text(stmt))
-                success += 1
-            except Exception as e:
-                err_msg = f"Stmt {i+1} failed: {str(e)[:200]}"
-                errors.append(err_msg)
-                log.warning(f"  {err_msg}")
+            success += 1
+        except Exception as e:
+            err_msg = f"Stmt {i+1} failed: {str(e)[:200]}"
+            errors.append(err_msg)
+            log.warning(f"  {err_msg}")
 
     log.info(f"[netlab] Statement-by-statement: {success} OK, {len(errors)} errors")
     return success, errors
@@ -212,6 +212,8 @@ async def _ensure_default_user():
 
 async def _run_migrations():
     """Run migration SQL if labs are missing steps."""
+
+    # 1. Base steps for labs that have none
     try:
         async with engine.connect() as conn:
             result = await conn.execute(text("""
@@ -228,8 +230,11 @@ async def _run_migrations():
                 log.warning(f"  {e}")
         else:
             log.info("[netlab] All labs have steps — no migration needed")
+    except Exception as e:
+        log.warning(f"[netlab] Base steps migration failed: {e}")
 
-        # Run theory content migration
+    # 2. Theory content
+    try:
         async with engine.connect() as conn:
             result = await conn.execute(text("""
                 SELECT EXISTS (SELECT FROM information_schema.tables
@@ -251,8 +256,11 @@ async def _run_migrations():
                 log.info(f"[netlab] Theory: {ok} statements OK, {len(errs)} errors")
             else:
                 log.info(f"[netlab] Theory content complete ({theory_count} entries)")
+    except Exception as e:
+        log.warning(f"[netlab] Theory migration failed: {e}")
 
-        # Run VLAN Router-on-a-Stick migration if missing
+    # 3. VLAN Router-on-a-Stick
+    try:
         async with engine.connect() as conn:
             result = await conn.execute(text("""
                 SELECT count(*) FROM lab_steps ls
@@ -267,8 +275,11 @@ async def _run_migrations():
             log.info(f"[netlab] VLAN RoaS: {ok} statements OK, {len(errs)} errors")
         else:
             log.info(f"[netlab] VLAN RoaS steps present ({roas_steps} steps)")
+    except Exception as e:
+        log.warning(f"[netlab] VLAN RoaS migration failed: {e}")
 
-        # Run VLAN SVI migration if missing
+    # 4. VLAN SVI
+    try:
         async with engine.connect() as conn:
             result = await conn.execute(text("""
                 SELECT count(*) FROM lab_steps ls
@@ -283,8 +294,11 @@ async def _run_migrations():
             log.info(f"[netlab] VLAN SVI: {ok} statements OK, {len(errs)} errors")
         else:
             log.info(f"[netlab] VLAN SVI steps present ({svi_steps} steps)")
+    except Exception as e:
+        log.warning(f"[netlab] VLAN SVI migration failed: {e}")
 
-        # Run subnetting migration if topic doesn't exist
+    # 5. Subnetting
+    try:
         async with engine.connect() as conn:
             result = await conn.execute(text(
                 "SELECT count(*) FROM topics WHERE slug = 'ipv4-subnetting'"
@@ -296,7 +310,6 @@ async def _run_migrations():
             ok, errs = await _run_sql_file(SUBNET_SQL)
             log.info(f"[netlab] Subnetting: {ok} statements OK, {len(errs)} errors")
         else:
-            # Check if integration lab has subnetting steps
             async with engine.connect() as conn:
                 result = await conn.execute(text("""
                     SELECT count(*) FROM lab_steps ls
@@ -309,9 +322,12 @@ async def _run_migrations():
                 ok, errs = await _run_sql_file(SUBNET_SQL)
                 log.info(f"[netlab] Subnetting: {ok} statements OK, {len(errs)} errors")
             else:
-                log.info(f"[netlab] Subnetting content present")
+                log.info("[netlab] Subnetting content present")
+    except Exception as e:
+        log.warning(f"[netlab] Subnetting migration failed: {e}")
 
-        # Rebuild integration lab if using old step ordering
+    # 6. Rebuild integration lab
+    try:
         async with engine.connect() as conn:
             result = await conn.execute(text("""
                 SELECT title FROM lab_steps ls
@@ -321,18 +337,23 @@ async def _run_migrations():
             step11_title = result.scalar() or ''
 
         needs_rebuild = (
-            'NAT' not in step11_title  # v2 has NAT/PAT at step 11
-            or step11_title == ''       # or no steps at all
+            'NAT' not in step11_title
+            or step11_title == ''
         )
 
         if needs_rebuild:
             log.info("[netlab] Integration lab needs rebuild (reordering phases) — running migration")
             ok, errs = await _run_sql_file(INTEG_REBUILD_SQL)
             log.info(f"[netlab] Integration rebuild: {ok} statements OK, {len(errs)} errors")
+            for e in errs[:5]:
+                log.warning(f"[netlab] Integ error: {e}")
         else:
             log.info("[netlab] Integration lab already in correct order")
+    except Exception as e:
+        log.warning(f"[netlab] Integration rebuild failed: {e}")
 
-        # Reorder topics and labs if not already done
+    # 7. Reorder topics and labs
+    try:
         async with engine.connect() as conn:
             result = await conn.execute(text(
                 "SELECT sort_order FROM topics WHERE slug = 'ipv4-subnetting'"
@@ -345,8 +366,11 @@ async def _run_migrations():
             log.info(f"[netlab] Reorder: {ok} statements OK, {len(errs)} errors")
         else:
             log.info("[netlab] Topics/labs already in logical order")
+    except Exception as e:
+        log.warning(f"[netlab] Reorder migration failed: {e}")
 
-        # Add prerequisite setup steps to labs if not already done
+    # 8. Add prerequisite setup steps
+    try:
         async with engine.connect() as conn:
             result = await conn.execute(text(
                 "SELECT title FROM lab_steps ls JOIN labs l ON l.id = ls.lab_id "
@@ -354,17 +378,18 @@ async def _run_migrations():
             ))
             stp_step1 = result.scalar() or ''
 
+        log.info(f"[netlab] STP step 1 title: '{stp_step1}' (looking for 'Setup')")
+
         if 'Setup' not in stp_step1:
             log.info("[netlab] Labs missing prerequisite steps — running prereq migration")
             ok, errs = await _run_sql_file(PREREQ_SQL)
             log.info(f"[netlab] Prereq steps: {ok} statements OK, {len(errs)} errors")
-            for e in errs[:5]:
+            for e in errs[:10]:
                 log.warning(f"[netlab] Prereq error: {e}")
         else:
             log.info("[netlab] Labs already have prerequisite steps")
-
     except Exception as e:
-        log.warning(f"[netlab] Migration check failed: {e}")
+        log.warning(f"[netlab] Prereq migration failed: {e}")
 
 
 @asynccontextmanager
