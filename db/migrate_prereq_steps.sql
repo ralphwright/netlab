@@ -1058,7 +1058,7 @@ SELECT l.id, 3,
   E'Configure RADIUS server at 10.0.1.200.',
   'radius server, address ipv4, key',
   '802.1X delegates auth to RADIUS. Shared secret must match.',
-  'WLC1', ARRAY['radius server RADIUS-SRV', 'address ipv4 10.0.1.200', 'key radiussecret'], 'command', 15
+  'WLC1', ARRAY['radius server RADIUS-SRV', 'address ipv4 10.0.1.200', 'key <RADIUS-KEY>'], 'command', 15
 FROM labs l WHERE l.slug = 'wireless-security-config';
 
 INSERT INTO lab_steps (lab_id, step_number, title, instruction, hint, explanation, target_device, expected_commands, validation_type, points)
