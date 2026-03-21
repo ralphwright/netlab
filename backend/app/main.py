@@ -358,6 +358,8 @@ async def _run_migrations():
             log.info("[netlab] Labs missing prerequisite steps — running prereq migration")
             ok, errs = await _run_sql_file(PREREQ_SQL)
             log.info(f"[netlab] Prereq steps: {ok} statements OK, {len(errs)} errors")
+            for e in errs[:5]:
+                log.warning(f"[netlab] Prereq error: {e}")
         else:
             log.info("[netlab] Labs already have prerequisite steps")
 
