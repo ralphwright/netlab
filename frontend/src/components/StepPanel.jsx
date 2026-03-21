@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, HelpCircle, CheckCircle, Target } from 'lucide-react';
+import { ChevronLeft, ChevronRight, HelpCircle, CheckCircle, Target, LifeBuoy } from 'lucide-react';
 
 function renderMarkdown(text) {
   if (!text) return null;
-  // Simple markdown: **bold**, `code`, \n
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\n)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
@@ -19,6 +18,7 @@ function renderMarkdown(text) {
 
 export default function StepPanel({ step, stepNumber, totalSteps, isCompleted, onPrev, onNext }) {
   const [showHint, setShowHint] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   if (!step) {
     return (
@@ -63,27 +63,6 @@ export default function StepPanel({ step, stepNumber, totalSteps, isCompleted, o
           {renderMarkdown(step.instruction)}
         </div>
 
-        {/* Expected commands preview */}
-        {step.expected_commands && step.expected_commands.length > 0 && (
-          <div style={{
-            marginTop: 'var(--space-md)', padding: 'var(--space-sm) var(--space-md)',
-            background: 'var(--bg-terminal)', borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--border-subtle)'
-          }}>
-            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-              Expected Commands
-            </div>
-            {step.expected_commands.map((cmd, i) => (
-              <div key={i} style={{
-                fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
-                color: 'var(--accent)', opacity: 0.7, padding: '1px 0'
-              }}>
-                {cmd}
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Hint toggle */}
         {step.hint && (
           <div style={{ marginTop: 'var(--space-md)' }}>
@@ -103,6 +82,39 @@ export default function StepPanel({ step, stepNumber, totalSteps, isCompleted, o
                 fontSize: '0.875rem', fontFamily: 'var(--font-mono)'
               }}>
                 {step.hint}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Help toggle — expected commands */}
+        {step.expected_commands && step.expected_commands.length > 0 && (
+          <div style={{ marginTop: 'var(--space-sm)' }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowHelp(!showHelp)}
+              style={{ color: 'var(--color-info)' }}
+            >
+              <LifeBuoy size={14} />
+              {showHelp ? 'Hide Help' : 'Show Help'}
+            </button>
+            {showHelp && (
+              <div style={{
+                marginTop: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)',
+                background: 'var(--bg-terminal)', borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-subtle)'
+              }}>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                  Expected Commands
+                </div>
+                {step.expected_commands.map((cmd, i) => (
+                  <div key={i} style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
+                    color: 'var(--accent)', opacity: 0.7, padding: '1px 0'
+                  }}>
+                    {cmd}
+                  </div>
+                ))}
               </div>
             )}
           </div>
