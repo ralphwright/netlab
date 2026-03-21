@@ -31,6 +31,7 @@ VLAN_SVI_SQL = os.path.join(SQL_DIR, "migrate_vlan_svi.sql")
 SUBNET_SQL = os.path.join(SQL_DIR, "migrate_subnetting.sql")
 INTEG_REBUILD_SQL = os.path.join(SQL_DIR, "migrate_integration_rebuild.sql")
 REORDER_SQL = os.path.join(SQL_DIR, "migrate_reorder.sql")
+PREREQ_SQL = os.path.join(SQL_DIR, "migrate_prereq_steps.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -344,6 +345,21 @@ async def _run_migrations():
             log.info(f"[netlab] Reorder: {ok} statements OK, {len(errs)} errors")
         else:
             log.info("[netlab] Topics/labs already in logical order")
+
+        # Add prerequisite setup steps to labs if not already done
+        async with engine.connect() as conn:
+            result = await conn.execute(text(
+                "SELECT title FROM lab_steps ls JOIN labs l ON l.id = ls.lab_id "
+                "WHERE l.slug = 'stp-loop-prevention' AND ls.step_number = 1"
+            ))
+            stp_step1 = result.scalar() or ''
+
+        if 'Setup' not in stp_step1:
+            log.info("[netlab] Labs missing prerequisite steps — running prereq migration")
+            ok, errs = await _run_sql_file(PREREQ_SQL)
+            log.info(f"[netlab] Prereq steps: {ok} statements OK, {len(errs)} errors")
+        else:
+            log.info("[netlab] Labs already have prerequisite steps")
 
     except Exception as e:
         log.warning(f"[netlab] Migration check failed: {e}")
