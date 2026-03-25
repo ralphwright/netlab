@@ -6,10 +6,15 @@ import { BookOpen, ArrowRight, Layers, ChevronDown, ChevronRight } from 'lucide-
 export default function TheoryList() {
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openGroups, setOpenGroups] = useState({});
 
   useEffect(() => {
     api.getTheoryList()
-      .then(setTopics)
+      .then((data) => {
+        setTopics(data);
+        // Default all groups open — keyed by index
+        setOpenGroups(Object.fromEntries(data.map((_, i) => [i, true])));
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -39,10 +44,6 @@ export default function TheoryList() {
   ];
 
   // Track open/closed state per group index, default all open
-  const [openGroups, setOpenGroups] = useState(() =>
-    Object.fromEntries(groups.map((_, i) => [i, true]))
-  );
-
   const toggleGroup = (i) => setOpenGroups((prev) => ({ ...prev, [i]: !prev[i] }));
 
   return (
