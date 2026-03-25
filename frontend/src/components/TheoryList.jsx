@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { BookOpen, ArrowRight, Layers } from 'lucide-react';
+import { BookOpen, ArrowRight, Layers, ChevronDown, ChevronRight } from 'lucide-react';
 
 export default function TheoryList() {
   const [topics, setTopics] = useState([]);
@@ -38,6 +38,13 @@ export default function TheoryList() {
     { title: '9. Remote Access', filter: (t) => ['remote-access'].includes(t.slug) },
   ];
 
+  // Track open/closed state per group index, default all open
+  const [openGroups, setOpenGroups] = useState(() =>
+    Object.fromEntries(groups.map((_, i) => [i, true]))
+  );
+
+  const toggleGroup = (i) => setOpenGroups((prev) => ({ ...prev, [i]: !prev[i] }));
+
   return (
     <div className="fade-in">
       {/* Hero */}
@@ -58,63 +65,83 @@ export default function TheoryList() {
       {groups.map((group, gi) => {
         const groupTopics = topics.filter(group.filter);
         if (groupTopics.length === 0) return null;
+        const isOpen = openGroups[gi] !== false;
 
         return (
           <section key={gi} style={{ marginBottom: 'var(--space-2xl)' }}>
-            <h2 style={{
-              fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-secondary)',
-              marginBottom: 'var(--space-md)', paddingBottom: 'var(--space-sm)',
-              borderBottom: '1px solid var(--border-subtle)',
-              fontFamily: 'var(--font-display)', letterSpacing: '-0.01em',
-            }}>
-              {group.title}
-            </h2>
+            <button
+              onClick={() => toggleGroup(gi)}
+              style={{
+                width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 10,
+                paddingBottom: 'var(--space-sm)', marginBottom: isOpen ? 'var(--space-md)' : 0,
+                borderBottom: '1px solid var(--border-subtle)',
+                textAlign: 'left',
+              }}
+            >
+              <h2 style={{
+                fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-display)', letterSpacing: '-0.01em',
+                margin: 0, flex: 1,
+              }}>
+                {group.title}
+              </h2>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+                {groupTopics.length} {groupTopics.length === 1 ? 'topic' : 'topics'}
+              </span>
+              {isOpen
+                ? <ChevronDown size={16} color="var(--text-muted)" />
+                : <ChevronRight size={16} color="var(--text-muted)" />
+              }
+            </button>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: 'var(--space-md)',
-            }}>
-              {groupTopics.map((topic, i) => (
-                <Link
-                  key={topic.slug}
-                  to={`/theory/${topic.slug}`}
-                  style={{ textDecoration: 'none' }}
-                >
-                  <div
-                    className={`card fade-in stagger-${(i % 6) + 1}`}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 'var(--space-md)',
-                      padding: 'var(--space-lg)',
-                      borderLeft: `3px solid ${topic.color || 'var(--accent)'}`,
-                      height: '100%',
-                    }}
+            {isOpen && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: 'var(--space-md)',
+              }}>
+                {groupTopics.map((topic, i) => (
+                  <Link
+                    key={topic.slug}
+                    to={`/theory/${topic.slug}`}
+                    style={{ textDecoration: 'none' }}
                   >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 6 }}>
-                        <h3 style={{ fontSize: '1.0625rem', margin: 0 }}>{topic.name}</h3>
-                      </div>
-                      <p style={{
-                        color: 'var(--text-secondary)', fontSize: '0.8125rem',
-                        lineHeight: 1.5, margin: 0,
-                      }}>
-                        {topic.description}
-                      </p>
-                      {topic.osi_layer && (
-                        <div style={{
-                          marginTop: 'var(--space-sm)',
-                          fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
-                          color: topic.color || 'var(--text-muted)',
-                        }}>
-                          {topic.osi_layer}
+                    <div
+                      className={`card fade-in stagger-${(i % 6) + 1}`}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 'var(--space-md)',
+                        padding: 'var(--space-lg)',
+                        borderLeft: `3px solid ${topic.color || 'var(--accent)'}`,
+                        height: '100%',
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 6 }}>
+                          <h3 style={{ fontSize: '1.0625rem', margin: 0 }}>{topic.name}</h3>
                         </div>
-                      )}
+                        <p style={{
+                          color: 'var(--text-secondary)', fontSize: '0.8125rem',
+                          lineHeight: 1.5, margin: 0,
+                        }}>
+                          {topic.description}
+                        </p>
+                        {topic.osi_layer && (
+                          <div style={{
+                            marginTop: 'var(--space-sm)',
+                            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                            color: topic.color || 'var(--text-muted)',
+                          }}>
+                            {topic.osi_layer}
+                          </div>
+                        )}
+                      </div>
+                      <ArrowRight size={16} color="var(--text-muted)" style={{ marginTop: 4, flexShrink: 0 }} />
                     </div>
-                    <ArrowRight size={16} color="var(--text-muted)" style={{ marginTop: 4, flexShrink: 0 }} />
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </section>
         );
       })}
