@@ -33,7 +33,8 @@ INTEG_REBUILD_SQL = os.path.join(SQL_DIR, "migrate_integration_rebuild.sql")
 REORDER_SQL = os.path.join(SQL_DIR, "migrate_reorder.sql")
 PREREQ_SQL = os.path.join(SQL_DIR, "migrate_prereq_steps.sql")
 FOUNDATIONS_SQL = os.path.join(SQL_DIR, "migrate_foundations.sql")
-FOUNDATIONS_SQL = os.path.join(SQL_DIR, "migrate_foundations.sql")
+NETARCH_SQL = os.path.join(SQL_DIR, "migrate_netarch_redo.sql")
+NETARCH_SQL = os.path.join(SQL_DIR, "migrate_netarch_rebuild.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -411,6 +412,25 @@ async def _run_migrations():
             log.info("[netlab] Foundation topics already present")
     except Exception as e:
         log.warning(f"[netlab] Foundations migration failed: {e}")
+
+    # 10. Redo network-layer-arch as hierarchical design
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text(
+                "SELECT description FROM topics WHERE slug = 'network-layer-arch'"
+            ))
+            desc = result.scalar() or ''
+
+        if 'Core' not in desc and 'hierarchical' not in desc:
+            log.info("[netlab] Network architecture topic needs redo — running migration")
+            ok, errs = await _run_sql_file(NETARCH_SQL)
+            log.info(f"[netlab] Netarch redo: {ok} statements OK, {len(errs)} errors")
+            for e in errs[:5]:
+                log.warning(f"[netlab] Netarch error: {e}")
+        else:
+            log.info("[netlab] Network architecture topic already updated")
+    except Exception as e:
+        log.warning(f"[netlab] Netarch redo failed: {e}")
 
 
 @asynccontextmanager
