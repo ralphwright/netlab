@@ -34,7 +34,7 @@ REORDER_SQL = os.path.join(SQL_DIR, "migrate_reorder.sql")
 PREREQ_SQL = os.path.join(SQL_DIR, "migrate_prereq_steps.sql")
 FOUNDATIONS_SQL = os.path.join(SQL_DIR, "migrate_foundations.sql")
 NETARCH_SQL = os.path.join(SQL_DIR, "migrate_netarch_redo.sql")
-NETARCH_SQL = os.path.join(SQL_DIR, "migrate_netarch_redo.sql")
+FOUNDATIONS_CONTENT_SQL = os.path.join(SQL_DIR, "migrate_foundations_content.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -431,6 +431,26 @@ async def _run_migrations():
             log.info("[netlab] Network architecture topic already updated")
     except Exception as e:
         log.warning(f"[netlab] Netarch redo failed: {e}")
+
+    # 11. Foundations content enrichment (richer theory_md / practical_md)
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text(
+                "SELECT length(theory_md) FROM topic_content tc "
+                "JOIN topics t ON t.id = tc.topic_id WHERE t.slug = 'osi-model'"
+            ))
+            theory_len = result.scalar() or 0
+
+        if theory_len < 1000:
+            log.info("[netlab] Foundation content is thin — running enrichment migration")
+            ok, errs = await _run_sql_file(FOUNDATIONS_CONTENT_SQL)
+            log.info(f"[netlab] Foundations content: {ok} statements OK, {len(errs)} errors")
+            for e in errs[:10]:
+                log.warning(f"[netlab] Foundations content error: {e}")
+        else:
+            log.info("[netlab] Foundation content already enriched")
+    except Exception as e:
+        log.warning(f"[netlab] Foundations content migration failed: {e}")
 
 
 @asynccontextmanager

@@ -1009,24 +1009,608 @@ function SubnettingDiagram() {
 }
 
 // ────────────────────────────────────────────────────────────────
+// Network Types — geographic scope visual
+// ────────────────────────────────────────────────────────────────
+const NET_TYPES = [
+  { name: 'PAN',      scope: 'Personal (~10m)',     speed: '< 3 Mbps',      color: '#78909c', ex: 'Bluetooth, NFC',        radius: 28  },
+  { name: 'LAN',      scope: 'Building (< 100m)',   speed: '1–100 Gbps',    color: '#00e5ff', ex: 'Ethernet, Wi-Fi',       radius: 52  },
+  { name: 'WLAN',     scope: 'Building (wireless)', speed: '600M–9.6 Gbps', color: '#039be5', ex: '802.11ax (Wi-Fi 6)',    radius: 52  },
+  { name: 'MAN',      scope: 'City (5–50 km)',      speed: '1–100 Gbps',    color: '#7c4dff', ex: 'Metro Ethernet',        radius: 76  },
+  { name: 'WAN',      scope: 'Country/Globe',       speed: '1M–100 Gbps',   color: '#f50057', ex: 'MPLS, SD-WAN, VPN',     radius: 100 },
+  { name: 'Internet', scope: 'Global',              speed: 'Varies',        color: '#ffab00', ex: '~80,000 ASes via BGP',  radius: 124 },
+];
+
+function NetworkTypesDiagram() {
+  const [active, setActive] = useState(null);
+  const [step, setStep]     = useState(0);
+
+  useEffect(() => {
+    if (step < NET_TYPES.length) {
+      const t = setTimeout(() => setStep((s) => s + 1), 380);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
+
+  function replay() { setStep(0); setActive(null); }
+
+  const info = active !== null ? NET_TYPES[active] : NET_TYPES[Math.min(step - 1, NET_TYPES.length - 1)];
+
+  return (
+    <DiagramShell title="NETWORK TYPES — GEOGRAPHIC SCOPE" onReplay={replay}>
+      <div style={{ padding: 20, display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+        {/* Concentric circles */}
+        <svg width="260" height="260" viewBox="0 0 260 260" style={{ flexShrink: 0 }}>
+          {NET_TYPES.map((t, i) => (
+            <circle key={t.name}
+              cx="130" cy="130"
+              r={t.radius}
+              fill="none"
+              stroke={step > i ? t.color : 'var(--border-subtle)'}
+              strokeWidth={active === i ? 2.5 : 1.5}
+              strokeDasharray={i >= 2 && i < 4 ? '5,3' : 'none'}
+              opacity={step > i ? (active === i ? 1 : 0.6) : 0.15}
+              style={{ cursor: 'pointer', transition: 'all 0.35s' }}
+              onClick={() => setActive(active === i ? null : i)}
+            />
+          ))}
+          {NET_TYPES.map((t, i) => step > i && (
+            <text key={t.name + '-l'}
+              x={130 + t.radius - 4}
+              y={130}
+              fill={t.color}
+              fontSize="9"
+              fontFamily="monospace"
+              fontWeight="700"
+              textAnchor="end"
+              dominantBaseline="middle"
+              style={{ cursor: 'pointer', pointerEvents: 'none' }}
+            >{t.name}</text>
+          ))}
+          <circle cx="130" cy="130" r="8" fill="var(--accent)" opacity="0.9" />
+          <text x="130" y="130" fill="#000" fontSize="7" fontWeight="800" textAnchor="middle" dominantBaseline="middle">YOU</text>
+        </svg>
+
+        {/* Detail panel */}
+        {info && step > 0 && (
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 10 }}>
+              {active !== null ? 'SELECTED' : 'LATEST'} →
+            </div>
+            {NET_TYPES.map((t, i) => (
+              <div key={t.name} style={{
+                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5,
+                opacity: step > i ? 1 : 0.2, transition: 'opacity 0.35s',
+                cursor: 'pointer',
+              }} onClick={() => setActive(active === i ? null : i)}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: t.color, flexShrink: 0,
+                  boxShadow: active === i ? `0 0 8px ${t.color}` : 'none', transition: 'box-shadow 0.2s' }} />
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: t.color }}>{t.name}</span>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginLeft: 6 }}>{t.scope}</span>
+                </div>
+              </div>
+            ))}
+            {active !== null && (
+              <div style={{ marginTop: 12, padding: '10px 12px', background: `${info.color}12`, border: `1px solid ${info.color}40`, borderRadius: 6 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.875rem', color: info.color, marginBottom: 4 }}>{info.name}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  <div>📏 {info.scope}</div>
+                  <div>⚡ {info.speed}</div>
+                  <div>🔌 {info.ex}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </DiagramShell>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Network Topologies — animated comparison with failure sim
+// ────────────────────────────────────────────────────────────────
+const TOPOS = [
+  { name: 'Bus',    color: '#ff6d00' },
+  { name: 'Star',   color: '#00e5ff' },
+  { name: 'Ring',   color: '#7c4dff' },
+  { name: 'Mesh',   color: '#00e676' },
+];
+
+function TopologyComparisonDiagram() {
+  const [active, setActive] = useState(1); // default to Star
+  const [failed, setFailed] = useState(null);
+  const [showFail, setShowFail]   = useState(false);
+
+  function simulateFail() {
+    setShowFail(true);
+    setFailed(active === 1 ? 'center' : active === 0 ? 'bus' : active === 2 ? 'link' : null);
+    setTimeout(() => { setShowFail(false); setFailed(null); }, 2000);
+  }
+
+  const topo = TOPOS[active];
+
+  // Node positions for each topology
+  const cx = 100, cy = 90, r = 55;
+  const nodes = Array.from({ length: 5 }, (_, i) => ({
+    x: cx + r * Math.cos((i * 2 * Math.PI) / 5 - Math.PI / 2),
+    y: cy + r * Math.sin((i * 2 * Math.PI) / 5 - Math.PI / 2),
+  }));
+  const hub = { x: cx, y: cy };
+
+  const impactMsg = {
+    0: showFail ? '⚠ Entire network down — single cable failure' : 'All share one cable. Break anywhere = total outage.',
+    1: showFail ? '⚠ Only one device disconnected — others unaffected' : 'Central switch is SPOF. One cable = one device affected.',
+    2: showFail ? '⚠ Ring broken — traffic disrupted (unless dual-ring)' : 'Break in ring disrupts entire loop (single-ring).',
+    3: showFail ? '✓ Network continues — multiple redundant paths' : 'Every device connects to every other. Maximum resilience.',
+  };
+
+  return (
+    <DiagramShell title="NETWORK TOPOLOGIES — COMPARISON">
+      <div style={{ padding: '14px 20px' }}>
+        {/* Selector */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+          {TOPOS.map((t, i) => (
+            <button key={t.name} style={{
+              padding: '4px 14px', borderRadius: 4, border: `1px solid ${active === i ? t.color : 'var(--border-subtle)'}`,
+              background: active === i ? `${t.color}18` : 'var(--bg-elevated)',
+              color: active === i ? t.color : 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: active === i ? 700 : 400,
+              cursor: 'pointer', transition: 'all 0.2s',
+            }} onClick={() => { setActive(i); setShowFail(false); setFailed(null); }}>
+              {t.name}
+            </button>
+          ))}
+          <button style={{
+            padding: '4px 14px', borderRadius: 4, border: '1px solid var(--color-error)',
+            background: 'rgba(255,23,68,0.08)', color: 'var(--color-error)',
+            fontFamily: 'var(--font-mono)', fontSize: '0.75rem', cursor: 'pointer', marginLeft: 'auto',
+          }} onClick={simulateFail}>
+            ⚡ Simulate Failure
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          {/* SVG diagram */}
+          <svg width="200" height="180" viewBox="0 0 200 180" style={{ flexShrink: 0 }}>
+            {/* Bus */}
+            {active === 0 && (<>
+              <line x1="20" y1="90" x2="180" y2="90" stroke={showFail ? '#ff1744' : topo.color} strokeWidth="3" strokeDasharray={showFail ? '6,4' : 'none'} />
+              {[0,1,2,3,4].map(i => {
+                const x = 30 + i * 35;
+                return (<g key={i}>
+                  <line x1={x} y1="90" x2={x} y2={i%2===0?55:125} stroke={topo.color} strokeWidth="1.5" opacity={showFail ? 0.3 : 0.7} />
+                  <circle cx={x} cy={i%2===0?50:130} r="10" fill={`${topo.color}22`} stroke={topo.color} strokeWidth="1.5" opacity={showFail ? 0.3 : 1} />
+                  <text x={x} y={i%2===0?54:134} textAnchor="middle" fill={topo.color} fontSize="8" fontWeight="bold" dominantBaseline="middle">PC</text>
+                </g>);
+              })}
+              {showFail && <text x="100" y="75" textAnchor="middle" fill="#ff1744" fontSize="11" fontWeight="bold">✗ BREAK</text>}
+            </>)}
+
+            {/* Star */}
+            {active === 1 && (<>
+              {nodes.map((n, i) => (
+                <line key={i} x1={hub.x} y1={hub.y} x2={n.x} y2={n.y}
+                  stroke={showFail && i === 2 ? '#ff1744' : topo.color}
+                  strokeWidth="1.5" opacity={showFail && i === 2 ? 1 : 0.7}
+                  strokeDasharray={showFail && i === 2 ? '5,3' : 'none'} />
+              ))}
+              <rect x={hub.x-18} y={hub.y-14} width="36" height="28" rx="4"
+                fill={showFail ? 'rgba(0,229,255,0.1)' : 'rgba(0,229,255,0.15)'}
+                stroke={topo.color} strokeWidth="2" />
+              <text x={hub.x} y={hub.y} textAnchor="middle" fill={topo.color} fontSize="8" fontWeight="bold" dominantBaseline="middle">SW</text>
+              {nodes.map((n, i) => (
+                <g key={i}>
+                  <circle cx={n.x} cy={n.y} r="11" fill={showFail && i === 2 ? 'rgba(255,23,68,0.15)' : `${topo.color}22`}
+                    stroke={showFail && i === 2 ? '#ff1744' : topo.color} strokeWidth="1.5" />
+                  <text x={n.x} y={n.y} textAnchor="middle" fill={showFail && i === 2 ? '#ff1744' : topo.color}
+                    fontSize="7" fontWeight="bold" dominantBaseline="middle">{showFail && i === 2 ? '✗' : 'PC'}</text>
+                </g>
+              ))}
+            </>)}
+
+            {/* Ring */}
+            {active === 2 && (<>
+              {nodes.map((n, i) => {
+                const next = nodes[(i + 1) % nodes.length];
+                const broken = showFail && i === 1;
+                return <line key={i} x1={n.x} y1={n.y} x2={next.x} y2={next.y}
+                  stroke={broken ? '#ff1744' : topo.color} strokeWidth="1.5"
+                  strokeDasharray={broken ? '5,3' : 'none'} opacity={broken ? 1 : 0.7} />;
+              })}
+              {nodes.map((n, i) => (
+                <g key={i}>
+                  <circle cx={n.x} cy={n.y} r="11" fill={`${topo.color}22`} stroke={topo.color} strokeWidth="1.5" />
+                  <text x={n.x} y={n.y} textAnchor="middle" fill={topo.color} fontSize="7" fontWeight="bold" dominantBaseline="middle">SW</text>
+                </g>
+              ))}
+              {showFail && <text x="100" y="165" textAnchor="middle" fill="#ff1744" fontSize="9" fontWeight="bold">⚠ Ring broken</text>}
+            </>)}
+
+            {/* Mesh */}
+            {active === 3 && (<>
+              {nodes.map((n, i) => nodes.slice(i+1).map((m, j) => (
+                <line key={`${i}-${j}`} x1={n.x} y1={n.y} x2={m.x} y2={m.y}
+                  stroke={topo.color} strokeWidth="1" opacity={showFail && i===0 && j===0 ? 0.1 : 0.5} />
+              )))}
+              {nodes.map((n, i) => (
+                <g key={i}>
+                  <circle cx={n.x} cy={n.y} r="12" fill={`${topo.color}22`} stroke={topo.color} strokeWidth="1.5" />
+                  <text x={n.x} y={n.y} textAnchor="middle" fill={topo.color} fontSize="7" fontWeight="bold" dominantBaseline="middle">R{i+1}</text>
+                </g>
+              ))}
+              {showFail && <text x="100" y="165" textAnchor="middle" fill="#00e676" fontSize="9" fontWeight="bold">✓ Rerouting via alternate paths</text>}
+            </>)}
+          </svg>
+
+          {/* Info */}
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '1rem', color: topo.color, marginBottom: 8 }}>{topo.name}</div>
+            {[
+              ['Status', active === 0 || active === 2 ? 'Obsolete' : active === 1 ? 'Most common (LAN)' : 'WAN / DC core'],
+              ['SPOF', active === 0 ? 'Bus cable' : active === 1 ? 'Central switch' : active === 2 ? 'Any link' : 'None'],
+              ['Cost', active === 3 ? 'High (many links)' : active === 0 ? 'Low' : 'Medium'],
+              ['Scale', active === 3 ? 'Poor (n²)' : active === 1 ? 'Excellent' : 'Poor'],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', gap: 8, marginBottom: 5, fontSize: '0.8125rem' }}>
+                <span style={{ color: 'var(--text-muted)', minWidth: 50, fontFamily: 'var(--font-mono)', fontSize: '0.6875rem' }}>{k}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{v}</span>
+              </div>
+            ))}
+            <div style={{
+              marginTop: 12, padding: '8px 10px', borderRadius: 5,
+              background: showFail ? (active === 3 ? 'rgba(0,230,118,0.08)' : 'rgba(255,23,68,0.08)') : `${topo.color}0f`,
+              border: `1px solid ${showFail ? (active === 3 ? '#00e676' : '#ff1744') : topo.color}40`,
+              fontSize: '0.75rem', color: 'var(--text-secondary)', transition: 'all 0.3s',
+            }}>
+              {impactMsg[active]}
+            </div>
+          </div>
+        </div>
+      </div>
+    </DiagramShell>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Network Devices — OSI layer mapping
+// ────────────────────────────────────────────────────────────────
+const DEVICE_LAYER_DATA = [
+  { layer: 7, name: 'Application', color: '#6366f1', devices: ['Proxy', 'WAF', 'Load Balancer'], protocols: 'HTTP, DNS, SMTP' },
+  { layer: 6, name: 'Presentation', color: '#8b5cf6', devices: ['IPS/IDS', 'NGFW'], protocols: 'TLS, SSL, JPEG' },
+  { layer: 5, name: 'Session', color: '#a855f7', devices: [], protocols: 'RPC, NetBIOS' },
+  { layer: 4, name: 'Transport', color: '#ec4899', devices: ['Firewall (stateful)'], protocols: 'TCP, UDP' },
+  { layer: 3, name: 'Network', color: '#f43f5e', devices: ['Router', 'L3 Switch'], protocols: 'IP, ICMP, OSPF' },
+  { layer: 2, name: 'Data Link', color: '#f97316', devices: ['Switch', 'Bridge', 'AP'], protocols: 'Ethernet, 802.11' },
+  { layer: 1, name: 'Physical', color: '#eab308', devices: ['Hub', 'Repeater', 'NIC', 'Cable'], protocols: 'Signals, bits' },
+];
+
+function NetworkDevicesDiagram() {
+  const [highlight, setHighlight] = useState(null);
+
+  return (
+    <DiagramShell title="NETWORK DEVICES — OSI LAYER MAPPING">
+      <div style={{ padding: '14px 20px' }}>
+        <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 10, textAlign: 'center' }}>
+          Click a layer to highlight — devices operate at that layer and below
+        </div>
+        {DEVICE_LAYER_DATA.map((row) => {
+          const isHighlighted = highlight === null || highlight >= row.layer;
+          return (
+            <div key={row.layer} style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3,
+              cursor: 'pointer', opacity: isHighlighted ? 1 : 0.3, transition: 'opacity 0.2s',
+            }} onClick={() => setHighlight(highlight === row.layer ? null : row.layer)}>
+              {/* Layer badge */}
+              <div style={{
+                width: 22, height: 22, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isHighlighted ? `${row.color}22` : 'var(--bg-elevated)',
+                border: `1px solid ${isHighlighted ? row.color : 'var(--border-subtle)'}`,
+                fontSize: '0.625rem', fontWeight: 700, color: row.color, flexShrink: 0, transition: 'all 0.2s',
+              }}>{row.layer}</div>
+
+              {/* Layer name */}
+              <div style={{ width: 100, fontSize: '0.75rem', fontWeight: 600, color: isHighlighted ? row.color : 'var(--text-muted)', flexShrink: 0 }}>
+                {row.name}
+              </div>
+
+              {/* Devices */}
+              <div style={{ flex: 1, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {row.devices.map((d) => (
+                  <span key={d} style={{
+                    padding: '1px 8px', borderRadius: 3,
+                    background: isHighlighted ? `${row.color}18` : 'var(--bg-elevated)',
+                    border: `1px solid ${isHighlighted ? row.color : 'var(--border-subtle)'}`,
+                    fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', color: isHighlighted ? row.color : 'var(--text-muted)',
+                    transition: 'all 0.2s',
+                  }}>{d}</span>
+                ))}
+                {row.devices.length === 0 && <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>—</span>}
+              </div>
+
+              {/* Protocols */}
+              <div style={{ width: 130, fontSize: '0.6375rem', color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
+                {row.protocols}
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+          {highlight ? `L${highlight} devices understand all layers up to L${highlight}` : 'Higher-layer devices understand all layers below them'}
+        </div>
+      </div>
+    </DiagramShell>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Cables & Transmission — speed/distance comparison bars
+// ────────────────────────────────────────────────────────────────
+const CABLE_DATA = [
+  { name: 'Cat5e UTP',    type: 'Copper', speed: '1 Gbps',    distM: 100, speedN: 1,   color: '#ffab00',  icon: '🔶', notes: 'Standard office LAN' },
+  { name: 'Cat6 UTP',     type: 'Copper', speed: '10 Gbps',   distM: 55,  speedN: 10,  color: '#ff9800',  icon: '🔶', notes: '10G only at 55m' },
+  { name: 'Cat6a UTP',    type: 'Copper', speed: '10 Gbps',   distM: 100, speedN: 10,  color: '#ff6d00',  icon: '🔶', notes: 'Full 10G at 100m' },
+  { name: 'Cat8 UTP',     type: 'Copper', speed: '40 Gbps',   distM: 30,  speedN: 40,  color: '#e64a19',  icon: '🔶', notes: 'Data centre only' },
+  { name: 'MMF OM4',      type: 'Fibre',  speed: '10 Gbps',   distM: 400, speedN: 10,  color: '#e040fb',  icon: '🟣', notes: 'Orange/aqua jacket' },
+  { name: 'MMF OM5',      type: 'Fibre',  speed: '100 Gbps',  distM: 150, speedN: 100, color: '#ab47bc',  icon: '🟣', notes: 'Short-reach 400G' },
+  { name: 'SMF OS2',      type: 'Fibre',  speed: '100 Gbps',  distM: 10000, speedN: 100, color: '#00e676', icon: '🟡', notes: 'Yellow jacket, long-haul' },
+  { name: 'Wi-Fi 5 (ac)', type: 'Wireless', speed: '3.5 Gbps', distM: 50, speedN: 3.5, color: '#039be5',  icon: '📡', notes: '5 GHz, 23 channels' },
+  { name: 'Wi-Fi 6 (ax)', type: 'Wireless', speed: '9.6 Gbps', distM: 100, speedN: 9.6, color: '#0288d1', icon: '📡', notes: 'OFDMA, dense envs' },
+];
+
+function CablesDiagram() {
+  const [sort, setSort] = useState('speed');
+  const maxSpeed = 100, maxDist = 10000;
+  const sorted = [...CABLE_DATA].sort((a, b) => sort === 'speed' ? b.speedN - a.speedN : b.distM - a.distM);
+
+  return (
+    <DiagramShell title="CABLES & TRANSMISSION — SPEED AND DISTANCE COMPARISON">
+      <div style={{ padding: '14px 20px' }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12, alignItems: 'center' }}>
+          <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Sort:</span>
+          {['speed', 'distance'].map((s) => (
+            <button key={s} style={{
+              padding: '2px 10px', borderRadius: 4, border: `1px solid ${sort === s ? 'var(--accent)' : 'var(--border-subtle)'}`,
+              background: sort === s ? 'var(--accent-glow)' : 'var(--bg-elevated)',
+              color: sort === s ? 'var(--accent)' : 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', cursor: 'pointer',
+            }} onClick={() => setSort(s)}>{s}</button>
+          ))}
+        </div>
+
+        {sorted.map((c) => (
+          <div key={c.name} style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+              <span style={{ fontSize: '0.6875rem', minWidth: 110, fontFamily: 'var(--font-mono)', color: c.color }}>{c.icon} {c.name}</span>
+              <div style={{ flex: 1, height: 10, background: 'var(--bg-elevated)', borderRadius: 5, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ width: `${(c.speedN / maxSpeed) * 100}%`, height: '100%', background: c.color, borderRadius: 5, opacity: 0.85, transition: 'width 0.5s ease' }} />
+              </div>
+              <span style={{ minWidth: 68, fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', color: c.color, textAlign: 'right' }}>{c.speed}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ minWidth: 110, fontSize: '0.5875rem', color: 'var(--text-muted)', paddingLeft: 18, fontFamily: 'var(--font-mono)' }}>{c.notes}</span>
+              <div style={{ flex: 1, height: 5, background: 'var(--bg-elevated)', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ width: `${Math.min((c.distM / maxDist) * 100, 100)}%`, height: '100%', background: c.color, borderRadius: 3, opacity: 0.4, transition: 'width 0.5s ease' }} />
+              </div>
+              <span style={{ minWidth: 68, fontSize: '0.5875rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', textAlign: 'right' }}>{c.distM >= 1000 ? (c.distM/1000) + ' km' : c.distM + ' m'}</span>
+            </div>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: '0.6375rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+          <span>🔶 Copper</span><span>🟣 MMF Fibre</span><span>🟡 SMF Fibre</span><span>📡 Wireless</span>
+        </div>
+      </div>
+    </DiagramShell>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Routing Fundamentals — animated longest-prefix-match lookup
+// ────────────────────────────────────────────────────────────────
+const ROUTING_TABLE = [
+  { prefix: '10.0.0.0/8',   via: 'Gi0/0 (connected)', ad: 'C/0',  color: '#546e7a' },
+  { prefix: '10.0.1.0/24',  via: '10.0.12.2',          ad: 'O/110',color: '#00e5ff' },
+  { prefix: '10.0.1.50/32', via: '10.0.12.3',          ad: 'S/1',  color: '#ffab00' },
+  { prefix: '0.0.0.0/0',    via: '10.0.12.1',          ad: 'S*/1', color: '#00e676' },
+];
+
+const TEST_PACKETS = [
+  { dst: '10.0.1.50',  desc: 'Host route match', winner: 2 },
+  { dst: '10.0.1.100', desc: 'Subnet match',     winner: 1 },
+  { dst: '10.0.2.1',   desc: 'Class A match',    winner: 0 },
+  { dst: '8.8.8.8',    desc: 'Default route',    winner: 3 },
+];
+
+function RoutingDiagram() {
+  const [packetIdx, setPacketIdx] = useState(0);
+  const [checking, setChecking]   = useState(-1);
+  const [winner, setWinner]       = useState(null);
+
+  const pkt = TEST_PACKETS[packetIdx];
+
+  useEffect(() => {
+    setChecking(-1); setWinner(null);
+    let idx = 0;
+    const run = () => {
+      if (idx <= pkt.winner) {
+        setChecking(idx);
+        if (idx === pkt.winner) {
+          setTimeout(() => setWinner(pkt.winner), 450);
+        }
+        idx++;
+        if (idx <= pkt.winner) setTimeout(run, 600);
+      }
+    };
+    const t = setTimeout(run, 400);
+    return () => clearTimeout(t);
+  }, [packetIdx]);
+
+  return (
+    <DiagramShell title="ROUTING — LONGEST PREFIX MATCH LOOKUP">
+      <div style={{ padding: '14px 20px' }}>
+        {/* Packet selector */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Destination:</span>
+          {TEST_PACKETS.map((p, i) => (
+            <button key={p.dst} style={{
+              padding: '3px 10px', borderRadius: 4,
+              border: `1px solid ${packetIdx === i ? '#00e5ff' : 'var(--border-subtle)'}`,
+              background: packetIdx === i ? 'rgba(0,229,255,0.12)' : 'var(--bg-elevated)',
+              color: packetIdx === i ? '#00e5ff' : 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)', fontSize: '0.75rem', cursor: 'pointer',
+            }} onClick={() => setPacketIdx(i)}>{p.dst}</button>
+          ))}
+        </div>
+
+        {/* Routing table */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
+            ROUTING TABLE — checking for dst: <span style={{ color: '#00e5ff', fontWeight: 700 }}>{pkt.dst}</span>
+          </div>
+          {ROUTING_TABLE.map((row, i) => {
+            const isChecking = checking === i && winner === null;
+            const isWinner   = winner === i;
+            const isLooser   = winner !== null && i !== winner && i <= pkt.winner;
+            return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', marginBottom: 3,
+                borderRadius: 5, transition: 'all 0.3s',
+                background: isWinner ? `${row.color}18` : isChecking ? `${row.color}0d` : isLooser ? 'rgba(255,23,68,0.04)' : 'var(--bg-elevated)',
+                border: `1px solid ${isWinner ? row.color : isChecking ? `${row.color}60` : isLooser ? 'rgba(255,23,68,0.15)' : 'var(--border-subtle)'}`,
+              }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 700, color: row.color, minWidth: 130 }}>{row.prefix}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-muted)', minWidth: 55 }}>{row.ad}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-secondary)', flex: 1 }}>via {row.via}</span>
+                <span style={{ fontSize: '0.875rem' }}>
+                  {isWinner ? '✓' : isChecking ? '⟳' : isLooser ? '✗' : ''}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {winner !== null && (
+          <div style={{
+            padding: '8px 12px', borderRadius: 6, animation: 'fade-in-up 0.25s ease',
+            background: `${ROUTING_TABLE[winner].color}15`,
+            border: `1px solid ${ROUTING_TABLE[winner].color}50`,
+            fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
+            color: ROUTING_TABLE[winner].color,
+          }}>
+            ✓ Best match: <strong>{ROUTING_TABLE[winner].prefix}</strong> — {pkt.desc} (longest prefix wins)
+          </div>
+        )}
+      </div>
+    </DiagramShell>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// How The Internet Works — end-to-end browser request journey
+// ────────────────────────────────────────────────────────────────
+const INTERNET_STEPS = [
+  { label: 'DNS Query',       icon: '🔍', color: '#ffab00', detail: 'Browser asks resolver: what is the IP for www.example.com?', mac: 'Changes', ip: 'PC → DNS' },
+  { label: 'DNS Response',    icon: '📋', color: '#ffab00', detail: 'Resolver returns: 93.184.216.34 (cached for TTL seconds)', mac: 'Changes', ip: 'DNS → PC' },
+  { label: 'TCP SYN',         icon: '🤝', color: '#00e5ff', detail: 'PC sends SYN to 93.184.216.34:443 — initiating connection', mac: 'Changes each hop', ip: 'Constant end-to-end' },
+  { label: 'TCP SYN-ACK',     icon: '🤝', color: '#00e5ff', detail: 'Server acknowledges — sends its own sequence number', mac: 'Changes each hop', ip: 'Constant end-to-end' },
+  { label: 'TCP ACK + TLS',   icon: '🔒', color: '#00e676', detail: 'Connection established. TLS handshake begins (cipher negotiation + certificate)', mac: 'Changes each hop', ip: 'Constant end-to-end' },
+  { label: 'NAT Translation', icon: '🔄', color: '#7c4dff', detail: 'Home router rewrites src IP: 192.168.1.10 → 203.0.113.5 and records port mapping', mac: 'N/A', ip: 'Private → Public' },
+  { label: 'BGP Routing',     icon: '🌐', color: '#f50057', detail: 'Packet traverses ISP backbone — BGP routers forward based on AS path', mac: 'Changes every hop', ip: 'Constant end-to-end' },
+  { label: 'HTTP Request',    icon: '📨', color: '#e040fb', detail: 'Browser sends GET /index.html over encrypted TLS channel', mac: 'Changes each hop', ip: 'Constant end-to-end' },
+  { label: 'HTTP Response',   icon: '📥', color: '#00e676', detail: 'Server responds 200 OK with HTML. TCP delivers all segments reliably.', mac: 'Changes each hop', ip: 'Constant end-to-end' },
+  { label: 'Page Rendered',   icon: '✅', color: '#00e676', detail: 'Browser parses HTML/CSS/JS and renders the page. Total: ~50–200ms', mac: '—', ip: '—' },
+];
+
+function HowInternetWorksDiagram() {
+  const [step, setStep] = useState(-1);
+  useEffect(() => { const t = setTimeout(() => setStep(0), 500); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    if (step >= 0 && step < INTERNET_STEPS.length - 1) {
+      const t = setTimeout(() => setStep((s) => s + 1), 800);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
+  function replay() { setStep(-1); setTimeout(() => setStep(0), 300); }
+
+  return (
+    <DiagramShell title="HOW THE INTERNET WORKS — END-TO-END BROWSER REQUEST" onReplay={replay}>
+      <div style={{ padding: '14px 20px' }}>
+        {/* Key concept banner */}
+        <div style={{ display: 'flex', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
+          {[
+            { label: 'MAC addresses', val: 'Change every hop (L2 — node to node)', color: '#f97316' },
+            { label: 'IP addresses', val: 'Stay the same end-to-end (L3)', color: '#00e5ff' },
+          ].map((b) => (
+            <div key={b.label} style={{
+              flex: 1, padding: '6px 10px', borderRadius: 5, minWidth: 180,
+              background: `${b.color}0f`, border: `1px solid ${b.color}30`,
+            }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700, color: b.color }}>{b.label}: </span>
+              <span style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>{b.val}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Step list */}
+        <div style={{ maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
+          {INTERNET_STEPS.map((s, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 6,
+              opacity: step >= i ? 1 : 0.15, transition: 'opacity 0.4s',
+            }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                background: step >= i ? `${s.color}22` : 'var(--bg-elevated)',
+                border: `1.5px solid ${step >= i ? s.color : 'var(--border-subtle)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.875rem', transition: 'all 0.3s',
+              }}>{s.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.8125rem', color: step >= i ? s.color : 'var(--text-muted)' }}>{s.label}</span>
+                  <span style={{ fontSize: '0.5875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    IP: {s.ip}
+                  </span>
+                </div>
+                {step >= i && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{s.detail}</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </DiagramShell>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
 // Dispatcher — maps slug → diagram component
 // ────────────────────────────────────────────────────────────────
 const DIAGRAM_MAP = {
-  'osi-model':          OsiDiagram,
-  'network-layer-arch': OsiDiagram,
-  'vlans':              VlanDiagram,
-  'vlan-roas':          VlanDiagram,
-  'vlan-svi':           VlanDiagram,
-  'dhcp':               DhcpDiagram,
-  'ospf':               OspfDiagram,
-  'stp':                StpDiagram,
-  'dns':                DnsDiagram,
-  'nat':                NatDiagram,
-  'pat':                NatDiagram,
-  'gre':                GreDiagram,
-  'tunneling':          GreDiagram,
-  'lacp':               LacpDiagram,
-  'subnetting':         SubnettingDiagram,
+  // Foundation topics
+  'osi-model':            OsiDiagram,
+  'network-layer-arch':   OsiDiagram,
+  'network-types':        NetworkTypesDiagram,
+  'network-topologies':   TopologyComparisonDiagram,
+  'network-devices':      NetworkDevicesDiagram,
+  'cables-transmission':  CablesDiagram,
+  'routing-fundamentals': RoutingDiagram,
+  'how-internet-works':   HowInternetWorksDiagram,
+  // CCNA topics
+  'vlans':                VlanDiagram,
+  'vlan-roas':            VlanDiagram,
+  'vlan-svi':             VlanDiagram,
+  'dhcp':                 DhcpDiagram,
+  'ospf':                 OspfDiagram,
+  'stp':                  StpDiagram,
+  'dns':                  DnsDiagram,
+  'nat':                  NatDiagram,
+  'pat':                  NatDiagram,
+  'gre':                  GreDiagram,
+  'tunneling':            GreDiagram,
+  'lacp':                 LacpDiagram,
+  'subnetting':           SubnettingDiagram,
 };
 
 export default function TheoryDiagram({ slug }) {
