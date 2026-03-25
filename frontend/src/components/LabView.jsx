@@ -252,6 +252,9 @@ export default function LabView() {
   }
 
   const steps          = lab.steps || [];
+  const isQuiz         = lab.slug?.includes('quiz') || lab.title?.toLowerCase().includes('quiz');
+  const stepLabel      = isQuiz ? 'questions' : 'steps';
+  const stepLabelCap   = isQuiz ? 'Questions' : 'Steps';
   const maxPoints      = steps.reduce((sum, s) => sum + (s.points || 0), 0);
   const progress       = steps.length > 0 ? (completedSteps.size / steps.length) * 100 : 0;
   const currentStepData = steps.find((s) => s.step_number === currentStep);
@@ -326,7 +329,7 @@ export default function LabView() {
 
           <div className="lab-score-desktop">
             <div className="score-pts">{totalPoints} / {maxPoints} pts</div>
-            <div className="score-steps">{completedSteps.size} / {steps.length} steps</div>
+            <div className="score-steps">{completedSteps.size} / {steps.length} {stepLabel}</div>
           </div>
           <div className="lab-progress-desktop">
             <div className="progress-bar">
@@ -374,7 +377,7 @@ export default function LabView() {
 
       {/* Mobile score row */}
       <div className="lab-score-row">
-        <span className="score-text">{completedSteps.size}/{steps.length} steps · {totalPoints}/{maxPoints} pts</span>
+        <span className="score-text">{completedSteps.size}/{steps.length} {stepLabel} · {totalPoints}/{maxPoints} pts</span>
         {saveStatus && (
           <span style={{
             fontSize: '0.625rem', fontFamily: 'var(--font-mono)',
@@ -464,6 +467,7 @@ export default function LabView() {
             <StepPanel
               step={currentStepData} stepNumber={currentStep} totalSteps={steps.length}
               isCompleted={completedSteps.has(currentStep)}
+              isQuiz={isQuiz}
               onPrev={() => currentStep > 1 && goToStep(currentStep - 1)}
               onNext={() => currentStep < steps.length && goToStep(currentStep + 1)}
             />

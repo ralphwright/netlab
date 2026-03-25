@@ -322,7 +322,7 @@ export default function Dashboard() {
                   <Clock size={13} /> {lab.estimated_minutes} min
                 </span>
                 <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                  {lab.step_count} steps
+                  {lab.step_count} {lab.slug?.includes('quiz') ? 'questions' : 'steps'}
                 </span>
               </div>
               <h3 style={{ marginBottom: 'var(--space-sm)' }}>{lab.title}</h3>

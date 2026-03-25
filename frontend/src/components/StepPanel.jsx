@@ -16,7 +16,7 @@ function renderMarkdown(text) {
   });
 }
 
-export default function StepPanel({ step, stepNumber, totalSteps, isCompleted, onPrev, onNext }) {
+export default function StepPanel({ step, stepNumber, totalSteps, isCompleted, isQuiz, onPrev, onNext }) {
   const [showHint, setShowHint] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -38,7 +38,7 @@ export default function StepPanel({ step, stepNumber, totalSteps, isCompleted, o
           <div>
             <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{step.title}</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Step {stepNumber} of {totalSteps}
+              {isQuiz ? 'Question' : 'Step'} {stepNumber} of {totalSteps}
               {step.target_device && (
                 <> · <Target size={11} style={{ verticalAlign: -1 }} /> {step.target_device}</>
               )}
@@ -129,7 +129,7 @@ export default function StepPanel({ step, stepNumber, totalSteps, isCompleted, o
             borderRadius: 'var(--radius-sm)', color: 'var(--color-success)',
             fontSize: '0.875rem', fontWeight: 600
           }}>
-            <CheckCircle size={16} /> Step completed!
+            <CheckCircle size={16} /> {isQuiz ? 'Question answered!' : 'Step completed!'}
           </div>
         )}
       </div>
