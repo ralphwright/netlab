@@ -42,10 +42,15 @@ export default function TerminalEmulator({ labSlug, deviceName, step, onStepComp
 
   useEffect(() => {
     if (deviceName) {
-      setPrompt(`${deviceName}#`);
+      const isQuiz = deviceName === 'QUIZ';
+      setPrompt(isQuiz ? 'Answer>' : `${deviceName}#`);
       setHistory([
-        { type: 'system', text: `--- Connected to ${deviceName} ---` },
-        { type: 'system', text: 'Type Cisco IOS commands. Use "?" for help.' },
+        { type: 'system', text: isQuiz
+          ? '--- Interactive Quiz ---'
+          : `--- Connected to ${deviceName} ---` },
+        { type: 'system', text: isQuiz
+          ? 'Type your answer and press Enter.'
+          : 'Type Cisco IOS commands. Use "?" for help.' },
       ]);
       setEnteredCommands([]);
     }

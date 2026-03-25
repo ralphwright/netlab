@@ -37,6 +37,10 @@ DEVICE_MODES = {}  # device_name -> current mode string
 
 
 def get_prompt(device_name: str, mode: str) -> str:
+    # Quiz device gets a special prompt
+    if device_name == "QUIZ":
+        return "Answer>"
+
     prompts = {
         "user": f"{device_name}>",
         "privileged": f"{device_name}#",
@@ -295,6 +299,11 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
 def simulate_output(command: str, device_name: str) -> tuple[str, str]:
     """Return (output_text, new_mode)."""
     cmd = command.strip().lower()
+
+    # Quiz mode — just echo the answer back, no IOS simulation
+    if device_name == "QUIZ":
+        return (f"  → {command.strip()}", "quiz")
+
     current_mode = DEVICE_MODES.get(device_name, "privileged")
 
     # Mode transitions
@@ -348,6 +357,10 @@ def simulate_output(command: str, device_name: str) -> tuple[str, str]:
     if re.match(r"zone security", cmd):
         DEVICE_MODES[device_name] = "config-zone"
         return ("", "config-zone")
+
+    # ── Quiz device — accept any answer, return acknowledgement ──
+    if device_name == "QUIZ":
+        return (f"You answered: {command}", "quiz")
 
     # Show commands
     for show_cmd, outputs in SHOW_OUTPUTS.items():

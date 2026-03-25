@@ -26,7 +26,8 @@ export default function TheoryList() {
 
   // Group by logical learning progression
   const groups = [
-    { title: '1. Fundamentals', filter: (t) => ['ipv4-subnetting'].includes(t.slug) },
+    { title: '0. Foundations', filter: (t) => ['osi-model', 'network-types', 'network-topologies', 'network-devices', 'cables-transmission', 'routing-fundamentals', 'how-internet-works', 'network-layer-arch'].includes(t.slug) },
+    { title: '1. IP Addressing', filter: (t) => ['ipv4-subnetting'].includes(t.slug) },
     { title: '2. Layer 2 — Switching & LAN', filter: (t) => ['vlans', 'stp', 'lacp'].includes(t.slug) },
     { title: '3. Routing & Network Services', filter: (t) => ['ospf', 'dhcp', 'dns'].includes(t.slug) },
     { title: '4. Address Translation', filter: (t) => ['nat', 'pat'].includes(t.slug) },
@@ -48,7 +49,7 @@ export default function TheoryList() {
           Network Engineering <span style={{ color: 'var(--accent)' }}>Theory</span>
         </h1>
         <p className="dashboard-subtitle">
-          Comprehensive theory and practical reference for all 22 networking topics.
+          Comprehensive theory and practical reference for all 30 networking topics.
           Each page covers the concepts, IOS commands, design patterns, and common pitfalls.
         </p>
       </section>

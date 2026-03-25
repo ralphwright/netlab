@@ -32,6 +32,8 @@ SUBNET_SQL = os.path.join(SQL_DIR, "migrate_subnetting.sql")
 INTEG_REBUILD_SQL = os.path.join(SQL_DIR, "migrate_integration_rebuild.sql")
 REORDER_SQL = os.path.join(SQL_DIR, "migrate_reorder.sql")
 PREREQ_SQL = os.path.join(SQL_DIR, "migrate_prereq_steps.sql")
+FOUNDATIONS_SQL = os.path.join(SQL_DIR, "migrate_foundations.sql")
+FOUNDATIONS_SQL = os.path.join(SQL_DIR, "migrate_foundations.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -390,6 +392,25 @@ async def _run_migrations():
             log.info("[netlab] Labs already have prerequisite steps")
     except Exception as e:
         log.warning(f"[netlab] Prereq migration failed: {e}")
+
+    # 9. Foundation topics (OSI, network types, etc.)
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text(
+                "SELECT count(*) FROM topics WHERE slug = 'osi-model'"
+            ))
+            has_osi = (result.scalar() or 0) > 0
+
+        if not has_osi:
+            log.info("[netlab] Foundation topics missing — running migration")
+            ok, errs = await _run_sql_file(FOUNDATIONS_SQL)
+            log.info(f"[netlab] Foundations: {ok} statements OK, {len(errs)} errors")
+            for e in errs[:10]:
+                log.warning(f"[netlab] Foundation error: {e}")
+        else:
+            log.info("[netlab] Foundation topics already present")
+    except Exception as e:
+        log.warning(f"[netlab] Foundations migration failed: {e}")
 
 
 @asynccontextmanager

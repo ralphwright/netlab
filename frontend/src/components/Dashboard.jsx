@@ -98,7 +98,7 @@ export default function Dashboard() {
           Interactive Network Engineering <span style={{ color: 'var(--accent)' }}>Labs</span>
         </h1>
         <p className="dashboard-subtitle">
-          22 hands-on labs covering VLANs, OSPF, BGP, MPLS, firewalls, wireless, and more.
+          30+ hands-on labs and quizzes covering OSI fundamentals, subnetting, VLANs, OSPF, BGP, security, wireless, and more.
           Configure real Cisco IOS commands on interactive topologies.
         </p>
       </section>
