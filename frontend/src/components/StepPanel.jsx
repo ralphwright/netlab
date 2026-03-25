@@ -58,6 +58,23 @@ export default function StepPanel({ step, stepNumber, totalSteps, isCompleted, i
         </div>
       </div>
 
+      {/* Mobile-only compact step nav — replaces step dots bar on small screens */}
+      <div className="mobile-step-nav">
+        <button className="btn btn-ghost btn-sm" onClick={onPrev} disabled={stepNumber <= 1}>
+          <ChevronLeft size={18} />
+        </button>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+          {isCompleted
+            ? <span style={{ color: 'var(--color-success)' }}>✓ </span>
+            : null
+          }
+          {isQuiz ? 'Q' : 'Step'} {stepNumber} / {totalSteps}
+        </span>
+        <button className="btn btn-ghost btn-sm" onClick={onNext} disabled={stepNumber >= totalSteps}>
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
       <div className="step-content">
         <div className="step-instruction">
           {renderMarkdown(step.instruction)}

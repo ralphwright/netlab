@@ -71,6 +71,8 @@ export default function LabView() {
   const [packetFlows, setPacketFlows]       = useState([]);
   const [showInspector, setShowInspector]   = useState(false);
   const [stepTransKey, setStepTransKey]     = useState(0);    // forces step transition
+  const [mobileTab, setMobileTab]           = useState('instructions'); // 'topology'|'instructions'|'terminal'
+  const workspaceRef                        = useRef(null);
 
   const progressRef = useRef({ currentStep: 1, completedSteps: new Set(), totalPoints: 0 });
 
@@ -201,8 +203,13 @@ export default function LabView() {
   const goToStep = useCallback((stepNum) => {
     setCurrentStep(stepNum);
     setStepTransKey((k) => k + 1);
+    setMobileTab('instructions');
     const stepData = lab?.steps?.find((s) => s.step_number === stepNum);
     if (stepData?.target_device) setSelectedDevice(stepData.target_device);
+    // Smooth scroll workspace into view on mobile
+    setTimeout(() => {
+      workspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
   }, [lab]);
 
   const handleResetLab = useCallback(async () => {
@@ -218,6 +225,7 @@ export default function LabView() {
   const handleDeviceSelect = useCallback((deviceName) => {
     setSelectedDevice(deviceName);
     setShowInspector(true);
+    setMobileTab('topology');
   }, []);
 
   // ── Loading skeleton ───────────────────────────────────────
@@ -420,10 +428,30 @@ export default function LabView() {
         })}
       </div>
 
+      {/* Mobile tab bar */}
+      <div className="mobile-lab-tabs">
+        {[
+          { id: 'topology',     label: 'Topology' },
+          { id: 'instructions', label: isQuiz ? 'Questions' : 'Instructions' },
+          { id: 'terminal',     label: 'Terminal' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            className={`mobile-lab-tab ${mobileTab === tab.id ? 'active' : ''}`}
+            onClick={() => setMobileTab(tab.id)}
+          >
+            {tab.label}
+            {tab.id === 'instructions' && completedSteps.size > 0 && (
+              <span className="mobile-tab-badge">{completedSteps.size}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Main workspace */}
-      <div className="lab-workspace">
+      <div className="lab-workspace" ref={workspaceRef}>
         {/* Topology + inspector */}
-        <div className="lab-workspace-topo">
+        <div className={`lab-workspace-topo mobile-tab-panel ${mobileTab === 'topology' ? 'mobile-tab-active' : ''}`}>
           <TopologyGraph
             topology={topology}
             selectedDevice={selectedDevice}
@@ -433,7 +461,6 @@ export default function LabView() {
             animationSpeed={animSpeed}
           />
 
-          {/* Device inspector panel */}
           {showInspector && selectedDevice && (
             <DeviceInspector
               deviceName={selectedDevice}
@@ -442,7 +469,6 @@ export default function LabView() {
             />
           )}
 
-          {/* Packet header breakdown */}
           {packetFlows.length > 0 && currentHeaderInfo && (
             <div className="packet-header-panel">
               <div className="packet-header-panel-title" style={{ color: currentProtocol.color }}>
@@ -461,8 +487,8 @@ export default function LabView() {
           )}
         </div>
 
-        {/* Step panel with transition */}
-        <div>
+        {/* Step panel */}
+        <div className={`mobile-tab-panel ${mobileTab === 'instructions' ? 'mobile-tab-active' : ''}`}>
           <div key={stepTransKey} className="step-transition-wrapper">
             <StepPanel
               step={currentStepData} stepNumber={currentStep} totalSteps={steps.length}
@@ -489,7 +515,7 @@ export default function LabView() {
         </div>
 
         {/* Terminal */}
-        <div>
+        <div className={`mobile-tab-panel ${mobileTab === 'terminal' ? 'mobile-tab-active' : ''}`}>
           <TerminalEmulator
             key={terminalKey}
             labSlug={slug}

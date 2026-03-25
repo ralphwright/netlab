@@ -254,6 +254,26 @@ export default function TopologyGraph({
       g.call(drag);
     });
 
+    // ── Zoom / pan (mouse + touch pinch) ──────────────────────
+    const zoomLayer = svg.append('g').attr('class', 'zoom-layer');
+
+    // Move all previously appended children into the zoom layer
+    // by re-appending in order: background, grid, anim-layer, links, devices
+    const children = [];
+    svg.selectAll(':scope > *').each(function() { if (this !== zoomLayer.node()) children.push(this); });
+    children.forEach((child) => zoomLayer.append(() => child));
+
+    const zoom = d3.zoom()
+      .scaleExtent([0.4, 3])
+      .on('zoom', (event) => {
+        zoomLayer.attr('transform', event.transform);
+      });
+
+    svg.call(zoom).on('dblclick.zoom', null); // disable double-click zoom
+
+    // Reset zoom on topology change
+    svg.call(zoom.transform, d3.zoomIdentity);
+
   }, [topology, selectedDevice, dimensions, currentStep, onDeviceSelect, theme]);
 
   // Packet animation effect
@@ -327,7 +347,7 @@ export default function TopologyGraph({
       <div className="topology-header">
         <span className="topology-header-label">
           TOPOLOGY
-          <span className="topology-header-sub"> · drag nodes · click to inspect</span>
+          <span className="topology-header-sub"> · drag nodes · pinch to zoom</span>
         </span>
         {selectedDevice && (
           <span className="topology-selected-badge">▶ {selectedDevice}</span>

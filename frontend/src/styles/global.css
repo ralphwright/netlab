@@ -1465,3 +1465,197 @@ h4 { font-size: 1rem; }
   /* Shrink OSI model columns on small screens */
   .osi-col { min-width: 0; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE LAB IMPROVEMENTS
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Mobile tab bar — hidden on desktop ─────────────────────── */
+.mobile-lab-tabs {
+  display: none;
+}
+
+.mobile-lab-tab {
+  flex: 1;
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.mobile-lab-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.mobile-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-success);
+  color: #000;
+  font-size: 0.5625rem;
+  font-weight: 700;
+}
+
+/* Desktop: all panels always visible */
+.mobile-tab-panel {
+  display: block;
+}
+
+/* ── Mobile step nav — hidden on desktop ─────────────────────── */
+.mobile-step-nav {
+  display: none;
+}
+
+/* ── Terminal wrap (needed for shortcut bar positioning) ─────── */
+.terminal-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Command shortcut bar ────────────────────────────────────── */
+.cmd-shortcut-bar {
+  display: none; /* hidden on desktop */
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.cmd-shortcut-bar::-webkit-scrollbar { display: none; }
+
+.cmd-shortcut-chip {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.cmd-shortcut-chip:active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+/* ── Mobile layout ≤ 768px ───────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Show tab bar */
+  .mobile-lab-tabs {
+    display: flex;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-sm);
+    overflow: hidden;
+  }
+
+  /* Hide step dots bar — replaced by mobile-step-nav inside StepPanel */
+  .step-dots-bar {
+    display: none;
+  }
+
+  /* Show mobile step nav inside StepPanel */
+  .mobile-step-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px var(--space-md);
+    border-top: 1px solid var(--border-subtle);
+    margin-top: var(--space-sm);
+  }
+
+  /* Tab panels — hide non-active on mobile */
+  .mobile-tab-panel {
+    display: none;
+  }
+  .mobile-tab-panel.mobile-tab-active {
+    display: block;
+  }
+  /* Topo column always shows when active */
+  .lab-workspace-topo.mobile-tab-active {
+    display: block;
+  }
+
+  /* Full-height topology when it's the active tab */
+  .lab-workspace-topo.mobile-tab-active .topology-container svg {
+    max-height: 55vh;
+  }
+
+  /* Show command shortcut bar on mobile */
+  .cmd-shortcut-bar {
+    display: flex;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  }
+
+  /* Terminal fills available space on mobile */
+  .terminal {
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  }
+  .terminal-body {
+    min-height: 260px;
+    max-height: 45vh;
+  }
+
+  /* Hint/help buttons — larger on mobile */
+  .step-content .btn-ghost.btn-sm {
+    min-height: 40px;
+    padding: 8px 14px !important;
+    font-size: 0.8125rem !important;
+    width: 100%;
+    justify-content: flex-start;
+    margin-bottom: 2px;
+  }
+}
+
+/* ── Small phone ≤ 480px ─────────────────────────────────────── */
+@media (max-width: 480px) {
+  .mobile-lab-tab {
+    font-size: 0.6875rem;
+    padding: 10px 2px;
+  }
+
+  .terminal-body {
+    min-height: 220px;
+    max-height: 42vh;
+  }
+}
+
+/* ── Topology zoom cursor hint ───────────────────────────────── */
+.topology-container svg {
+  touch-action: none; /* required for D3 zoom on touch */
+  cursor: grab;
+}
+.topology-container svg:active {
+  cursor: grabbing;
+}
