@@ -34,7 +34,7 @@ REORDER_SQL = os.path.join(SQL_DIR, "migrate_reorder.sql")
 PREREQ_SQL = os.path.join(SQL_DIR, "migrate_prereq_steps.sql")
 FOUNDATIONS_SQL = os.path.join(SQL_DIR, "migrate_foundations.sql")
 NETARCH_SQL = os.path.join(SQL_DIR, "migrate_netarch_redo.sql")
-NETARCH_SQL = os.path.join(SQL_DIR, "migrate_netarch_rebuild.sql")
+NETARCH_SQL = os.path.join(SQL_DIR, "migrate_netarch_redo.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
