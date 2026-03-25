@@ -5,6 +5,7 @@ import {
   ArrowLeft, BookOpen, Terminal, AlertTriangle, ExternalLink,
   Clock, ChevronRight, Layers, Code, Lightbulb
 } from 'lucide-react';
+import TheoryDiagram from './TheoryDiagram';
 
 // Simple markdown-to-JSX renderer
 function Markdown({ text }) {
@@ -296,6 +297,7 @@ export default function TheoryPage() {
       {/* Tab Content */}
       {activeTab === 'theory' && (
         <div className="fade-in">
+          <TheoryDiagram slug={content.slug} />
           <div style={{ marginBottom: 'var(--space-xl)' }}>
             <Markdown text={content.theory_md} />
           </div>

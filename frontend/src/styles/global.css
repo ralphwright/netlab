@@ -1459,3 +1459,9 @@ h4 { font-size: 1rem; }
   .device-inspector-table th:nth-child(4),
   .device-inspector-table td:nth-child(4) { display: none; }
 }
+
+/* ── Theory diagram shell (responsive) ──────────────────────── */
+@media (max-width: 600px) {
+  /* Shrink OSI model columns on small screens */
+  .osi-col { min-width: 0; }
+}
