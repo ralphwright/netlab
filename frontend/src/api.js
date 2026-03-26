@@ -27,6 +27,8 @@ export const api = {
   getTopology: (slug) => request(`/api/topology/${slug}`),
   executeCommand: (body) =>
     request('/api/cli/execute', { method: 'POST', body: JSON.stringify(body) }),
+  resetDeviceMode: (body) =>
+    request('/api/cli/reset-mode', { method: 'POST', body: JSON.stringify(body) }),
   validateStep: (body) =>
     request('/api/cli/validate-step', { method: 'POST', body: JSON.stringify(body) }),
 

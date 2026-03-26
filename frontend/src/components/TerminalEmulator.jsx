@@ -229,7 +229,14 @@ export default function TerminalEmulator({
       { type: 'system', text: isQuiz ? 'Type your answer and press Enter.' : 'Type Cisco IOS commands. Use "?" for help.' },
     ]);
     setEnteredCommands([]);
-  }, [deviceName]);
+
+    // Reset backend mode to privileged so stale state from a prior session
+    // doesn't bleed through when the terminal reconnects to a device.
+    if (!isQuiz && labSlug && userId) {
+      api.resetDeviceMode({ lab_slug: labSlug, device_name: deviceName, user_id: userId })
+        .catch(() => {}); // silent — non-critical
+    }
+  }, [deviceName, labSlug, userId]);
 
   // ── Auto-scroll terminal body ──────────────────────────────
   useEffect(() => {

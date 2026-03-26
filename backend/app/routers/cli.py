@@ -439,7 +439,8 @@ async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db
     # Normalize the raw command to canonical IOS form before everything else
     normalized_cmd = normalize(req.command)
 
-    output, new_mode = simulate_output(req.command, req.device_name, mode_key=key)
+    # Use normalized command for simulation so abbreviations work correctly
+    output, new_mode = simulate_output(normalized_cmd, req.device_name, mode_key=key)
     prompt = get_prompt(req.device_name, new_mode)
     is_valid = "% Invalid" not in output
     step_completed = False
@@ -547,3 +548,15 @@ async def validate_step(req: CommandRequest, db: AsyncSession = Depends(get_db))
             if not any(e in cmd or cmd in e for cmd in entered)
         ],
     }
+
+
+@router.post("/reset-mode")
+async def reset_device_mode(req: CommandRequest):
+    """
+    Reset a device's CLI mode to privileged exec.
+    Called by the frontend when the terminal connects to a device
+    so stale mode state from a previous session doesn't bleed through.
+    """
+    key = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
+    DEVICE_MODES[key] = "privileged"
+    return {"status": "ok", "prompt": get_prompt(req.device_name, "privileged")}
