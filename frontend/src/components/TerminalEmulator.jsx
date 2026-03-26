@@ -161,7 +161,11 @@ function matchesSequential(expected, entered) {
     const expNorm = normalizeCmd(expected[ei]).toLowerCase();
     // Match if either is a substring of the other (handles partial expected cmds)
     const textMatch = norm.includes(expNorm) || expNorm.includes(norm);
-    const modeMatch = modeOk(expNorm, mode);
+    // If the user used 'do <cmd>', treat the effective mode as privileged for
+    // the purpose of mode validation — 'do' is specifically for running exec
+    // commands from config modes
+    const effectiveMode = /^do\s+/i.test(cmd) ? 'privileged' : mode;
+    const modeMatch = modeOk(expNorm, effectiveMode);
     if (textMatch && modeMatch) ei++;
   }
   return ei >= expected.length;
