@@ -44,11 +44,16 @@ const ALIAS_MAP = [
 function expandIfName(name) {
   return name
     .replace(/^[Gg][Ii](\d[\d/]*)/, 'GigabitEthernet$1')
+    .replace(/^[Gg](\d[\d/]*)/, 'GigabitEthernet$1')
     .replace(/^[Ff][Aa](\d[\d/]*)/, 'FastEthernet$1')
+    .replace(/^[Ff](\d[\d/]*)/, 'FastEthernet$1')
     .replace(/^[Ss][Ee](\d[\d/]*)/, 'Serial$1')
+    .replace(/^[Ss](\d[\d/]*)/, 'Serial$1')
     .replace(/^[Ll][Oo](\d+)/,      'Loopback$1')
+    .replace(/^[Ll](\d+)/,          'Loopback$1')
     .replace(/^[Pp][Oo](\d+)/,      'Port-channel$1')
     .replace(/^[Tt][Uu](\d+)/,      'Tunnel$1')
+    .replace(/^[Tt](\d+)/,          'Tunnel$1')
     .replace(/^[Vv][Ll](\d+)/,      'Vlan$1');
 }
 

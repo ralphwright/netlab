@@ -20,12 +20,17 @@ import re
 # Maps short prefixes to canonical IOS names
 _IF_EXPANSIONS = [
     (r"^gi(\d[\d/]*)",     r"GigabitEthernet\1"),
+    (r"^g(\d[\d/]*)",      r"GigabitEthernet\1"),
     (r"^fa(\d[\d/]*)",     r"FastEthernet\1"),
+    (r"^f(\d[\d/]*)",      r"FastEthernet\1"),
     (r"^te(\d[\d/]*)",     r"TenGigabitEthernet\1"),
     (r"^se(\d[\d/]*)",     r"Serial\1"),
+    (r"^s(\d[\d/]*)",      r"Serial\1"),
     (r"^lo(\d+)",          r"Loopback\1"),
+    (r"^l(\d+)",           r"Loopback\1"),
     (r"^po(\d+)",          r"Port-channel\1"),
     (r"^tu(\d+)",          r"Tunnel\1"),
+    (r"^t(\d+)",           r"Tunnel\1"),
     (r"^vl(\d+)",          r"Vlan\1"),
     (r"^do(\d+)",          r"dot11Radio\1"),
 ]
