@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.routers.lab_state import parse_command, generate_show, reset_state
 
 router = APIRouter()
 
@@ -430,11 +431,21 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
 async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db)):
     """Execute a CLI command against a simulated device and validate against lab step."""
     key = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
+    # Capture mode BEFORE simulate_output changes it
+    pre_mode = DEVICE_MODES.get(key, "privileged")
     output, new_mode = simulate_output(req.command, req.device_name, mode_key=key)
     prompt = get_prompt(req.device_name, new_mode)
     is_valid = "% Invalid" not in output
     step_completed = False
     hint = None
+
+    # ── Update live config state ───────────────────────────────
+    parse_command(key, req.device_name, req.command, pre_mode)
+
+    # ── Dynamic show output ────────────────────────────────────
+    dynamic = generate_show(key, req.device_name, req.command)
+    if dynamic is not None:
+        output = dynamic
 
     # If a step_number is provided, check if command matches expected
     if req.step_number and req.lab_slug:

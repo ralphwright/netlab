@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.routers.lab_state import reset_state, LAB_STATES
 
 router = APIRouter()
 
@@ -461,6 +462,13 @@ async def reset_lab_progress(username: str, lab_slug: str, db: AsyncSession = De
     """), {"user": username, "slug": lab_slug})
 
     await db.commit()
+
+    # Clear the in-memory CLI state for all devices in this lab for this user
+    prefix = f"{username}:{lab_slug}:"
+    stale_keys = [k for k in LAB_STATES if k.startswith(prefix)]
+    for k in stale_keys:
+        reset_state(k)
+
     return {"status": "reset", "lab": lab_slug}
 
 
@@ -483,5 +491,11 @@ async def reset_all_progress(username: str, db: AsyncSession = Depends(get_db)):
     await db.execute(text("DELETE FROM user_achievements WHERE user_id = :uid"), {"uid": uid})
 
     await db.commit()
+
+    # Clear all in-memory CLI state for this user
+    stale_keys = [k for k in LAB_STATES if k.startswith(f"{username}:")]
+    for k in stale_keys:
+        reset_state(k)
+
     return {"status": "all_reset"}
 
