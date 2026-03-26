@@ -491,10 +491,94 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
 
 # ── API endpoint ─────────────────────────────────────────────────
 
+async def _replay_history(scope_key: str, device_name: str, user_id: str,
+                          lab_slug: str, db) -> None:
+    """
+    Replay command history from the DB into DeviceState so that show commands
+    reflect previously configured interfaces even after a server restart.
+    Runs only once per scope_key (guarded by a sentinel in LAB_STATES).
+    """
+    from app.routers.lab_state import LAB_STATES, get_state
+
+    # Mark as replayed immediately to prevent re-entrant calls
+    state = get_state(scope_key, device_name)
+    if getattr(state, '_replayed', False):
+        return
+    state._replayed = True
+
+    try:
+        result = await db.execute(text("""
+            SELECT ch.device_name, ch.command
+            FROM command_history ch
+            JOIN users u ON u.id = ch.user_id
+            JOIN labs  l ON l.id = ch.lab_id
+            WHERE u.username = :user AND l.slug = :slug
+            ORDER BY ch.entered_at
+        """), {"user": user_id, "slug": lab_slug})
+
+        rows = result.mappings().all()
+        if not rows:
+            return
+
+        # Replay each command through normalize + parse_command
+        # Use a temporary mode tracker so we don't touch DEVICE_MODES
+        replay_modes: dict[str, str] = {}
+
+        for row in rows:
+            dev  = row["device_name"]
+            cmd  = row["command"]
+            rkey = _mode_key(user_id, lab_slug, dev)
+            rstate = get_state(rkey, dev)
+            rstate._replayed = True  # mark all devices as replayed
+
+            norm = normalize(cmd)
+            mode = replay_modes.get(rkey, "privileged")
+
+            # Update mode tracker based on command
+            lcmd = norm.lower().strip()
+            if re.match(r"^do\s+", lcmd):
+                pass  # do prefix — mode unchanged
+            elif lcmd in ("configure terminal", "conf t"):
+                replay_modes[rkey] = "config"
+            elif lcmd.startswith("interface "):
+                replay_modes[rkey] = "config-if"
+            elif re.match(r"^router\s+(ospf|bgp|eigrp|rip)", lcmd):
+                replay_modes[rkey] = "config-router"
+            elif re.match(r"^vlan\s+\d+", lcmd):
+                replay_modes[rkey] = "config-vlan"
+            elif re.match(r"^line\s+(vty|con)", lcmd):
+                replay_modes[rkey] = "config-line"
+            elif re.match(r"^ip\s+dhcp\s+pool", lcmd):
+                replay_modes[rkey] = "config-dhcp"
+            elif re.match(r"^ip\s+access-list", lcmd):
+                replay_modes[rkey] = "config-acl"
+            elif re.match(r"^zone\s+security", lcmd):
+                replay_modes[rkey] = "config-zone"
+            elif lcmd in ("end", "exit"):
+                m = replay_modes.get(rkey, "privileged")
+                replay_modes[rkey] = "config" if (m.startswith("config-")) else "privileged"
+
+            parse_command(rkey, dev, norm, mode)
+
+    except Exception as e:
+        import logging
+        logging.getLogger("netlab").warning(f"[replay] Failed to replay history: {e}")
+
+
 @router.post("/execute", response_model=CommandResponse)
 async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db)):
     """Execute a CLI command against a simulated device and validate against lab step."""
-    key      = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
+    key = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
+
+    # Lazily replay command history on first use after a server restart
+    from app.routers.lab_state import get_state as _get_state
+    _st = _get_state(key, req.device_name)
+    if not getattr(_st, '_replayed', False):
+        await _replay_history(
+            key, req.device_name,
+            req.user_id or "anon", req.lab_slug, db
+        )
+
     pre_mode = DEVICE_MODES.get(key, "privileged")
 
     # Normalize the raw command to canonical IOS form before everything else
