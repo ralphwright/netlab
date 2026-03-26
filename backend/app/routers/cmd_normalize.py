@@ -185,12 +185,18 @@ def normalize(cmd: str) -> str:
         'int gi0/0'               -> 'interface GigabitEthernet0/0'
         'no shut'                 -> 'no shutdown'
         'sh ip int br'            -> 'show ip interface brief'
+        'do sh ip int br'         -> 'do show ip interface brief'
         'ip add 10.0.1.1 255.0'   -> 'ip address 10.0.1.1 255.0'
     """
     if not cmd:
         return cmd
 
     stripped = cmd.strip()
+
+    # Handle 'do <command>' — normalize the sub-command, keep 'do' prefix
+    do_m = re.match(r"^do\s+(.+)$", stripped, re.I)
+    if do_m:
+        return f"do {normalize(do_m.group(1))}"
 
     # Try whole-command alias table first
     for pattern, replacement in _ALIASES:
@@ -296,6 +302,11 @@ _MODE_RULES: list[tuple[re.Pattern, list[str]]] = []
 
 def _mode_rule(pattern: str, modes: list[str]) -> None:
     _MODE_RULES.append((re.compile(pattern, re.IGNORECASE), modes))
+
+# 'do <cmd>' is valid in any config mode (executes as if in privileged exec)
+_mode_rule(r"^do\b",                         ["config", "config-if", "config-router",
+                                               "config-vlan", "config-dhcp", "config-line",
+                                               "config-acl", "config-zone", "config-tunnel"])
 
 # Exec-only commands
 _mode_rule(r"^configure terminal$",          ["privileged"])

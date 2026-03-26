@@ -307,7 +307,13 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
 
 def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple[str, str]:
     """Return (output_text, new_mode)."""
-    cmd = command.strip().lower()
+    # Strip 'do ' prefix — allows show commands from any config mode
+    raw = command.strip()
+    do_prefix = re.match(r"^do\s+(.+)$", raw, re.I)
+    if do_prefix:
+        raw = do_prefix.group(1).strip()
+
+    cmd = raw.lower()
 
     # Quiz mode — just echo the answer back, no IOS simulation
     if device_name == "QUIZ":

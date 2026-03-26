@@ -56,6 +56,10 @@ function normalizeCmd(cmd) {
   if (!cmd) return cmd;
   const t = cmd.trim();
 
+  // Handle 'do <cmd>' — normalize sub-command, keep 'do' prefix
+  const doM = t.match(/^do\s+(.+)$/i);
+  if (doM) return `do ${normalizeCmd(doM[1])}`;
+
   // Whole-command aliases
   for (const [re, replacement] of ALIAS_MAP) {
     if (replacement && re.test(t)) {
@@ -138,6 +142,8 @@ const MODE_RULES = [
 
 function modeOk(cmd, currentMode) {
   const c = cmd.trim().toLowerCase();
+  // 'do <cmd>' is valid in any config mode
+  if (/^do\s+/.test(c)) return true;
   for (const [re, modes] of MODE_RULES) {
     if (re.test(c)) return modes.includes(currentMode);
   }

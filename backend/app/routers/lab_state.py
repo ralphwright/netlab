@@ -514,7 +514,7 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
     # ── Interface range — track current interface ──────────────
     # We handle the "interface <name>" command specially since it sets context
     m = re.match(r"interface(?:\s+range)?\s+(.+)", cmd, re.I)
-    if m and current_mode in ("config",):
+    if m and current_mode in ("config", "config-if"):
         raw = m.group(1).strip()
         # Handle "range GigabitEthernet0/1-2" -> expand to both interfaces
         range_m = re.match(r"(\D+)(\d+)/(\d+)-(\d+)", raw)
@@ -698,7 +698,10 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
         return None
 
     state = get_state(scope_key, device_name)
-    cmd = command.strip().lower()
+    # Strip 'do ' prefix so 'do show ip route' works from config modes
+    import re as _re
+    do_m = _re.match(r"^do\s+(.+)$", command.strip(), _re.I)
+    cmd = (do_m.group(1) if do_m else command).strip().lower()
 
     # ── show ip interface brief ────────────────────────────────
     if re.match(r"show\s+ip\s+interface\s+brief$", cmd):
