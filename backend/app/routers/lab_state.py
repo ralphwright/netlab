@@ -812,7 +812,7 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
 # ── Show output formatters ─────────────────────────────────────
 
 def _show_ip_int_brief(s: DeviceState) -> str:
-    header = f"{'Interface':<30} {'IP-Address':<16} {'OK?':<5} {'Method':<8} {'Status':<22} Protocol"
+    header = f"{'Interface':<22} {'IP-Address':<16} {'OK?':<4} {'Method':<8} {'Status':<18} Protocol"
     lines = [header]
 
     if not s.ifaces:
@@ -821,11 +821,11 @@ def _show_ip_int_brief(s: DeviceState) -> str:
 
     for name, iface in sorted(s.ifaces.items()):
         ip    = iface.ip or "unassigned"
-        ok    = "YES" if iface.ip else "YES"
+        ok    = "YES"
         meth  = "manual" if iface.ip else "unset"
         stat  = iface.status
         proto = iface.protocol
-        lines.append(f"{_pad(name,30)} {_pad(ip,16)} {_pad(ok,5)} {_pad(meth,8)} {_pad(stat,22)} {proto}")
+        lines.append(f"{_pad(name,22)} {_pad(ip,16)} {_pad(ok,4)} {_pad(meth,8)} {_pad(stat,18)} {proto}")
 
     return "\n".join(lines)
 
@@ -874,8 +874,8 @@ def _show_ip_route(s: DeviceState) -> str:
 
 
 def _show_vlan_brief(s: DeviceState) -> str:
-    header = f"{'VLAN':<5} {'Name':<33} {'Status':<9} Ports"
-    sep    = f"{'----':<5} {'-'*32:<33} {'-------':<9} ------"
+    header = f"{'VLAN':<5} {'Name':<24} {'Status':<9} Ports"
+    sep    = f"{'----':<5} {'-'*23:<24} {'-------':<9} ------"
     lines  = [header, sep]
 
     # Always show VLAN 1
@@ -891,13 +891,13 @@ def _show_vlan_brief(s: DeviceState) -> str:
                 all_assigned.add(p)
 
     default_ports = [p for p in _get_access_ports(s) if p not in all_assigned]
-    lines.append(f"{1:<5} {_pad('default',33)} {_pad('active',9)} {', '.join(default_ports[:6])}")
+    lines.append(f"{1:<5} {_pad('default',24)} {_pad('active',9)} {', '.join(default_ports[:4])}")
 
     for vid, v in sorted(s.vlans.items()):
         if vid == 1:
             continue
-        ports_str = ", ".join(v.ports[:6])
-        lines.append(f"{vid:<5} {_pad(v.name,33)} {_pad(v.status,9)} {ports_str}")
+        ports_str = ", ".join(v.ports[:4])
+        lines.append(f"{vid:<5} {_pad(v.name,24)} {_pad(v.status,9)} {ports_str}")
 
     # Standard reserved VLANs
     for vid, name in [(1002,"fddi-default"),(1003,"token-ring-default"),(1004,"fddinet-default"),(1005,"trnet-default")]:
@@ -935,15 +935,15 @@ def _show_spanning_tree(s: DeviceState) -> str:
         lines.append(f"             Address     aabb.cc00.0100")
         lines.append("")
 
-        lines.append(f"Interface           Role Sts Cost      Prio.Nbr Type")
-        lines.append(f"------------------- ---- --- --------- -------- ----")
+        lines.append(f"Interface           Role Sts Cost  Prio Type")
+        lines.append(f"------------------- ---- --- ----- ---- ----")
 
         for name, iface in s.ifaces.items():
             if iface.mode == "trunk" or iface.mode == "access":
                 role = "Desg" if is_root else "Root"
                 sts  = "FWD"
                 pf   = " P2p Edge" if iface.portfast else " P2p"
-                lines.append(f"{_pad(_short_if(name),20)}{role} {sts}  19        128.1   {pf}")
+                lines.append(f"{_pad(_short_if(name),20)}{role} {sts}  19    128.1{pf}")
 
         lines.append("")
 
@@ -977,26 +977,24 @@ def _show_etherchannel(s: DeviceState) -> str:
 
 
 def _show_ospf_neighbor(s: DeviceState) -> str:
-    header = "Neighbor ID     Pri   State           Dead Time   Address         Interface"
+    header = "Neighbor ID     Pri  State        Dead Time  Interface"
     lines  = [header]
 
     if not s.ospf:
         lines.append("(no OSPF neighbors — configure OSPF first)")
         return "\n".join(lines)
 
-    # Simulate neighbors based on configured networks
     nbr_count = 0
     for pid, proc in s.ospf.items():
         for i, net in enumerate(proc.networks):
-            # Derive a plausible neighbor IP from the network
             parts = net.network.split(".")
             if len(parts) == 4:
                 parts[-1] = str(int(parts[-1]) + 2)
                 nbr_ip = ".".join(parts)
                 nbr_id = f"{i+2}.{i+2}.{i+2}.{i+2}"
                 lines.append(
-                    f"{_pad(nbr_id,16)}{1:<6}{'FULL/DR':<16}  00:00:3{i}    "
-                    f"{_pad(nbr_ip,16)}GigabitEthernet0/{i}"
+                    f"{_pad(nbr_id,16)}{1:<5}{'FULL/DR':<13}00:00:3{i}   "
+                    f"GigabitEthernet0/{i}"
                 )
                 nbr_count += 1
 
@@ -1013,15 +1011,15 @@ def _show_ip_bgp(s: DeviceState) -> str:
     lines = [
         f"BGP table version is 1, local router ID is {s.bgp.asn}.{s.bgp.asn}.{s.bgp.asn}.{s.bgp.asn}",
         f"Status codes: s suppressed, d damped, h history, * valid, > best",
-        f"   Network          Next Hop            Metric LocPrf Weight Path",
+        f"   Network          Next Hop         Metric Weight Path",
     ]
 
     for net, mask in s.bgp.prefixes:
         cidr = _cidr(mask)
-        lines.append(f"*> {net}/{cidr}       0.0.0.0                  0         32768 i")
+        lines.append(f"*> {net}/{cidr:<16} 0.0.0.0          0      32768 i")
 
     for nbr_ip, remote_as in s.bgp.neighbors:
-        lines.append(f"*> 0.0.0.0/0          {_pad(nbr_ip,20)}               0 {remote_as} i")
+        lines.append(f"*> 0.0.0.0/0        {_pad(nbr_ip,17)}         0 {remote_as} i")
 
     if not s.bgp.prefixes and not s.bgp.neighbors:
         lines.append("(no BGP entries)")
@@ -1036,11 +1034,11 @@ def _show_bgp_summary(s: DeviceState) -> str:
     lines = [
         f"BGP router identifier {s.bgp.asn}.{s.bgp.asn}.{s.bgp.asn}.{s.bgp.asn}, local AS number {s.bgp.asn}",
         "BGP table version is 1",
-        f"Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd",
+        f"Neighbor        V    AS      Up/Down   State/PfxRcd",
     ]
 
     for nbr_ip, remote_as in s.bgp.neighbors:
-        lines.append(f"{_pad(nbr_ip,16)}4 {remote_as:<6}      10      10        1    0    0 00:05:00        1")
+        lines.append(f"{_pad(nbr_ip,16)}4 {remote_as:<8}00:05:00  1")
 
     if not s.bgp.neighbors:
         lines.append("(no BGP neighbors configured)")
@@ -1049,7 +1047,7 @@ def _show_bgp_summary(s: DeviceState) -> str:
 
 
 def _show_nat_translations(s: DeviceState) -> str:
-    header = "Pro  Inside global          Inside local           Outside local          Outside global"
+    header = "Pro  Inside global        Inside local         Outside"
     lines  = [header]
 
     inside_if  = next((n for n, i in s.ifaces.items() if i.nat == "inside"), None)
@@ -1057,12 +1055,11 @@ def _show_nat_translations(s: DeviceState) -> str:
 
     for rule in s.nat_rules:
         if rule.kind == "static":
-            lines.append(f"---  {_pad(rule.inside_global,22)}{_pad(rule.inside_local,23)}---                    ---")
+            lines.append(f"---  {_pad(rule.inside_global,20)} {_pad(rule.inside_local,20)} ---")
         elif rule.kind == "overload":
             outside_ip = s.ifaces.get(rule.interface, IfaceState(name="")).ip or "203.0.113.1"
-            # Simulate some dynamic entries
-            lines.append(f"tcp  {outside_ip}:1024         10.0.1.10:80           8.8.8.8:443            8.8.8.8:443")
-            lines.append(f"udp  {outside_ip}:1025         10.0.1.11:53           8.8.4.4:53             8.8.4.4:53")
+            lines.append(f"tcp  {outside_ip}:1024          10.0.1.10:80         8.8.8.8:443")
+            lines.append(f"udp  {outside_ip}:1025          10.0.1.11:53         8.8.4.4:53")
 
     if not s.nat_rules:
         lines.append("(no NAT translations — configure NAT rules first)")
