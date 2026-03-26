@@ -413,7 +413,7 @@ export default function LabView() {
             <button key={step.step_number} onClick={() => goToStep(step.step_number)} title={step.title}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                padding: '4px 10px', border: 'none', borderRadius: 'var(--radius-sm)',
+                padding: '4px 10px', borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '0.75rem',
                 fontFamily: 'var(--font-mono)', flexShrink: 0,
                 background: isCurrent ? 'var(--accent-glow-strong)' : 'transparent',

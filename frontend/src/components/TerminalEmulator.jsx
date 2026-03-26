@@ -160,6 +160,8 @@ function matchesSequential(expected, entered) {
   }
   return ei >= expected.length;
 }
+
+const COMMAND_COLORS = {
   keywords: ['configure', 'terminal', 'interface', 'router', 'vlan', 'line', 'ip', 'ipv6',
     'switchport', 'spanning-tree', 'channel-group', 'crypto', 'zone', 'wlan', 'tunnel',
     'network', 'neighbor', 'mpls', 'no', 'shutdown', 'enable', 'end', 'exit'],
