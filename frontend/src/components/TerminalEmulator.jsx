@@ -1,7 +1,165 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../api';
 
-const COMMAND_COLORS = {
+// ── Client-side IOS command normalization ─────────────────────
+// Mirrors the backend normalize() function for offline matching.
+// Full normalization happens on the backend; this covers the most
+// common abbreviations so step validation feels instant.
+const ALIAS_MAP = [
+  [/^conf(?:ig(?:ure?)?)?\s+t(?:erm(?:inal)?)?$/i,        'configure terminal'],
+  [/^conf(?:ig(?:ure?)?)?$/i,                               'configure terminal'],
+  [/^no\s+shu(?:t(?:down)?)?$/i,                           'no shutdown'],
+  [/^shu(?:t(?:down)?)?$/i,                                'shutdown'],
+  [/^ena(?:ble)?$/i,                                        'enable'],
+  [/^en(?:d)?$/i,                                           'end'],
+  [/^ex(?:it)?$/i,                                          'exit'],
+  [/^wr(?:ite)?(?:\s+mem(?:ory)?)?$/i,                     'write memory'],
+  [/^sh(?:ow)?\s+ip\s+int(?:erface)?\s+br(?:ief)?$/i,     'show ip interface brief'],
+  [/^sh(?:ow)?\s+ip\s+ro(?:ute)?$/i,                      'show ip route'],
+  [/^sh(?:ow)?\s+ip\s+ospf\s+nei(?:ghbor)?$/i,            'show ip ospf neighbor'],
+  [/^sh(?:ow)?\s+ip\s+bgp$/i,                             'show ip bgp'],
+  [/^sh(?:ow)?\s+ip\s+bgp\s+sum(?:mary)?$/i,              'show ip bgp summary'],
+  [/^sh(?:ow)?\s+ip\s+nat\s+tr(?:anslations?)?$/i,        'show ip nat translations'],
+  [/^sh(?:ow)?\s+ip\s+nat\s+st(?:atistics?)?$/i,          'show ip nat statistics'],
+  [/^sh(?:ow)?\s+ip\s+dh(?:cp)?\s+bi(?:nding)?$/i,       'show ip dhcp binding'],
+  [/^sh(?:ow)?\s+ip\s+dh(?:cp)?\s+po(?:ol)?$/i,          'show ip dhcp pool'],
+  [/^sh(?:ow)?\s+ip\s+ssh$/i,                             'show ip ssh'],
+  [/^sh(?:ow)?\s+vlan\s+br(?:ief)?$/i,                   'show vlan brief'],
+  [/^sh(?:ow)?\s+sp(?:anning)?(?:-tree)?$/i,              'show spanning-tree'],
+  [/^sh(?:ow)?\s+eth(?:erchannel)?\s+sum(?:mary)?$/i,     'show etherchannel summary'],
+  [/^sh(?:ow)?\s+acc(?:ess)?(?:-lists?)?$/i,              'show access-lists'],
+  [/^sh(?:ow)?\s+ho(?:sts?)?$/i,                          'show hosts'],
+  [/^sh(?:ow)?\s+run(?:ning)?(?:-config)?$/i,             'show running-config'],
+  [/^sh(?:ow)?\s+ipv6\s+int(?:erface)?\s+br(?:ief)?$/i,  'show ipv6 interface brief'],
+  [/^sh(?:ow)?\s+mpls\s+forw(?:arding)?(?:-table)?$/i,   'show mpls forwarding-table'],
+  [/^span(?:ning)?(?:-tree)?\s+portf(?:ast)?$/i,          'spanning-tree portfast'],
+  [/^span(?:ning)?(?:-tree)?\s+bpdu(?:guard)?\s+en(?:able)?$/i, 'spanning-tree bpduguard enable'],
+  [/^sw(?:itch)?p(?:ort)?\s+mo(?:de)?\s+ac(?:cess)?$/i,  'switchport mode access'],
+  [/^sw(?:itch)?p(?:ort)?\s+mo(?:de)?\s+tr(?:unk)?$/i,   'switchport mode trunk'],
+  [/^log(?:in)?\s+loc(?:al)?$/i,                          'login local'],
+  [/^ip\s+add(?:ress)?\s+/i,                              null], // handled inline below
+];
+
+// Interface name expansion
+function expandIfName(name) {
+  return name
+    .replace(/^[Gg][Ii](\d[\d/]*)/, 'GigabitEthernet$1')
+    .replace(/^[Ff][Aa](\d[\d/]*)/, 'FastEthernet$1')
+    .replace(/^[Ss][Ee](\d[\d/]*)/, 'Serial$1')
+    .replace(/^[Ll][Oo](\d+)/,      'Loopback$1')
+    .replace(/^[Pp][Oo](\d+)/,      'Port-channel$1')
+    .replace(/^[Tt][Uu](\d+)/,      'Tunnel$1')
+    .replace(/^[Vv][Ll](\d+)/,      'Vlan$1');
+}
+
+function normalizeCmd(cmd) {
+  if (!cmd) return cmd;
+  const t = cmd.trim();
+
+  // Whole-command aliases
+  for (const [re, replacement] of ALIAS_MAP) {
+    if (replacement && re.test(t)) {
+      return t.replace(re, replacement);
+    }
+  }
+
+  // interface [range] <name>
+  const ifM = t.match(/^(?:int(?:erface)?)(\s+range)?\s+(.+)$/i);
+  if (ifM) {
+    const range = ifM[1] ? ' range' : '';
+    return `interface${range} ${expandIfName(ifM[2])}`;
+  }
+
+  // ip add -> ip address
+  const ipAddM = t.match(/^ip\s+add(?:ress)?\s+(.+)$/i);
+  if (ipAddM) return `ip address ${ipAddM[1]}`;
+
+  // no <sub>
+  const noM = t.match(/^no\s+(.+)$/i);
+  if (noM) return `no ${normalizeCmd(noM[1])}`;
+
+  // router (abbrev)
+  const routerM = t.match(/^rou?t?e?r?\s+(.+)$/i);
+  if (routerM && !t.toLowerCase().startsWith('route ') && !t.toLowerCase().startsWith('router ')) {
+    return `router ${routerM[1]}`;
+  }
+
+  return t;
+}
+
+// Mode requirements — which prompt modes allow a command to count
+const MODE_RULES = [
+  [/^configure terminal$/i,                          ['privileged']],
+  [/^show\b/i,                                       ['privileged','config','config-if','config-router','config-vlan','config-dhcp','config-line','config-acl','config-zone']],
+  [/^(ping|traceroute)\b/i,                          ['privileged']],
+  [/^interface\b/i,                                  ['config']],
+  [/^router\b/i,                                     ['config']],
+  [/^vlan\s+\d+$/i,                                 ['config']],
+  [/^ip\s+routing$/i,                               ['config']],
+  [/^ip\s+route\b/i,                                ['config']],
+  [/^ip\s+dhcp\s+(pool|exclu)/i,                    ['config']],
+  [/^ip\s+access-list\b/i,                          ['config']],
+  [/^ip\s+nat\s+inside\s+source/i,                  ['config']],
+  [/^access-list\b/i,                               ['config']],
+  [/^spanning-tree\s+vlan\b/i,                      ['config']],
+  [/^spanning-tree\s+portfast\s+default/i,           ['config']],
+  [/^zone\s+security\b/i,                           ['config']],
+  [/^zone-pair\b/i,                                 ['config']],
+  [/^crypto\b/i,                                    ['config']],
+  [/^username\b/i,                                  ['config']],
+  [/^line\b/i,                                      ['config']],
+  [/^ipv6\s+unicast-routing\b/i,                    ['config']],
+  [/^ip\s+address\b/i,                              ['config-if']],
+  [/^no\s+shutdown$/i,                              ['config-if']],
+  [/^shutdown$/i,                                   ['config-if']],
+  [/^switchport\b/i,                                ['config-if']],
+  [/^encapsulation\b/i,                             ['config-if']],
+  [/^channel-group\b/i,                             ['config-if']],
+  [/^spanning-tree\s+portf/i,                       ['config-if']],
+  [/^spanning-tree\s+bpdu/i,                        ['config-if']],
+  [/^ip\s+nat\s+(inside|outside)$/i,               ['config-if']],
+  [/^mpls\s+ip$/i,                                  ['config-if']],
+  [/^tunnel\s+(source|dest|mode)/i,                 ['config-if']],
+  [/^ip\s+access-group\b/i,                         ['config-if']],
+  [/^zone-member\b/i,                               ['config-if']],
+  [/^ipv6\s+address\b/i,                            ['config-if']],
+  [/^ipv6\s+ospf\b/i,                               ['config-if']],
+  [/^network\b/i,                                   ['config-router','config-dhcp']],
+  [/^neighbor\b/i,                                  ['config-router']],
+  [/^router-id\b/i,                                 ['config-router']],
+  [/^name\b/i,                                      ['config-vlan']],
+  [/^default-router\b/i,                            ['config-dhcp']],
+  [/^dns-server\b/i,                                ['config-dhcp']],
+  [/^transport\s+input\b/i,                         ['config-line']],
+  [/^login\s+local$/i,                              ['config-line']],
+  [/^(permit|deny)\b/i,                             ['config-acl']],
+  [/^service-policy\s+type\s+inspect\b/i,           ['config-zone']],
+];
+
+function modeOk(cmd, currentMode) {
+  const c = cmd.trim().toLowerCase();
+  for (const [re, modes] of MODE_RULES) {
+    if (re.test(c)) return modes.includes(currentMode);
+  }
+  return true; // unrecognised command — don't block
+}
+
+// ── Command matching: sequential subsequence ──────────────────
+// Checks whether expected commands appear as an IN-ORDER subsequence
+// of entered {cmd, mode} pairs, with mode validation.
+function matchesSequential(expected, entered) {
+  let ei = 0; // pointer into expected
+  for (const { cmd, mode } of entered) {
+    if (ei >= expected.length) break;
+    const norm    = normalizeCmd(cmd).toLowerCase();
+    const expNorm = normalizeCmd(expected[ei]).toLowerCase();
+    // Match if either is a substring of the other (handles partial expected cmds)
+    const textMatch = norm.includes(expNorm) || expNorm.includes(norm);
+    const modeMatch = modeOk(expNorm, mode);
+    if (textMatch && modeMatch) ei++;
+  }
+  return ei >= expected.length;
+}
   keywords: ['configure', 'terminal', 'interface', 'router', 'vlan', 'line', 'ip', 'ipv6',
     'switchport', 'spanning-tree', 'channel-group', 'crypto', 'zone', 'wlan', 'tunnel',
     'network', 'neighbor', 'mpls', 'no', 'shutdown', 'enable', 'end', 'exit'],
@@ -148,14 +306,15 @@ export default function TerminalEmulator({
       }
       if (res.prompt) setPrompt(res.prompt);
 
-      const newEntered = [...enteredCommands, trimmed];
+      // Store cmd with the mode it was entered in (from backend response)
+      const newEntered = [...enteredCommands, {
+        cmd:  trimmed,
+        mode: res.current_mode || 'privileged',
+      }];
       setEnteredCommands(newEntered);
 
       if (step?.expected_commands && !(completedSteps && completedSteps.has(step.step_number))) {
-        const expected = step.expected_commands.map((c) => c.toLowerCase());
-        const matched  = expected.every((exp) =>
-          newEntered.some((cmd) => cmd.toLowerCase().includes(exp) || exp.includes(cmd.toLowerCase()))
-        );
+        const matched = matchesSequential(step.expected_commands, newEntered);
         if (matched) {
           setHistory((prev) => [...prev, {
             type: 'success',

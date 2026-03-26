@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.routers.lab_state import parse_command, generate_show, reset_state
+from app.routers.cmd_normalize import normalize, mode_ok
 
 router = APIRouter()
 
@@ -30,6 +31,8 @@ class CommandResponse(BaseModel):
     prompt: str
     step_completed: bool
     hint: Optional[str] = None
+    normalized_command: Optional[str] = None   # canonical form for frontend matching
+    current_mode: Optional[str] = None          # mode BEFORE this command executed
 
 
 # ── Simulated IOS prompt state ───────────────────────────────────
@@ -430,20 +433,23 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
 @router.post("/execute", response_model=CommandResponse)
 async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db)):
     """Execute a CLI command against a simulated device and validate against lab step."""
-    key = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
-    # Capture mode BEFORE simulate_output changes it
+    key      = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
     pre_mode = DEVICE_MODES.get(key, "privileged")
+
+    # Normalize the raw command to canonical IOS form before everything else
+    normalized_cmd = normalize(req.command)
+
     output, new_mode = simulate_output(req.command, req.device_name, mode_key=key)
     prompt = get_prompt(req.device_name, new_mode)
     is_valid = "% Invalid" not in output
     step_completed = False
     hint = None
 
-    # ── Update live config state ───────────────────────────────
-    parse_command(key, req.device_name, req.command, pre_mode)
+    # Update live config state with the normalized command
+    parse_command(key, req.device_name, normalized_cmd, pre_mode)
 
-    # ── Dynamic show output ────────────────────────────────────
-    dynamic = generate_show(key, req.device_name, req.command)
+    # Dynamic show output from live state
+    dynamic = generate_show(key, req.device_name, normalized_cmd)
     if dynamic is not None:
         output = dynamic
 
@@ -493,6 +499,8 @@ async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db
         prompt=prompt,
         step_completed=step_completed,
         hint=hint,
+        normalized_command=normalized_cmd,
+        current_mode=pre_mode,
     )
 
 
