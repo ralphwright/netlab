@@ -96,7 +96,7 @@ const MODE_RULES = [
   [/^configure terminal$/i,                          ['privileged']],
   [/^show\b/i,                                       ['privileged','config','config-if','config-router','config-vlan','config-dhcp','config-line','config-acl','config-zone']],
   [/^(ping|traceroute)\b/i,                          ['privileged']],
-  [/^interface\b/i,                                  ['config']],
+  [/^interface\b/i,                                  ['config', 'config-if']],
   [/^router\b/i,                                     ['config']],
   [/^vlan\s+\d+$/i,                                 ['config']],
   [/^ip\s+routing$/i,                               ['config']],

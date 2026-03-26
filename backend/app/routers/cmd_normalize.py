@@ -321,7 +321,7 @@ _mode_rule(r"^traceroute\b",                 ["privileged"])
 _mode_rule(r"^write\b",                      ["privileged"])
 
 # Global config commands
-_mode_rule(r"^interface\b",                  ["config"])
+_mode_rule(r"^interface\b",                  ["config", "config-if"])
 _mode_rule(r"^router\b",                     ["config"])
 _mode_rule(r"^vlan\s+\d+$",                 ["config"])
 _mode_rule(r"^ip\s+routing$",               ["config"])
