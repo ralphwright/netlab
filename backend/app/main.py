@@ -35,6 +35,7 @@ PREREQ_SQL = os.path.join(SQL_DIR, "migrate_prereq_steps.sql")
 FOUNDATIONS_SQL = os.path.join(SQL_DIR, "migrate_foundations.sql")
 NETARCH_SQL = os.path.join(SQL_DIR, "migrate_netarch_redo.sql")
 FOUNDATIONS_CONTENT_SQL = os.path.join(SQL_DIR, "migrate_foundations_content.sql")
+STEP_FIXES_SQL         = os.path.join(SQL_DIR, "migrate_step_fixes.sql")
 
 
 def _split_sql(filepath: str) -> list[str]:
@@ -451,6 +452,28 @@ async def _run_migrations():
             log.info("[netlab] Foundation content already enriched")
     except Exception as e:
         log.warning(f"[netlab] Foundations content migration failed: {e}")
+
+    # 12. Lab step content fixes (missing configure terminal on first device use)
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text("""
+                SELECT 'configure terminal' = ANY(expected_commands)
+                FROM lab_steps ls
+                JOIN labs l ON l.id = ls.lab_id
+                WHERE l.slug = 'full-enterprise-network' AND ls.step_number = 9
+            """))
+            already_fixed = result.scalar()
+
+        if not already_fixed:
+            log.info("[netlab] Lab step fixes needed — running migration")
+            ok, errs = await _run_sql_file(STEP_FIXES_SQL)
+            log.info(f"[netlab] Step fixes: {ok} statements OK, {len(errs)} errors")
+            for e in errs[:10]:
+                log.warning(f"[netlab] Step fix error: {e}")
+        else:
+            log.info("[netlab] Lab step fixes already applied")
+    except Exception as e:
+        log.warning(f"[netlab] Step fixes migration failed: {e}")
 
 
 @asynccontextmanager

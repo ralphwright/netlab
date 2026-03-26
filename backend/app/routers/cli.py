@@ -33,7 +33,12 @@ class CommandResponse(BaseModel):
 
 # ── Simulated IOS prompt state ───────────────────────────────────
 
-DEVICE_MODES = {}  # device_name -> current mode string
+DEVICE_MODES = {}  # "user_id:lab_slug:device_name" -> current mode string
+
+
+def _mode_key(user_id: str, lab_slug: str, device_name: str) -> str:
+    """Scoped key so state never bleeds between labs or users."""
+    return f"{user_id or 'anon'}:{lab_slug or 'unknown'}:{device_name}"
 
 
 def get_prompt(device_name: str, mode: str) -> str:
@@ -296,7 +301,7 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
 }
 
 
-def simulate_output(command: str, device_name: str) -> tuple[str, str]:
+def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple[str, str]:
     """Return (output_text, new_mode)."""
     cmd = command.strip().lower()
 
@@ -304,20 +309,21 @@ def simulate_output(command: str, device_name: str) -> tuple[str, str]:
     if device_name == "QUIZ":
         return (f"  → {command.strip()}", "quiz")
 
-    current_mode = DEVICE_MODES.get(device_name, "privileged")
+    key = mode_key or device_name  # fallback for direct calls
+    current_mode = DEVICE_MODES.get(key, "privileged")
 
     # Mode transitions
     if cmd in ("enable", "en"):
-        DEVICE_MODES[device_name] = "privileged"
+        DEVICE_MODES[key] = "privileged"
         return ("", "privileged")
 
     if cmd in ("configure terminal", "conf t"):
-        DEVICE_MODES[device_name] = "config"
+        DEVICE_MODES[key] = "config"
         return ("Enter configuration commands, one per line.  End with CNTL/Z.", "config")
 
     if cmd in ("end", "exit") and current_mode.startswith("config"):
         new = "config" if current_mode != "config" else "privileged"
-        DEVICE_MODES[device_name] = new
+        DEVICE_MODES[key] = new
         return ("", new)
 
     if cmd == "exit":
@@ -325,37 +331,37 @@ def simulate_output(command: str, device_name: str) -> tuple[str, str]:
 
     # Interface commands
     if re.match(r"interface\s+", cmd):
-        DEVICE_MODES[device_name] = "config-if"
+        DEVICE_MODES[key] = "config-if"
         return ("", "config-if")
 
     # Router config
     if re.match(r"router\s+(ospf|bgp|eigrp|rip)", cmd):
-        DEVICE_MODES[device_name] = "config-router"
+        DEVICE_MODES[key] = "config-router"
         return ("", "config-router")
 
     # VLAN config
     if re.match(r"vlan\s+\d+", cmd) and current_mode == "config":
-        DEVICE_MODES[device_name] = "config-vlan"
+        DEVICE_MODES[key] = "config-vlan"
         return ("", "config-vlan")
 
     # Line config
     if re.match(r"line\s+(vty|con)", cmd):
-        DEVICE_MODES[device_name] = "config-line"
+        DEVICE_MODES[key] = "config-line"
         return ("", "config-line")
 
     # DHCP pool
     if re.match(r"ip dhcp pool", cmd):
-        DEVICE_MODES[device_name] = "config-dhcp"
+        DEVICE_MODES[key] = "config-dhcp"
         return ("", "config-dhcp")
 
     # ACL
     if re.match(r"ip access-list", cmd):
-        DEVICE_MODES[device_name] = "config-acl"
+        DEVICE_MODES[key] = "config-acl"
         return ("", "config-acl")
 
     # Zone security
     if re.match(r"zone security", cmd):
-        DEVICE_MODES[device_name] = "config-zone"
+        DEVICE_MODES[key] = "config-zone"
         return ("", "config-zone")
 
     # ── Quiz device — accept any answer, return acknowledgement ──
@@ -423,7 +429,8 @@ def simulate_output(command: str, device_name: str) -> tuple[str, str]:
 @router.post("/execute", response_model=CommandResponse)
 async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db)):
     """Execute a CLI command against a simulated device and validate against lab step."""
-    output, new_mode = simulate_output(req.command, req.device_name)
+    key = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
+    output, new_mode = simulate_output(req.command, req.device_name, mode_key=key)
     prompt = get_prompt(req.device_name, new_mode)
     is_valid = "% Invalid" not in output
     step_completed = False
