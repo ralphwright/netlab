@@ -307,9 +307,10 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
 
 def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple[str, str]:
     """Return (output_text, new_mode)."""
-    # Strip 'do ' prefix — allows show commands from any config mode
+    # Strip 'do ' prefix — allows exec commands from any config mode
     raw = command.strip()
     do_prefix = re.match(r"^do\s+(.+)$", raw, re.I)
+    is_do = bool(do_prefix)
     if do_prefix:
         raw = do_prefix.group(1).strip()
 
@@ -322,15 +323,7 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
     key = mode_key or device_name  # fallback for direct calls
     current_mode = DEVICE_MODES.get(key, "privileged")
 
-    # Mode transitions
-    if cmd in ("enable", "en"):
-        DEVICE_MODES[key] = "privileged"
-        return ("", "privileged")
-
-    if cmd in ("configure terminal", "conf t"):
-        DEVICE_MODES[key] = "config"
-        return ("Enter configuration commands, one per line.  End with CNTL/Z.", "config")
-
+    # ── Universal commands — always allowed regardless of mode ──
     if cmd in ("end", "exit") and current_mode.startswith("config"):
         new = "config" if current_mode != "config" else "privileged"
         DEVICE_MODES[key] = new
@@ -338,6 +331,68 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
 
     if cmd == "exit":
         return ("", "user")
+
+    if cmd in ("enable", "en"):
+        DEVICE_MODES[key] = "privileged"
+        return ("", "privileged")
+
+    # ── Mode enforcement ─────────────────────────────────────────
+    # Commands in exec mode only (privileged / user)
+    EXEC_ONLY = re.compile(
+        r"^(show|ping|traceroute|debug|undebug|clear|copy|reload|"
+        r"write|telnet|ssh|configure)\b", re.I
+    )
+    # Commands that require global config mode or deeper
+    CONFIG_ONLY = re.compile(
+        r"^(interface|router\s|vlan\s|spanning-tree|channel-group|"
+        r"ip\s+routing|ip\s+route|ip\s+dhcp|ip\s+access-list|ip\s+nat\s+inside\s+source|"
+        r"access-list|hostname|ip\s+domain|ip\s+name-server|ip\s+host|"
+        r"zone\s+security|zone-pair|crypto\s+key|crypto\s+isakmp|crypto\s+ipsec|"
+        r"crypto\s+dynamic-map|username|line\s+|ipv6\s+unicast-routing|"
+        r"dot11\s+ssid|wlan|radius\s+server|no\s+ip\s+routing)\b", re.I
+    )
+    # Commands that require interface sub-mode
+    IF_ONLY = re.compile(
+        r"^(ip\s+address|no\s+shutdown|shutdown|switchport|encapsulation|"
+        r"channel-group|spanning-tree\s+portf|spanning-tree\s+bpdu|"
+        r"ip\s+nat\s+(inside|outside)$|mpls\s+ip|tunnel\s+(source|destination|mode)|"
+        r"ip\s+access-group|zone-member|ipv6\s+address|ipv6\s+ospf)\b", re.I
+    )
+
+    in_exec   = current_mode in ("privileged", "user")
+    in_config = current_mode == "config"
+    in_if     = current_mode == "config-if"
+    in_submode = current_mode.startswith("config-") and not in_if
+
+    # Block exec-only commands in config modes (unless prefixed with 'do')
+    if not is_do and not in_exec and EXEC_ONLY.match(cmd):
+        return (
+            "% Invalid input detected at '^' marker.\n"
+            "  (Hint: use 'do' prefix to run exec commands from config mode, "
+            "e.g. 'do show ip interface brief')",
+            current_mode,
+        )
+
+    # Block config-only commands in exec mode
+    if in_exec and CONFIG_ONLY.match(cmd):
+        return (
+            "% Invalid input detected at '^' marker.\n"
+            "  (Hint: enter 'configure terminal' first)",
+            current_mode,
+        )
+
+    # Block interface-only commands outside of config-if
+    if not in_if and IF_ONLY.match(cmd):
+        return (
+            "% Invalid input detected at '^' marker.\n"
+            "  (Hint: enter an interface first, e.g. 'interface GigabitEthernet0/0')",
+            current_mode,
+        )
+
+    # Mode transitions
+    if cmd in ("configure terminal", "conf t"):
+        DEVICE_MODES[key] = "config"
+        return ("Enter configuration commands, one per line.  End with CNTL/Z.", "config")
 
     # Interface commands
     if re.match(r"interface\s+", cmd):
