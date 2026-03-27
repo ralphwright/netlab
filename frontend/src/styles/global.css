@@ -938,8 +938,6 @@ h4 { font-size: 1rem; }
   .app-header { padding: var(--space-sm) var(--space-md); gap: var(--space-sm); }
   .app-header .logo { font-size: 1.125rem; }
   .app-header .logo svg { width: 22px; height: 22px; }
-  .app-header nav { gap: var(--space-sm); flex-wrap: wrap; }
-  .app-header nav a { font-size: 0.75rem; }
 
   .dashboard-hero { margin-bottom: var(--space-xl); }
   .stats-grid { gap: var(--space-sm); margin-bottom: var(--space-lg); }
@@ -999,8 +997,6 @@ h4 { font-size: 1rem; }
 @media (max-width: 480px) {
   .app-main { padding: var(--space-xs) var(--space-sm); padding-bottom: var(--space-lg); }
   .app-header { padding: 6px var(--space-sm); }
-  .app-header nav { gap: 6px; }
-  .app-header nav a { font-size: 0.6875rem; }
 
   .stats-grid { gap: 6px; }
   .stat-card { padding: var(--space-xs) var(--space-sm); gap: var(--space-xs); }
