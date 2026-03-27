@@ -344,21 +344,19 @@ a:hover { color: var(--accent-dim); }
   height: 32px;
 }
 
-.app-header nav {
-  display: flex;
+.app-nav-desktop {
   gap: var(--space-lg);
-  align-items: center;
 }
 
-.app-header nav a {
+.app-nav-desktop a {
   font-family: var(--font-body);
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-secondary);
   transition: color 0.2s;
 }
-.app-header nav a:hover,
-.app-header nav a.active {
+.app-nav-desktop a:hover,
+.app-nav-desktop a.active {
   color: var(--accent);
 }
 
@@ -1659,6 +1657,12 @@ h4 { font-size: 1rem; }
 /* Desktop: show full nav, hide mobile-only elements */
 .app-nav-mobile-header { display: none; }
 
+.app-nav-desktop {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: center;
+}
+
 .bottom-tab-bar {
   display: none; /* hidden on desktop */
 }
@@ -1666,7 +1670,7 @@ h4 { font-size: 1rem; }
 /* ── Mobile ≤ 768px ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   /* Header: logo left, theme+user right — no nav links */
-  .app-nav-desktop    { display: none; }
+  .app-nav-desktop    { display: none !important; }
   .app-nav-mobile-header {
     display: flex;
     align-items: center;
