@@ -38,12 +38,23 @@ const BASE = {
   },
 };
 
-function DiagramShell({ title, onReplay, children }) {
+function DiagramShell({ title, onReplay, onPause, isPaused, children }) {
   return (
     <div style={BASE.wrap}>
       <div style={BASE.header}>
         <span>{title}</span>
-        {onReplay && <button style={BASE.btn} onClick={onReplay}>↺ Replay</button>}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {onPause && (
+            <button style={BASE.btn} onClick={onPause} title={isPaused ? 'Play' : 'Pause'}>
+              {isPaused ? '▶ Play' : '⏸ Pause'}
+            </button>
+          )}
+          {onReplay && (
+            <button style={BASE.btn} onClick={() => { onReplay(); }} title="Replay">
+              ↺ Replay
+            </button>
+          )}
+        </div>
       </div>
       {children}
     </div>
@@ -65,23 +76,24 @@ const OSI_LAYERS = [
 
 function OsiDiagram() {
   const [step, setStep] = useState(0);
-  const [phase, setPhase] = useState('idle'); // idle | down | up
+  const [phase, setPhase] = useState('idle');
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (phase === 'idle') return;
+    if (phase === 'idle' || isPaused) return;
     if (step < OSI_LAYERS.length) {
       const t = setTimeout(() => setStep((s) => s + 1), 450);
       return () => clearTimeout(t);
     }
-  }, [step, phase]);
+  }, [step, phase, isPaused]);
 
-  function replay() { setStep(0); setPhase('idle'); setTimeout(() => setPhase('down'), 50); }
+  function replay() { setStep(0); setPhase('idle'); setIsPaused(false); setTimeout(() => setPhase('down'), 50); }
   useEffect(() => { setTimeout(() => setPhase('down'), 600); }, []);
 
   const activeDown = phase === 'down' ? step : 7;
 
   return (
-    <DiagramShell title="OSI MODEL — ENCAPSULATION / DECAPSULATION" onReplay={replay}>
+    <DiagramShell title="OSI MODEL — ENCAPSULATION / DECAPSULATION" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: '16px 20px', display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
         {/* Sender side */}
         <div>
@@ -197,18 +209,20 @@ function OsiDiagram() {
 // ────────────────────────────────────────────────────────────────
 function VlanDiagram() {
   const [step, setStep] = useState(0);
-  // Steps: 0=idle, 1=frame leaves PC, 2=switch tags, 3=trunk, 4=switch strips, 5=arrives
+  const [isPaused, setIsPaused] = useState(false);
+
   useEffect(() => {
+    if (isPaused) return;
     if (step === 0) { const t = setTimeout(() => setStep(1), 700); return () => clearTimeout(t); }
     if (step < 5)   { const t = setTimeout(() => setStep((s) => s + 1), 900); return () => clearTimeout(t); }
-  }, [step]);
+  }, [step, isPaused]);
 
-  function replay() { setStep(0); }
+  function replay() { setStep(0); setIsPaused(false); }
 
   const frameColors = { bg: '#7c4dff', border: '#b39ddb' };
 
   return (
-    <DiagramShell title="VLAN — 802.1Q FRAME TAGGING ON TRUNK LINK" onReplay={replay}>
+    <DiagramShell title="VLAN — 802.1Q FRAME TAGGING ON TRUNK LINK" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: 20 }}>
         {/* Topology row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0, marginBottom: 20 }}>
@@ -327,22 +341,25 @@ const DORA_STEPS = [
 
 function DhcpDiagram() {
   const [step, setStep] = useState(-1);
+  const [isPaused, setIsPaused] = useState(false);
+
   useEffect(() => {
     const t = setTimeout(() => setStep(0), 500);
     return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
+    if (isPaused) return;
     if (step >= 0 && step < DORA_STEPS.length - 1) {
       const t = setTimeout(() => setStep((s) => s + 1), 1200);
       return () => clearTimeout(t);
     }
-  }, [step]);
+  }, [step, isPaused]);
 
-  function replay() { setStep(-1); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
 
   return (
-    <DiagramShell title="DHCP — DORA SEQUENCE (Discover → Offer → Request → Acknowledge)" onReplay={replay}>
+    <DiagramShell title="DHCP — DORA SEQUENCE (Discover → Offer → Request → Acknowledge)" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: '16px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
           {/* Client column */}
@@ -433,6 +450,7 @@ function OspfDiagram() {
   const [stateIdx, setStateIdx] = useState(0);
   const [packets, setPackets] = useState([]);
   const [pkId, setPkId] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const PACKET_TYPES = [
     { type: 'Hello', color: '#00e5ff',   at: 0 },
@@ -445,7 +463,7 @@ function OspfDiagram() {
   ];
 
   useEffect(() => {
-    if (stateIdx >= OSPF_STATES.length - 1) return;
+    if (isPaused || stateIdx >= OSPF_STATES.length - 1) return;
     const t = setTimeout(() => {
       setStateIdx((s) => s + 1);
       const pk = PACKET_TYPES.find((p) => p.at === stateIdx);
@@ -457,14 +475,14 @@ function OspfDiagram() {
       }
     }, 900);
     return () => clearTimeout(t);
-  }, [stateIdx]);
+  }, [stateIdx, isPaused]);
 
-  function replay() { setStateIdx(0); setPackets([]); }
+  function replay() { setStateIdx(0); setPackets([]); setIsPaused(false); }
 
   const color = (i) => i <= stateIdx ? '#00e5ff' : 'var(--border-default)';
 
   return (
-    <DiagramShell title="OSPF — NEIGHBOR ADJACENCY STATE MACHINE" onReplay={replay}>
+    <DiagramShell title="OSPF — NEIGHBOR ADJACENCY STATE MACHINE" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: 20 }}>
         {/* State machine bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0, marginBottom: 20, overflowX: 'auto' }}>
@@ -550,20 +568,22 @@ const STP_PHASES = [
 
 function StpDiagram() {
   const [phase, setPhase] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
   useEffect(() => {
-    if (phase < STP_PHASES.length - 1) {
-      const t = setTimeout(() => setPhase((p) => p + 1), 1100);
-      return () => clearTimeout(t);
-    }
-  }, [phase]);
-  function replay() { setPhase(0); }
+    if (isPaused || phase >= STP_PHASES.length - 1) return;
+    const t = setTimeout(() => setPhase((p) => p + 1), 1100);
+    return () => clearTimeout(t);
+  }, [phase, isPaused]);
+
+  function replay() { setPhase(0); setIsPaused(false); }
 
   const sw1color = phase >= 1 ? '#ffab00' : '#7c4dff';
   const blockedColor = phase >= 3 ? '#ff1744' : '#00e676';
   const blockedDash = phase >= 3 ? '6,4' : 'none';
 
   return (
-    <DiagramShell title="STP — SPANNING TREE CONVERGENCE" onReplay={replay}>
+    <DiagramShell title="STP — SPANNING TREE CONVERGENCE" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: 20 }}>
         <svg width="100%" viewBox="0 0 400 200" style={{ maxHeight: 200, display: 'block', margin: '0 auto' }}>
           {/* Links */}
@@ -639,14 +659,19 @@ const DNS_NODES = ['Client', 'Resolver', 'Root NS', 'TLD NS', 'Auth NS'];
 
 function DnsDiagram() {
   const [step, setStep] = useState(-1);
+  const [isPaused, setIsPaused] = useState(false);
+
   useEffect(() => { const t = setTimeout(() => setStep(0), 500); return () => clearTimeout(t); }, []);
+
   useEffect(() => {
+    if (isPaused) return;
     if (step >= 0 && step < DNS_HOPS.length - 1) {
       const t = setTimeout(() => setStep((s) => s + 1), 950);
       return () => clearTimeout(t);
     }
-  }, [step]);
-  function replay() { setStep(-1); setTimeout(() => setStep(0), 300); }
+  }, [step, isPaused]);
+
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
 
   const nodeColor = (name) => {
     if (name === 'Client')   return '#00e5ff';
@@ -657,7 +682,7 @@ function DnsDiagram() {
   };
 
   return (
-    <DiagramShell title="DNS — RECURSIVE RESOLUTION (www.example.com)" onReplay={replay}>
+    <DiagramShell title="DNS — RECURSIVE RESOLUTION (www.example.com)" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: '16px 20px' }}>
         {/* Node row */}
         <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 16 }}>
@@ -714,6 +739,7 @@ function DnsDiagram() {
 function NatDiagram() {
   const [entries, setEntries] = useState([]);
   const [step, setStep] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const TRANSLATIONS = [
     { inside_local: '10.0.1.10:1234', inside_global: '203.0.113.5:1234', outside: '8.8.8.8:53', proto: 'UDP' },
@@ -722,19 +748,18 @@ function NatDiagram() {
   ];
 
   useEffect(() => {
-    if (step < TRANSLATIONS.length) {
-      const t = setTimeout(() => {
-        setEntries((prev) => [...prev, TRANSLATIONS[step]]);
-        setStep((s) => s + 1);
-      }, 900);
-      return () => clearTimeout(t);
-    }
-  }, [step]);
+    if (isPaused || step >= TRANSLATIONS.length) return;
+    const t = setTimeout(() => {
+      setEntries((prev) => [...prev, TRANSLATIONS[step]]);
+      setStep((s) => s + 1);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
 
-  function replay() { setEntries([]); setStep(0); }
+  function replay() { setEntries([]); setStep(0); setIsPaused(false); }
 
   return (
-    <DiagramShell title="NAT/PAT — TRANSLATION TABLE (Inside Local → Inside Global)" onReplay={replay}>
+    <DiagramShell title="NAT/PAT — TRANSLATION TABLE (Inside Local → Inside Global)" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: '16px 20px' }}>
         {/* Diagram */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 16, justifyContent: 'center' }}>
@@ -792,13 +817,16 @@ function NatDiagram() {
 // ────────────────────────────────────────────────────────────────
 function GreDiagram() {
   const [step, setStep] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   useEffect(() => {
-    if (step < 4) { const t = setTimeout(() => setStep((s) => s + 1), 950); return () => clearTimeout(t); }
-  }, [step]);
-  function replay() { setStep(0); }
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep((s) => s + 1), 950);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function replay() { setStep(0); setIsPaused(false); }
 
   return (
-    <DiagramShell title="GRE TUNNEL — PACKET ENCAPSULATION" onReplay={replay}>
+    <DiagramShell title="GRE TUNNEL — PACKET ENCAPSULATION" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 20, justifyContent: 'center' }}>
           {[
@@ -873,13 +901,16 @@ function GreDiagram() {
 // ────────────────────────────────────────────────────────────────
 function LacpDiagram() {
   const [step, setStep] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   useEffect(() => {
-    if (step < 4) { const t = setTimeout(() => setStep((s) => s + 1), 900); return () => clearTimeout(t); }
-  }, [step]);
-  function replay() { setStep(0); }
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep((s) => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function replay() { setStep(0); setIsPaused(false); }
 
   return (
-    <DiagramShell title="LACP — PORT CHANNEL BONDING (802.3ad)" onReplay={replay}>
+    <DiagramShell title="LACP — PORT CHANNEL BONDING (802.3ad)" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: 20 }}>
         <svg width="100%" viewBox="0 0 440 180" style={{ maxHeight: 180, display: 'block', margin: '0 auto' }}>
           {/* SW1 */}
@@ -935,10 +966,13 @@ function LacpDiagram() {
 // ────────────────────────────────────────────────────────────────
 function SubnettingDiagram() {
   const [step, setStep] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   useEffect(() => {
-    if (step < 4) { const t = setTimeout(() => setStep((s) => s + 1), 900); return () => clearTimeout(t); }
-  }, [step]);
-  function replay() { setStep(0); }
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep((s) => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function replay() { setStep(0); setIsPaused(false); }
 
   const subnets = [
     { net: '10.0.0.0/26',   range: '10.0.0.1 – 10.0.0.62',   hosts: 62,  color: '#00e5ff' },
@@ -948,7 +982,7 @@ function SubnettingDiagram() {
   ];
 
   return (
-    <DiagramShell title="SUBNETTING — DIVIDING 10.0.0.0/24 INTO /26 SUBNETS" onReplay={replay}>
+    <DiagramShell title="SUBNETTING — DIVIDING 10.0.0.0/24 INTO /26 SUBNETS" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: 20 }}>
         {/* Bit boundary visual */}
         <div style={{ marginBottom: 16, overflowX: 'auto' }}>
@@ -1023,20 +1057,20 @@ const NET_TYPES = [
 function NetworkTypesDiagram() {
   const [active, setActive] = useState(null);
   const [step, setStep]     = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (step < NET_TYPES.length) {
-      const t = setTimeout(() => setStep((s) => s + 1), 380);
-      return () => clearTimeout(t);
-    }
-  }, [step]);
+    if (isPaused || step >= NET_TYPES.length) return;
+    const t = setTimeout(() => setStep((s) => s + 1), 380);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
 
-  function replay() { setStep(0); setActive(null); }
+  function replay() { setStep(0); setActive(null); setIsPaused(false); }
 
   const info = active !== null ? NET_TYPES[active] : NET_TYPES[Math.min(step - 1, NET_TYPES.length - 1)];
 
   return (
-    <DiagramShell title="NETWORK TYPES — GEOGRAPHIC SCOPE" onReplay={replay}>
+    <DiagramShell title="NETWORK TYPES — GEOGRAPHIC SCOPE" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: 20, display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
         {/* Concentric circles */}
         <svg width="260" height="260" viewBox="0 0 260 260" style={{ flexShrink: 0 }}>
@@ -1425,10 +1459,12 @@ function RoutingDiagram() {
   const [packetIdx, setPacketIdx] = useState(0);
   const [checking, setChecking]   = useState(-1);
   const [winner, setWinner]       = useState(null);
+  const [isPaused, setIsPaused]   = useState(false);
 
   const pkt = TEST_PACKETS[packetIdx];
 
   useEffect(() => {
+    if (isPaused) return;
     setChecking(-1); setWinner(null);
     let idx = 0;
     const run = () => {
@@ -1443,10 +1479,10 @@ function RoutingDiagram() {
     };
     const t = setTimeout(run, 400);
     return () => clearTimeout(t);
-  }, [packetIdx]);
+  }, [packetIdx, isPaused]);
 
   return (
-    <DiagramShell title="ROUTING — LONGEST PREFIX MATCH LOOKUP">
+    <DiagramShell title="ROUTING — LONGEST PREFIX MATCH LOOKUP" onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: '14px 20px' }}>
         {/* Packet selector */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1523,17 +1559,19 @@ const INTERNET_STEPS = [
 
 function HowInternetWorksDiagram() {
   const [step, setStep] = useState(-1);
+  const [isPaused, setIsPaused] = useState(false);
   useEffect(() => { const t = setTimeout(() => setStep(0), 500); return () => clearTimeout(t); }, []);
   useEffect(() => {
+    if (isPaused) return;
     if (step >= 0 && step < INTERNET_STEPS.length - 1) {
       const t = setTimeout(() => setStep((s) => s + 1), 800);
       return () => clearTimeout(t);
     }
-  }, [step]);
-  function replay() { setStep(-1); setTimeout(() => setStep(0), 300); }
+  }, [step, isPaused]);
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
 
   return (
-    <DiagramShell title="HOW THE INTERNET WORKS — END-TO-END BROWSER REQUEST" onReplay={replay}>
+    <DiagramShell title="HOW THE INTERNET WORKS — END-TO-END BROWSER REQUEST" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
       <div style={{ padding: '14px 20px' }}>
         {/* Key concept banner */}
         <div style={{ display: 'flex', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
