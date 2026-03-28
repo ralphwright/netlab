@@ -8894,6 +8894,214 @@ function OsiTroubleshootingApproach() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// NETWORK TYPES — ENHANCED DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Network Type explorer — one card per type ─────────────
+function NetworkTypeExplorer() {
+  const [selected, setSelected] = React.useState('lan');
+  const types = {
+    pan:      { label: 'PAN',      full: 'Personal Area Network',   color: '#78909c', range: '< 10m',      speed: '< 3 Mbps',       latency: 'Very low',   owner: 'Personal',        tech: 'Bluetooth, NFC, USB, Zigbee',         icon: '📱', example: 'Phone ↔ earbuds ↔ smartwatch ↔ laptop' },
+    lan:      { label: 'LAN',      full: 'Local Area Network',      color: '#00e5ff', range: 'Building',   speed: '1–100 Gbps',     latency: '< 1 ms',     owner: 'Organisation',    tech: 'Ethernet (802.3), Wi-Fi (802.11)',    icon: '🏢', example: 'Office switches, APs, servers in a building' },
+    wlan:     { label: 'WLAN',     full: 'Wireless LAN',            color: '#2979ff', range: '30–100m',    speed: '600 Mbps–9.6 Gbps', latency: 'Low',    owner: 'Organisation',    tech: 'IEEE 802.11 (Wi-Fi 5/6/6E)',          icon: '📶', example: 'Wi-Fi in an office — logically part of the LAN' },
+    man:      { label: 'MAN',      full: 'Metropolitan Area Network',color: '#7c4dff', range: '5–50 km',   speed: '1–100 Gbps',     latency: 'Low–Med',    owner: 'ISP / City',      tech: 'Metro Ethernet, SONET, fibre rings',  icon: '🌆', example: 'Bank HQ to branches across a city' },
+    wan:      { label: 'WAN',      full: 'Wide Area Network',       color: '#f43f5e', range: 'Country/Globe', speed: '1 Mbps–100 Gbps', latency: '10–150ms', owner: 'ISP',          tech: 'MPLS, SD-WAN, leased lines, IPsec VPN', icon: '🌍', example: 'Corporate HQ to overseas offices via MPLS' },
+    internet: { label: 'Internet', full: 'Global Internet',         color: '#ffab00', range: 'Global',     speed: 'Varies',         latency: '10–150ms',   owner: 'None (federated)',tech: 'BGP (~80,000 ASes), IP, TCP/UDP',     icon: '🌐', example: '~80,000 autonomous systems peered via BGP' },
+    san:      { label: 'SAN',      full: 'Storage Area Network',    color: '#00e676', range: 'Data centre',speed: '8–64 Gbps FC',   latency: 'Microseconds', owner: 'Organisation',  tech: 'Fibre Channel, iSCSI over Ethernet',  icon: '💾', example: 'Server sees remote SAN array as local disk' },
+  };
+  const t = types[selected];
+  return (
+    <InlineViz label="NETWORK TYPES — SELECT TO COMPARE" accent={t.color}>
+      {/* Type buttons */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14, flexWrap: 'wrap' }}>
+        {Object.entries(types).map(([k, v]) => (
+          <button key={k} onClick={() => setSelected(k)} style={{
+            padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: selected === k ? `${v.color}22` : 'var(--bg-elevated)',
+            border: `1px solid ${selected === k ? v.color : 'var(--border-subtle)'}`,
+            color: selected === k ? v.color : 'var(--text-muted)', transition: 'all 0.2s',
+          }}>{v.label}</button>
+        ))}
+      </div>
+      {/* Detail panel */}
+      <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 16, alignItems: 'start' }}>
+        {/* Left: icon + stats */}
+        <div style={{ padding: '12px', borderRadius: 8,
+          background: `${t.color}10`, border: `1px solid ${t.color}35`, textAlign: 'center' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 6 }}>{t.icon}</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800,
+            fontSize: '1.125rem', color: t.color, marginBottom: 2 }}>{t.label}</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+            color: 'var(--text-muted)', marginBottom: 10 }}>{t.full}</div>
+          {[['Range', t.range], ['Speed', t.speed], ['Latency', t.latency], ['Owner', t.owner]].map(([k, v]) => (
+            <div key={k} style={{ marginBottom: 5 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.45rem',
+                color: 'var(--text-muted)', letterSpacing: '0.08em' }}>{k.toUpperCase()}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem',
+                color: t.color, fontWeight: 600, lineHeight: 1.3 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        {/* Right: description */}
+        <div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+              color: 'var(--text-muted)', marginBottom: 4 }}>TECHNOLOGIES</div>
+            <div style={{ fontSize: '0.8125rem', color: t.color,
+              fontFamily: 'var(--font-mono)' }}>{t.tech}</div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+              color: 'var(--text-muted)', marginBottom: 4 }}>REAL-WORLD EXAMPLE</div>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)',
+              lineHeight: 1.6 }}>{t.example}</div>
+          </div>
+          {/* Scale bar */}
+          <div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+              color: 'var(--text-muted)', marginBottom: 4 }}>RELATIVE SCALE</div>
+            {[['pan','📱'],['lan','🏢'],['man','🌆'],['wan','🌍'],['internet','🌐']].map(([k, icon], i) => (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6,
+                marginBottom: 3, opacity: k === selected ? 1 : 0.35,
+                transition: 'opacity 0.3s' }}>
+                <div style={{ width: `${(i+1) * 18}%`, height: 6, borderRadius: 3,
+                  background: types[k].color,
+                  boxShadow: k === selected ? `0 0 8px ${types[k].color}60` : 'none' }}/>
+                <span style={{ fontSize: '0.6rem', color: types[k].color,
+                  fontFamily: 'var(--font-mono)' }}>{types[k].label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── WAN Technologies — what connects sites ────────────────
+function WanTechnologiesViz() {
+  const [selected, setSelected] = React.useState(null);
+  const techs = [
+    {
+      name: 'MPLS', color: '#7c4dff', icon: '🔄',
+      desc: 'Provider-managed label-switched network. Guaranteed QoS, any-to-any connectivity, SLA-backed. Traffic never traverses the public internet. Most expensive option.',
+      pros: ['Guaranteed QoS', 'Low latency SLA', 'Any-to-any (full mesh) easy'],
+      cons: ['Expensive', 'Long provisioning times', 'Vendor lock-in'],
+    },
+    {
+      name: 'SD-WAN', color: '#00e5ff', icon: '☁️',
+      desc: 'Software-defined overlay over cheap internet (broadband, 4G/5G, MPLS). Centrally managed, automatic path selection, app-aware routing. Replacing MPLS in many enterprises.',
+      pros: ['Low cost (uses internet)', 'Central policy management', 'Automatic failover'],
+      cons: ['Internet quality varies', 'More complex initial setup', 'Security depends on overlay encryption'],
+    },
+    {
+      name: 'IPsec VPN', color: '#00e676', icon: '🔒',
+      desc: 'Encrypted tunnel over public internet. Hub-and-spoke (site-to-site) or DMVPN (dynamic mesh). No provider SLA — performance depends on internet path.',
+      pros: ['Very low cost', 'Any internet connection works', 'Strong encryption'],
+      cons: ['No SLA', 'Variable performance', 'Routing complexity at scale'],
+    },
+    {
+      name: 'Leased Line', color: '#ffab00', icon: '📡',
+      desc: 'Dedicated point-to-point circuit between two fixed sites — not shared with other customers. Consistent bandwidth and latency. Being replaced by MPLS and SD-WAN.',
+      pros: ['Dedicated bandwidth', 'Consistent latency', 'Simple point-to-point'],
+      cons: ['Very expensive', 'Only point-to-point', 'Slow to provision'],
+    },
+  ];
+  return (
+    <InlineViz label="WAN TECHNOLOGIES — HOW SITES CONNECT ACROSS DISTANCE" accent="#7c4dff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {techs.map((t, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '10px 12px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${t.color}18` : `${t.color}08`,
+              border: `1px solid ${selected === i ? t.color : t.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: '1.25rem' }}>{t.icon}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.75rem', color: t.color }}>{t.name}</span>
+            </div>
+            {selected === i ? (
+              <>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)',
+                  lineHeight: 1.5, marginBottom: 8 }}>{t.desc}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  <div>{t.pros.map((p, j) => <div key={j} style={{ fontSize: '0.625rem', color: '#00e676', marginBottom: 2 }}>✓ {p}</div>)}</div>
+                  <div>{t.cons.map((c, j) => <div key={j} style={{ fontSize: '0.625rem', color: '#ff5252', marginBottom: 2 }}>✗ {c}</div>)}</div>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                {t.desc.split('.')[0]}.
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Network Type Comparison — interactive table ────────────
+function NetworkTypeComparisonTable() {
+  const [sort, setSort] = React.useState('scope');
+  const rows = [
+    { type: 'PAN',      scope: 1, speed: '< 3 Mbps',    latency: 'Very low',    owner: 'Personal',     color: '#78909c' },
+    { type: 'LAN',      scope: 2, speed: '1–100 Gbps',  latency: '< 1 ms',      owner: 'Organisation', color: '#00e5ff' },
+    { type: 'WLAN',     scope: 2, speed: '600M–9.6 Gbps',latency: 'Low',        owner: 'Organisation', color: '#2979ff' },
+    { type: 'MAN',      scope: 3, speed: '1–100 Gbps',  latency: 'Low–Med',     owner: 'ISP/City',     color: '#7c4dff' },
+    { type: 'WAN',      scope: 4, speed: '1M–100 Gbps', latency: '10–150 ms',   owner: 'ISP',          color: '#f43f5e' },
+    { type: 'Internet', scope: 5, speed: 'Varies',       latency: '10–150 ms',   owner: 'Federated',    color: '#ffab00' },
+    { type: 'SAN',      scope: 2, speed: '8–64 Gbps',   latency: 'Microseconds', owner: 'Organisation', color: '#00e676' },
+  ];
+  const sorted = [...rows].sort((a, b) => a.scope - b.scope);
+  return (
+    <InlineViz label="NETWORK TYPE COMPARISON TABLE" accent="#00e5ff">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse',
+          fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+          <thead>
+            <tr>
+              {['Type','Scope','Speed','Latency','Ownership'].map(h => (
+                <th key={h} style={{ padding: '5px 10px', textAlign: 'left',
+                  borderBottom: '2px solid var(--border-subtle)',
+                  color: 'var(--text-muted)', fontSize: '0.5875rem',
+                  whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((r, i) => (
+              <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                <td style={{ padding: '6px 10px', fontWeight: 700, color: r.color }}>
+                  <span style={{ background: `${r.color}15`, padding: '2px 8px',
+                    borderRadius: 4, border: `1px solid ${r.color}35` }}>{r.type}</span>
+                </td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    {Array.from({length: 5}, (_, i) => (
+                      <div key={i} style={{ width: 14, height: 8, borderRadius: 2,
+                        background: i < r.scope ? r.color : 'var(--border-subtle)' }}/>
+                    ))}
+                  </div>
+                </td>
+                <td style={{ padding: '6px 10px', color: r.color }}>{r.speed}</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-secondary)' }}>{r.latency}</td>
+                <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{r.owner}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Remote Access VPN ─────────────────────────────────────────
   'remote-access': [
@@ -9151,7 +9359,9 @@ export const INLINE_DIAGRAMS = {
   ],
   // ── Network Types ───────────────────────────────────────────
   'network-types': [
-    { afterSection: 'Network Type Comparison',     component: NetworkScopeRings },
+    { afterSection: 'Network Types',          component: NetworkTypeExplorer },
+    { afterSection: 'WAN — Wide Area Network', component: WanTechnologiesViz },
+    { afterSection: 'Network Type Comparison', component: NetworkTypeComparisonTable },
   ],
   // ── Network Topologies ──────────────────────────────────────
   'network-topologies': [
