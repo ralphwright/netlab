@@ -8693,6 +8693,207 @@ function VpnSplitTunnel() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// OSI MODEL — ENHANCED / REPLACEMENT DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── OSI Layer deep-dive — one layer at a time ─────────────
+function OsiLayerDeepDive() {
+  const [layer, setLayer] = React.useState(7);
+  const layers = [
+    {
+      n: 7, name: 'Application',  color: '#6366f1',
+      pdu: 'Data', device: 'Host',
+      protocols: 'HTTP, HTTPS, FTP, SSH, DNS, DHCP, SMTP, IMAP, SNMP, Telnet',
+      role: 'Provides network services directly to end-user applications. Does NOT refer to the app itself — it is the API the network exposes. When your browser makes an HTTP request, this layer handles it.',
+      ccna: 'Know which protocols live here. DNS (UDP/TCP 53), DHCP (UDP 67/68), HTTP (80), HTTPS (443), SSH (22), Telnet (23), FTP (20/21), SMTP (25).',
+    },
+    {
+      n: 6, name: 'Presentation', color: '#8b5cf6',
+      pdu: 'Data', device: 'Host',
+      protocols: 'TLS/SSL, JPEG, MPEG, GIF, ASCII, EBCDIC, encryption/compression',
+      role: 'Translates data between application format and network format. Handles encryption (TLS), compression, and character encoding. Ensures data sent by one app is readable by another regardless of platform.',
+      ccna: 'Rarely tested in isolation. TLS/SSL lives here. Remember: encryption and compression happen at L6.',
+    },
+    {
+      n: 5, name: 'Session',      color: '#a855f7',
+      pdu: 'Data', device: 'Host',
+      protocols: 'NetBIOS, RPC, PPTP, SAP, SQL, NFS',
+      role: 'Establishes, manages, and terminates sessions between applications. Handles checkpointing (allowing a download to resume after interruption) and synchronisation between hosts.',
+      ccna: 'Least tested layer on CCNA. Remember: sessions, dialogues, checkpoints. NetBIOS and RPC live here.',
+    },
+    {
+      n: 4, name: 'Transport',    color: '#ec4899',
+      pdu: 'Segment (TCP) / Datagram (UDP)', device: 'Host',
+      protocols: 'TCP, UDP, SCTP',
+      role: 'End-to-end data delivery between processes on different hosts. TCP: reliable, ordered, connection-oriented (3-way handshake, seq/ack, flow control). UDP: fast, connectionless, no guarantee — used for DNS, DHCP, VoIP, streaming.',
+      ccna: 'High priority. Know TCP vs UDP differences, the 3-way handshake (SYN/SYN-ACK/ACK), port numbers, and windowing. TCP is reliable; UDP is fast.',
+    },
+    {
+      n: 3, name: 'Network',      color: '#f43f5e',
+      pdu: 'Packet', device: 'Router',
+      protocols: 'IPv4, IPv6, ICMP, ARP (debated), OSPF, BGP, EIGRP',
+      role: 'Logical addressing and routing between different networks. Routers make hop-by-hop forwarding decisions based on destination IP. Source and destination IPs remain constant end-to-end; MAC addresses change at each hop.',
+      ccna: 'Critical. IP addressing, subnetting, routing protocols, and ICMP all live here. "Layer 3 switch" means routing capability. ping uses ICMP at L3.',
+    },
+    {
+      n: 2, name: 'Data Link',    color: '#f97316',
+      pdu: 'Frame', device: 'Switch / Bridge',
+      protocols: 'Ethernet (802.3), Wi-Fi (802.11), PPP, VLANs (802.1Q), STP, ARP',
+      role: 'Node-to-node delivery on the same network segment using MAC addresses. Divided into MAC (media access control) and LLC (logical link control) sublayers. Switches operate here — they learn MAC addresses and forward frames to the correct port.',
+      ccna: 'Critical. MAC addresses, VLANs, STP, EtherChannel, and ARP all live at L2. "Layer 2 issue" = MAC/switching/VLAN/STP problem.',
+    },
+    {
+      n: 1, name: 'Physical',     color: '#eab308',
+      pdu: 'Bits', device: 'Hub / NIC / Cable',
+      protocols: 'IEEE 802.3 (Ethernet cabling), USB, DSL, Bluetooth PHY, SONET',
+      role: 'Transmits raw bits over a physical medium — electrical signals (copper), light pulses (fibre), or radio waves (Wi-Fi). Defines voltages, frequencies, connector types, and cable specifications. Hubs operate here — they repeat electrical signals.',
+      ccna: 'Know cable types (Cat5e/Cat6/fibre), connector types (RJ-45, LC, SC), and that hubs are L1 devices. "Layer 1 issue" = physical cable, port, or NIC problem.',
+    },
+  ];
+  const l = layers.find(x => x.n === layer);
+  return (
+    <InlineViz label="THE SEVEN LAYERS — CLICK A LAYER TO EXPLORE" accent={l.color}>
+      {/* Layer selector */}
+      <div style={{ display: 'flex', gap: 3, marginBottom: 14 }}>
+        {layers.map(la => (
+          <button key={la.n} onClick={() => setLayer(la.n)} style={{
+            flex: 1, padding: '5px 2px', borderRadius: 4, cursor: 'pointer',
+            background: layer === la.n ? `${la.color}25` : `${la.color}08`,
+            border: `1px solid ${layer === la.n ? la.color : la.color + '30'}`,
+            fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem',
+            color: layer === la.n ? la.color : 'var(--text-muted)',
+            transition: 'all 0.2s',
+          }}>L{la.n}</button>
+        ))}
+      </div>
+      {/* Layer detail */}
+      <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 16 }}>
+        {/* Left: metadata */}
+        <div>
+          <div style={{ padding: '10px 12px', borderRadius: 6,
+            background: `${l.color}12`, border: `1px solid ${l.color}40`,
+            marginBottom: 8 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800,
+              fontSize: '1.5rem', color: l.color, marginBottom: 4 }}>L{l.n}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.875rem', color: l.color, marginBottom: 8 }}>{l.name}</div>
+            {[['PDU', l.pdu], ['Device', l.device]].map(([label, val]) => (
+              <div key={label} style={{ marginBottom: 5 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem',
+                  color: 'var(--text-muted)', marginBottom: 1 }}>{label}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                  color: l.color, fontWeight: 600 }}>{val}</div>
+              </div>
+            ))}
+          </div>
+          {/* Protocols */}
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem',
+            color: 'var(--text-muted)', marginBottom: 4 }}>KEY PROTOCOLS</div>
+          <div style={{ fontSize: '0.625rem', color: 'var(--text-secondary)',
+            lineHeight: 1.6 }}>{l.protocols}</div>
+        </div>
+        {/* Right: description + CCNA tip */}
+        <div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)',
+            lineHeight: 1.6, marginBottom: 10 }}>{l.role}</div>
+          <div style={{ padding: '7px 10px', borderRadius: 5,
+            background: `${l.color}08`, border: `1px solid ${l.color}30`,
+            fontSize: '0.75rem', color: l.color, lineHeight: 1.5 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+              CCNA tip: </span>{l.ccna}
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── OSI Troubleshooting — bottom-up approach ──────────────
+function OsiTroubleshootingApproach() {
+  const [step, setStep] = React.useState(null);
+  const [scenario, setScenario] = React.useState('no-ping');
+  const scenarios = {
+    'no-ping': {
+      label: 'Cannot ping remote host',
+      checks: [
+        { layer: 1, label: 'Physical',   color: '#eab308', check: 'Is the cable plugged in? Is the link light on? show interface — is it up/up?', fix: 'Reseat cable, replace cable, check switchport mode' },
+        { layer: 2, label: 'Data Link',  color: '#f97316', check: 'Is the switchport in the correct VLAN? show mac address-table — is the MAC learned?', fix: 'Check VLAN assignment, STP port state, duplex mismatch' },
+        { layer: 3, label: 'Network',    color: '#f43f5e', check: 'Is the IP address correct? Is there a route? show ip route — is the destination reachable?', fix: 'Fix IP/mask, add static route, check default gateway' },
+        { layer: 4, label: 'Transport',  color: '#ec4899', check: 'Is a firewall/ACL blocking ICMP? show ip access-lists — any hits on deny rules?', fix: 'Remove ACL blocking ICMP, check firewall policy' },
+        { layer: 7, label: 'Application',color: '#6366f1', check: 'Is ping blocked at the application/OS level? Windows Firewall? Host-based IDS?', fix: 'Disable host firewall for test, check OS-level rules' },
+      ],
+    },
+    'no-web': {
+      label: 'Website unreachable (HTTP/S fails)',
+      checks: [
+        { layer: 1, label: 'Physical',   color: '#eab308', check: 'Physical link up? Can you ping the default gateway?', fix: 'Check physical connectivity first' },
+        { layer: 3, label: 'Network',    color: '#f43f5e', check: 'Can you ping 8.8.8.8? Is there a default route? Is NAT configured?', fix: 'Add default route, fix NAT/PAT configuration' },
+        { layer: 4, label: 'Transport',  color: '#ec4899', check: 'Is TCP 80/443 blocked by ACL or firewall? Try telnet x.x.x.x 443', fix: 'Permit TCP 80/443 on ACL, check firewall policy' },
+        { layer: 6, label: 'Presentation',color: '#8b5cf6',check: 'TLS certificate error? SSL inspection breaking session? Check browser error message', fix: 'Fix certificate, disable SSL inspection for test' },
+        { layer: 7, label: 'Application',color: '#6366f1', check: 'Is DNS resolving? nslookup example.com — does it return an IP?', fix: 'Fix DNS server config, check ip name-server' },
+      ],
+    },
+  };
+  const sc = scenarios[scenario];
+  return (
+    <InlineViz label="OSI TROUBLESHOOTING — BOTTOM-UP APPROACH" accent="#f43f5e">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {Object.entries(scenarios).map(([k, v]) => (
+          <button key={k} onClick={() => { setScenario(k); setStep(null); }} style={{
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: scenario === k ? 'rgba(244,63,94,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${scenario === k ? '#f43f5e' : 'var(--border-subtle)'}`,
+            color: scenario === k ? '#f43f5e' : 'var(--text-muted)',
+          }}>{v.label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {sc.checks.map((c, i) => (
+          <div key={i} onClick={() => setStep(step === i ? null : i)}
+            style={{
+              display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 12px',
+              borderRadius: 5, cursor: 'pointer',
+              background: step === i ? `${c.color}15` : `${c.color}06`,
+              border: `1px solid ${step === i ? c.color : c.color + '25'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+              background: `${c.color}20`, border: `1.5px solid ${c.color}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.625rem',
+              color: c.color,
+            }}>L{c.layer}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.75rem', color: c.color, marginBottom: step === i ? 5 : 0 }}>
+                {c.label} — {c.check.split('?')[0]}?
+              </div>
+              {step === i && (
+                <>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)',
+                    lineHeight: 1.5, marginBottom: 5 }}>{c.check}</div>
+                  <div style={{ fontSize: '0.6875rem', color: '#00e676',
+                    fontFamily: 'var(--font-mono)' }}>Fix: {c.fix}</div>
+                </>
+              )}
+            </div>
+            <div style={{ color: step === i ? c.color : 'var(--text-muted)',
+              fontSize: '0.75rem', flexShrink: 0 }}>{step === i ? '▲' : '▼'}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)',
+        fontStyle: 'italic', textAlign: 'center' }}>
+        Click each layer to see what to check and how to fix it
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Remote Access VPN ─────────────────────────────────────────
   'remote-access': [
@@ -8932,8 +9133,10 @@ export const INLINE_DIAGRAMS = {
   ],
   // ── OSI Model ──────────────────────────────────────────────
   'osi-model': [
-    { afterSection: 'The Seven Layers',           component: OsiLayerBreakdown },
+    { afterSection: 'The Seven Layers',              component: OsiLayerDeepDive },
     { afterSection: 'Encapsulation and Decapsulation', component: OsiEncapsulationInline },
+    { afterSection: 'OSI vs TCP/IP',                 component: TcpIpVsOsi },
+    { afterSection: 'Why OSI Matters for CCNA',      component: OsiTroubleshootingApproach },
   ],
   // ── Network Layer Architecture ─────────────────────────────
   // Two heading sets: migrate_netarch_redo (### Core Layer…)
