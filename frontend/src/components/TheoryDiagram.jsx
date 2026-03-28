@@ -4607,7 +4607,239 @@ function LacpRequirements() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// DHCP INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── DHCP DORA — detailed packet animation ─────────────────
+function DhcpDoraDetailed() {
+  const [step, setStep] = React.useState(-1);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const doraSteps = [
+    { name: 'DISCOVER',  dir: 'right', color: '#ffab00', src: '0.0.0.0',      dst: '255.255.255.255', port: 'UDP 68→67', detail: 'Client has no IP. Broadcasts to find any DHCP server.' },
+    { name: 'OFFER',     dir: 'left',  color: '#00e5ff', src: '10.0.1.1',     dst: '255.255.255.255', port: 'UDP 67→68', detail: 'Server offers 10.0.1.50 with lease options.' },
+    { name: 'REQUEST',   dir: 'right', color: '#00e676', src: '0.0.0.0',      dst: '255.255.255.255', port: 'UDP 68→67', detail: 'Client formally requests the offered IP (still broadcasts to notify other servers).' },
+    { name: 'ACK',       dir: 'left',  color: '#7c4dff', src: '10.0.1.1',     dst: '10.0.1.50',       port: 'UDP 67→68', detail: 'Server confirms. Client configures IP, mask, gateway, DNS.' },
+  ];
+  useEffect(() => {
+    const t = setTimeout(() => setStep(0), 500);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    if (isPaused || step < 0 || step >= doraSteps.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1300);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  return (
+    <InlineViz label="DHCP — DORA SEQUENCE (Discover → Offer → Request → Acknowledge)" accent="#ffab00">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 12 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={replay}>↺</button>
+      </div>
+      <svg viewBox="0 0 400 180" style={{ width: '100%', maxHeight: 180, display: 'block' }}>
+        {/* Client */}
+        <rect x="10" y="30" width="80" height="50" rx="5"
+          fill="rgba(0,229,255,0.08)" stroke="#00e5ff" strokeWidth="1.5"/>
+        <text x="50" y="52" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="10" fontWeight="bold">CLIENT</text>
+        <text x="50" y="65" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">
+          {step >= 3 ? '10.0.1.50/24' : '0.0.0.0'}
+        </text>
+        {step >= 3 && <text x="50" y="76" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="7">GW: 10.0.1.1</text>}
+        {/* Server */}
+        <rect x="310" y="30" width="80" height="50" rx="5"
+          fill="rgba(0,230,118,0.08)" stroke="#00e676" strokeWidth="1.5"/>
+        <text x="350" y="52" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="10" fontWeight="bold">DHCP</text>
+        <text x="350" y="65" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="10" fontWeight="bold">SERVER</text>
+        <text x="350" y="76" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">10.0.1.1</text>
+        {/* DORA arrows */}
+        {doraSteps.map((s, i) => {
+          if (step < i) return null;
+          const y = 100 + i * 18;
+          const isRight = s.dir === 'right';
+          return (
+            <g key={i}>
+              <line x1={isRight ? 90 : 310} y1={y} x2={isRight ? 310 : 90} y2={y}
+                stroke={s.color} strokeWidth="1.5"/>
+              <polygon
+                points={isRight
+                  ? `310,${y-4} 318,${y} 310,${y+4}`
+                  : `90,${y-4} 82,${y} 90,${y+4}`}
+                fill={s.color}/>
+              <rect x={isRight ? 150 : 130} y={y-10} width={isRight ? 90 : 80} height={14} rx={3}
+                fill={`${s.color}20`} stroke={`${s.color}50`} strokeWidth={1}/>
+              <text x="200" y={y} textAnchor="middle" fill={s.color}
+                fontFamily="monospace" fontSize="9" fontWeight="bold">{s.name}</text>
+            </g>
+          );
+        })}
+      </svg>
+      {step >= 0 && (
+        <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6,
+          background: `${doraSteps[Math.min(step, 3)].color}10`,
+          border: `1px solid ${doraSteps[Math.min(step, 3)].color}30`,
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+            color: doraSteps[Math.min(step, 3)].color }}>
+            {doraSteps[Math.min(step, 3)].name} </span>
+          — {doraSteps[Math.min(step, 3)].detail}
+          <div style={{ marginTop: 4, fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)' }}>
+            Src: {doraSteps[Math.min(step, 3)].src} · Dst: {doraSteps[Math.min(step, 3)].dst} · {doraSteps[Math.min(step, 3)].port}
+          </div>
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── DHCP Key Concepts — relay agent animation ─────────────
+function DhcpRelayAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  useEffect(() => {
+    if (isPaused || step >= 5) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="DHCP RELAY — ip helper-address (crossing subnet boundaries)" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 420 130" style={{ width: 400, maxHeight: 130, flexShrink: 0 }}>
+          {/* Client subnet */}
+          <rect x="5" y="15" width="90" height="100" rx="5"
+            fill="rgba(0,229,255,0.04)" stroke="rgba(0,229,255,0.2)" strokeWidth="1"/>
+          <text x="50" y="30" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8">10.0.1.0/24</text>
+          <rect x="15" y="40" width="70" height="28" rx="4"
+            fill={step>=1?'rgba(0,229,255,0.12)':'var(--bg-elevated)'}
+            stroke={step>=1?'#00e5ff':'var(--border-subtle)'} strokeWidth="1"/>
+          <text x="50" y="54" textAnchor="middle" fill={step>=1?'#00e5ff':'var(--text-muted)'}
+            fontFamily="monospace" fontSize="9" fontWeight="bold">CLIENT</text>
+          <text x="50" y="64" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">10.0.1.10</text>
+          {/* Router */}
+          <rect x="140" y="40" width="80" height="50" rx="5"
+            fill={step>=2?'rgba(255,171,0,0.12)':'rgba(255,171,0,0.05)'}
+            stroke="#ffab00" strokeWidth="1.5"/>
+          <text x="180" y="62" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="10" fontWeight="bold">R1</text>
+          <text x="180" y="74" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">ip helper-address</text>
+          <text x="180" y="83" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">10.0.2.100</text>
+          {/* DHCP Server subnet */}
+          <rect x="270" y="15" width="145" height="100" rx="5"
+            fill="rgba(0,230,118,0.04)" stroke="rgba(0,230,118,0.2)" strokeWidth="1"/>
+          <text x="342" y="30" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8">10.0.2.0/24</text>
+          <rect x="290" y="40" width="105" height="28" rx="4"
+            fill={step>=4?'rgba(0,230,118,0.12)':'var(--bg-elevated)'}
+            stroke={step>=4?'#00e676':'var(--border-subtle)'} strokeWidth="1"/>
+          <text x="342" y="54" textAnchor="middle" fill={step>=4?'#00e676':'var(--text-muted)'}
+            fontFamily="monospace" fontSize="9" fontWeight="bold">DHCP SERVER</text>
+          <text x="342" y="64" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">10.0.2.100</text>
+          {/* Packet flow */}
+          {step>=1 && step<=2 && (
+            <circle cx={85+step*30} cy={55} r="7" fill="#ffab00" opacity="0.9">
+              <animateMotion dur="0.5s" repeatCount="1" path="M0,0 L60,0"/>
+            </circle>
+          )}
+          {step>=1 && (
+            <line x1="85" y1="55" x2="140" y2="55"
+              stroke={step>=2?'#ffab00':'var(--border-subtle)'} strokeWidth="2"
+              style={{transition:'stroke 0.4s'}}/>
+          )}
+          {step>=2 && step<=4 && (
+            <line x1="220" y1="55" x2="290" y2="55"
+              stroke="#7c4dff" strokeWidth="2.5"/>
+          )}
+          {step>=4 && (
+            <line x1="290" y1="55" x2="220" y2="55"
+              stroke="#00e676" strokeWidth="2" strokeDasharray="4,2"/>
+          )}
+          {step>=2 && (
+            <text x="255" y="48" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="8">
+              {step>=4?'OFFER→ACK':'DISCOVER→'}
+            </text>
+          )}
+          {/* Labels */}
+          <text x="85" y="115" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">
+            Broadcast→Unicast
+          </text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+            {step===0 && 'Client is on 10.0.1.0/24. DHCP server is on a different subnet — 10.0.2.0/24.'}
+            {step===1 && 'Client broadcasts DISCOVER (255.255.255.255). Broadcasts don\'t cross routers.'}
+            {step===2 && 'R1\'s Gi0/0 has ip helper-address 10.0.2.100. R1 converts the broadcast to a unicast OFFER and forwards it to the DHCP server.'}
+            {step===3 && 'DHCP server receives the relayed request. It sees the giaddr field (R1\'s interface IP) and knows which pool to allocate from.'}
+            {step===4 && 'Server sends OFFER/ACK back to R1 (unicast). R1 relays to client.'}
+            {step>=5 && '✓ Client gets IP from centralized server despite being on a different subnet. One server serves many subnets via helper-address.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── DHCP Troubleshooting flowchart ────────────────────────
+function DhcpTroubleshoot() {
+  const [selected, setSelected] = React.useState(null);
+  const issues = [
+    { q: 'Client gets 169.254.x.x (APIPA)', color: '#ff5252',
+      steps: ['1. Check DHCP server is running and reachable', '2. Verify ip helper-address if client is on a different subnet', '3. Check pool is not exhausted (show ip dhcp pool)', '4. Verify no ip dhcp excluded-address blocks the entire pool', '5. Check interface is up (show ip interface brief)'] },
+    { q: 'Client gets wrong default gateway', color: '#ffab00',
+      steps: ['1. Check default-router in the DHCP pool config', '2. Verify the pool matches the correct subnet', '3. Check if multiple pools overlap — first match wins', '4. Verify client is getting lease from the right server'] },
+    { q: 'DHCP works locally but not across router', color: '#7c4dff',
+      steps: ['1. Check ip helper-address is configured on the correct interface (facing client subnet)', '2. Verify helper points to DHCP server IP (not broadcast)', '3. Check ACL — UDP port 67/68 must not be blocked', '4. Confirm router interface facing clients is up/up'] },
+    { q: 'IP address conflict detected', color: '#f43f5e',
+      steps: ['1. Run show ip dhcp conflict to see conflicting IPs', '2. clear ip dhcp conflict * to reset', '3. Add the conflicting static IPs to excluded-address range', '4. Verify no hosts have static IPs in the DHCP pool range'] },
+  ];
+  return (
+    <InlineViz label="DHCP TROUBLESHOOTING — COMMON ISSUES" accent="#ff5252">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {issues.map((issue, i) => (
+          <div key={i}>
+            <div onClick={() => setSelected(selected === i ? null : i)}
+              style={{
+                padding: '8px 12px', borderRadius: 6, cursor: 'pointer',
+                background: selected === i ? `${issue.color}12` : `${issue.color}06`,
+                border: `1px solid ${selected === i ? issue.color : issue.color + '30'}`,
+                transition: 'all 0.2s',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: issue.color }}>
+                ⚠ {issue.q}
+              </span>
+              <span style={{ color: issue.color, fontSize: '0.75rem' }}>{selected === i ? '▲' : '▼'}</span>
+            </div>
+            {selected === i && (
+              <div style={{ padding: '8px 12px 10px 20px',
+                background: `${issue.color}06`, borderLeft: `2px solid ${issue.color}40`,
+                marginTop: 2, borderRadius: '0 0 6px 6px' }}>
+                {issue.steps.map((s, j) => (
+                  <div key={j} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: 4, lineHeight: 1.5 }}>{s}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── DHCP ─────────────────────────────────────────────────────
+  'dhcp': [
+    { afterSection: 'What Is DHCP?',    component: DhcpDoraDetailed },
+    { afterSection: 'Key Concepts',     component: DhcpRelayAnim },
+    { afterSection: 'Troubleshooting',  component: DhcpTroubleshoot },
+  ],
+  'dhcp-server-config': [
+    { afterSection: 'What Is DHCP?',    component: DhcpDoraDetailed },
+    { afterSection: 'Key Concepts',     component: DhcpRelayAnim },
+    { afterSection: 'Troubleshooting',  component: DhcpTroubleshoot },
+  ],
   // ── LACP ─────────────────────────────────────────────────────
   'lacp': [
     { afterSection: 'What Is LACP?',            component: LacpBundlingAnim },
