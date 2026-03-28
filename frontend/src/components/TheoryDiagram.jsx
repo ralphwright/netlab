@@ -10137,6 +10137,309 @@ function CablePinoutDiagram() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// ROUTING FUNDAMENTALS — SECTION DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── How a Router Forwards a Packet — flowchart ────────────
+function RouterForwardingFlowchart() {
+  const [step, setStep] = React.useState(0);
+  const [dest, setDest] = React.useState('10.0.1.50');
+  const [isPaused, setIsPaused] = React.useState(false);
+
+  // Routing table
+  const routes = [
+    { prefix:'10.0.0.0/8',     nh:'Gi0/0 (direct)', type:'C', color:'#00e5ff' },
+    { prefix:'10.0.1.0/24',    nh:'10.0.12.2',       type:'O', color:'#00e676' },
+    { prefix:'10.0.1.50/32',   nh:'10.0.12.3',       type:'S', color:'#ffab00' },
+    { prefix:'0.0.0.0/0',      nh:'203.0.113.1',     type:'S*',color:'#78909c' },
+  ];
+
+  const scenarios = {
+    '10.0.1.50': { matchIdx: 2, result: '10.0.12.3',     why: '/32 host route is most specific — longest prefix wins' },
+    '10.0.1.100': { matchIdx: 1, result: '10.0.12.2',    why: '/24 is more specific than /8 — longest prefix wins' },
+    '10.0.2.1':  { matchIdx: 0, result: 'Gi0/0 direct',  why: 'Only /8 matches — no more specific route exists' },
+    '8.8.8.8':   { matchIdx: 3, result: '203.0.113.1',   why: 'No specific match — falls to default route 0.0.0.0/0' },
+  };
+  const sc = scenarios[dest];
+
+  useEffect(() => {
+    if (isPaused || step >= sc.matchIdx + 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 700);
+    return () => clearTimeout(t);
+  }, [step, isPaused, dest]);
+
+  function reset(d) { setDest(d); setStep(0); setIsPaused(false); }
+
+  const steps2 = [
+    'Packet arrives. Router extracts destination IP from header.',
+    'Look up destination in routing table — longest prefix match.',
+    'Check each route from most specific to least specific.',
+    'Match found! Forward packet out the indicated interface.',
+  ];
+
+  return (
+    <InlineViz label="HOW A ROUTER FORWARDS A PACKET — LONGEST PREFIX MATCH" accent="#2979ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Dest IP:</span>
+        {Object.keys(scenarios).map(ip => (
+          <button key={ip} onClick={() => reset(ip)} style={{
+            padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+            background: dest === ip ? 'rgba(41,121,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${dest === ip ? '#2979ff' : 'var(--border-subtle)'}`,
+            color: dest === ip ? '#2979ff' : 'var(--text-muted)',
+          }}>{ip}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => reset(dest)}>↺</button>
+        </div>
+      </div>
+      {/* Routing table */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 10 }}>
+        {routes.map((r, i) => {
+          const checked = step > i || (step === sc.matchIdx + 1 && i <= sc.matchIdx);
+          const isMatch = i === sc.matchIdx && step >= sc.matchIdx + 1;
+          const checking = step === i + 1 && i < sc.matchIdx;
+          return (
+            <div key={i} style={{
+              display: 'grid', gridTemplateColumns: '28px 130px 1fr 50px',
+              alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 5,
+              background: isMatch ? `${r.color}18` : checking ? 'rgba(41,121,255,0.08)' : 'var(--bg-elevated)',
+              border: `1px solid ${isMatch ? r.color : checking ? '#2979ff' : 'var(--border-subtle)'}`,
+              opacity: !checked && !checking ? 0.35 : 1,
+              transition: 'all 0.4s',
+            }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.625rem', color: r.color, textAlign: 'center' }}>{r.type}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
+                color: checked ? 'var(--text-primary)' : 'var(--text-muted)',
+                fontWeight: isMatch ? 700 : 400 }}>{r.prefix}</div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)' }}>
+                {checked
+                  ? isMatch ? `✓ MATCH — forward via ${r.nh}` : '✗ not specific enough'
+                  : checking ? 'checking…' : '—'}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem',
+                color: isMatch ? r.color : 'transparent', textAlign: 'right' }}>
+                {isMatch ? '← BEST' : ''}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {step >= sc.matchIdx + 1 && (
+        <div style={{ padding: '7px 12px', borderRadius: 5,
+          background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)',
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <span style={{ color: '#00e676', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            Result: forward to {sc.result} — </span>{sc.why}
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── Administrative Distance — trust ladder ────────────────
+function AdLadder() {
+  const [hovered, setHovered] = React.useState(null);
+  const sources = [
+    { name: 'Connected',      ad: 0,   color: '#00e676', desc: 'Interface is directly connected and up/up. Cannot be wrong — the router IS on that network.' },
+    { name: 'Static',         ad: 1,   color: '#00e5ff', desc: 'Manually configured by an admin. Trusted because a human explicitly said so.' },
+    { name: 'eBGP',           ad: 20,  color: '#2979ff', desc: 'External BGP — routes learned from a different AS. High trust for inter-AS routing.' },
+    { name: 'EIGRP (int)',    ad: 90,  color: '#7c4dff', desc: 'Internal EIGRP — Cisco proprietary. Fast convergence, composite metric.' },
+    { name: 'OSPF',           ad: 110, color: '#ffab00', desc: 'Open standard link-state IGP. Default enterprise protocol. AD 110.' },
+    { name: 'RIP',            ad: 120, color: '#f97316', desc: 'Distance-vector, hop count only, 15-hop limit. Legacy — rarely used today.' },
+    { name: 'iBGP',           ad: 200, color: '#f43f5e', desc: 'Internal BGP — learned within the same AS. Lower trust than eBGP or OSPF.' },
+    { name: 'Unreachable',    ad: 255, color: '#546e7a', desc: 'AD 255 means the route is considered unreachable and will never be installed.' },
+  ];
+  const maxAd = 255;
+  return (
+    <InlineViz label="ADMINISTRATIVE DISTANCE — LOWER IS MORE TRUSTED" accent="#00e5ff">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {sources.map((s, i) => (
+          <div key={i}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'default' }}>
+            {/* AD value */}
+            <div style={{ width: 32, textAlign: 'right', fontFamily: 'var(--font-mono)',
+              fontWeight: 700, fontSize: '0.75rem', color: s.color, flexShrink: 0 }}>
+              {s.ad}
+            </div>
+            {/* Bar */}
+            <div style={{ flex: 1, height: 16, background: 'var(--bg-elevated)',
+              borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
+              <div style={{
+                width: `${Math.max(2, (s.ad / maxAd) * 100)}%`,
+                height: '100%', background: s.color, borderRadius: 4,
+                opacity: hovered === i ? 1 : 0.6,
+                transition: 'opacity 0.2s, width 0.4s',
+              }}/>
+            </div>
+            {/* Name */}
+            <div style={{ width: 110, fontFamily: 'var(--font-mono)', fontWeight: 600,
+              fontSize: '0.6875rem', color: hovered === i ? s.color : 'var(--text-secondary)',
+              transition: 'color 0.2s', flexShrink: 0 }}>{s.name}</div>
+          </div>
+        ))}
+      </div>
+      {hovered !== null && (
+        <div style={{ marginTop: 10, padding: '7px 12px', borderRadius: 5,
+          background: `${sources[hovered].color}10`,
+          border: `1px solid ${sources[hovered].color}35`,
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+            color: sources[hovered].color }}>AD {sources[hovered].ad} — {sources[hovered].name}: </span>
+          {sources[hovered].desc}
+        </div>
+      )}
+      <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+        Hover any row · If two sources advertise the same prefix, lowest AD wins
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Routing Protocols Overview — comparison ───────────────
+function RoutingProtocolsComparison() {
+  const [selected, setSelected] = React.useState(null);
+  const protocols = [
+    {
+      name: 'RIP', full: 'Routing Information Protocol',
+      type: 'Distance Vector', algo: 'Bellman-Ford',
+      ad: 120, metric: 'Hop count (max 15)', conv: 'Slow (30s updates)',
+      color: '#78909c', scale: 'Small / legacy',
+      desc: 'Simplest routing protocol. Shares entire routing table with neighbours every 30 seconds. 15-hop limit makes it unsuitable for large networks. RIPv2 adds VLSM support. Rarely used today.',
+      pros: ['Simple to configure', 'No complex design needed'],
+      cons: ['15-hop limit', 'Slow convergence (30s+)', 'No load balancing'],
+    },
+    {
+      name: 'OSPF', full: 'Open Shortest Path First',
+      type: 'Link State', algo: 'Dijkstra SPF',
+      ad: 110, metric: 'Cost (ref BW / link BW)', conv: 'Fast (triggered)',
+      color: '#00e5ff', scale: 'Enterprise (any size)',
+      desc: 'The standard enterprise IGP. Each router builds a complete topology map (LSDB) and calculates shortest paths with Dijkstra. Uses areas to reduce flooding scope. Supports VLSM, auth, and fast convergence.',
+      pros: ['Fast convergence', 'Hierarchical areas', 'Open standard', 'Full VLSM/CIDR'],
+      cons: ['More complex config', 'SPF CPU cost on large networks', 'Requires area design'],
+    },
+    {
+      name: 'EIGRP', full: 'Enhanced IGRP',
+      type: 'Advanced Distance Vector', algo: 'DUAL',
+      ad: 90, metric: 'Composite (BW + delay)', conv: 'Very fast (DUAL)',
+      color: '#7c4dff', scale: 'Cisco enterprise',
+      desc: 'Cisco-proprietary (open standard since 2013). Uses DUAL algorithm for loop-free backup paths. Supports unequal-cost load balancing. Faster convergence than OSPF in many scenarios. AD 90 beats OSPF 110.',
+      pros: ['Fastest convergence', 'Unequal-cost LB', 'Low bandwidth use', 'AD 90 wins vs OSPF'],
+      cons: ['Cisco-heavy environments', 'Less universal than OSPF', 'Complex metric'],
+    },
+    {
+      name: 'BGP', full: 'Border Gateway Protocol',
+      type: 'Path Vector', algo: 'Policy + AS-path',
+      ad: 20, metric: 'AS-path + attributes', conv: 'Slow (minutes)',
+      color: '#f43f5e', scale: 'Internet / multi-AS',
+      desc: 'The routing protocol of the internet. Exchanges routes between ASes (eBGP) or within an AS (iBGP). Makes decisions based on policies and path attributes, not just metric. Stability over speed — used where policy matters more than convergence.',
+      pros: ['Full internet routing', 'Rich policy control', 'Scales to entire internet'],
+      cons: ['Very slow convergence', 'Complex config', 'Not for IGP use'],
+    },
+  ];
+  return (
+    <InlineViz label="ROUTING PROTOCOLS — RIP vs OSPF vs EIGRP vs BGP" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {protocols.map((p, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '10px 12px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${p.color}18` : `${p.color}06`,
+              border: `1px solid ${selected === i ? p.color : p.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800,
+                fontSize: '0.875rem', color: p.color }}>{p.name}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                color: p.color, background: `${p.color}18`,
+                padding: '1px 6px', borderRadius: 3 }}>AD {p.ad}</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: selected === i ? 8 : 0 }}>
+              {[['Type', p.type],['Algo', p.algo],['Metric', p.metric],['Scale', p.scale]].map(([k,v]) => (
+                <div key={k}>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:'0.45rem',
+                    color:'var(--text-muted)', marginBottom:1 }}>{k}</div>
+                  <div style={{ fontSize:'0.6rem', color:'var(--text-secondary)',
+                    lineHeight:1.3 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            {selected === i && (
+              <>
+                <div style={{ fontSize:'0.75rem', color:'var(--text-secondary)',
+                  lineHeight:1.5, marginBottom:8, borderTop:`1px solid ${p.color}25`,
+                  paddingTop:6 }}>{p.desc}</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                  <div>{p.pros.map((x,j)=><div key={j} style={{fontSize:'0.6rem',color:'#00e676',marginBottom:2}}>✓ {x}</div>)}</div>
+                  <div>{p.cons.map((x,j)=><div key={j} style={{fontSize:'0.6rem',color:'#ff5252',marginBottom:2}}>✗ {x}</div>)}</div>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Routing vs Switching — side-by-side ───────────────────
+function RoutingVsSwitchingViz() {
+  const rows = [
+    { attr:'Layer',          sw:'Layer 2 (Data Link)',    rt:'Layer 3 (Network)' },
+    { attr:'Address used',   sw:'MAC address',            rt:'IP address' },
+    { attr:'Scope',          sw:'Within a network/VLAN',  rt:'Between networks' },
+    { attr:'Table',          sw:'MAC/CAM table',          rt:'Routing table (RIB)' },
+    { attr:'Broadcasts',     sw:'Forwards within VLAN',   rt:'Stops broadcasts' },
+    { attr:'Loop prevention',sw:'STP (Spanning Tree)',     rt:'TTL field (decremented)' },
+    { attr:'Protocol',       sw:'Ethernet (802.3)',        rt:'IP (IPv4/IPv6)' },
+    { attr:'Device',         sw:'Switch',                 rt:'Router / L3 Switch' },
+  ];
+  const [hovered, setHovered] = React.useState(null);
+  return (
+    <InlineViz label="ROUTING vs SWITCHING — KEY DIFFERENCES" accent="#2979ff">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse',
+          fontFamily:'var(--font-mono)', fontSize:'0.75rem' }}>
+          <thead>
+            <tr>
+              {['','Switching (L2)','Routing (L3)'].map((h,i)=>(
+                <th key={i} style={{ padding:'5px 12px', textAlign:'left',
+                  borderBottom:'2px solid var(--border-subtle)',
+                  color: i===0 ? 'var(--text-muted)' : i===1 ? '#00e5ff' : '#2979ff',
+                  fontSize:'0.6875rem' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r,i)=>(
+              <tr key={i}
+                onMouseEnter={()=>setHovered(i)}
+                onMouseLeave={()=>setHovered(null)}
+                style={{ background: hovered===i ? 'rgba(41,121,255,0.06)' : 'transparent',
+                  transition:'background 0.2s' }}>
+                <td style={{ padding:'6px 12px', color:'var(--text-muted)',
+                  fontWeight:600, whiteSpace:'nowrap' }}>{r.attr}</td>
+                <td style={{ padding:'6px 12px', color: hovered===i ? '#00e5ff' : 'var(--text-secondary)' }}>{r.sw}</td>
+                <td style={{ padding:'6px 12px', color: hovered===i ? '#2979ff' : 'var(--text-secondary)' }}>{r.rt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Remote Access VPN ─────────────────────────────────────────
   'remote-access': [
@@ -10427,10 +10730,14 @@ export const INLINE_DIAGRAMS = {
     { afterSection: 'Cable Selection Guide',          component: CablesComparisonInline },
     { afterSection: 'Straight-Through vs Crossover',  component: CablePinoutDiagram },
   ],
-  // ── Routing ─────────────────────────────────────────────────
+  // ── Routing Fundamentals ────────────────────────────────────
   'routing-fundamentals': [
-    { afterSection: 'The Routing Table',           component: RoutingTableWalkthrough },
-    { afterSection: 'Longest Prefix Match',        component: RoutingTableWalkthrough },
+    { afterSection: 'How a Router Forwards a Packet', component: RouterForwardingFlowchart },
+    { afterSection: 'The Routing Table',              component: RoutingTableWalkthrough },
+    { afterSection: 'Administrative Distance (AD)',   component: AdLadder },
+    { afterSection: 'Longest Prefix Match',           component: RouterForwardingFlowchart },
+    { afterSection: 'Routing Protocols Overview',     component: RoutingProtocolsComparison },
+    { afterSection: 'Routing vs Switching',           component: RoutingVsSwitchingViz },
   ],
   // ── How Internet Works ──────────────────────────────────────
   'how-internet-works': [
