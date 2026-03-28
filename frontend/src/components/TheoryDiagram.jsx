@@ -3961,7 +3961,379 @@ function VlsmVisual() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// STP INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Broadcast Storm — the problem STP solves ───────────────
+function BroadcastStormAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  useEffect(() => {
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const active = step >= 2;
+  const strobeOp = step >= 3 ? [1,0.3,1,0.3,1][step % 2] : 1;
+  return (
+    <InlineViz label="THE PROBLEM — BROADCAST STORM WITHOUT STP" accent="#ff5252">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 170" style={{ width: 260, maxHeight: 170, flexShrink: 0 }}>
+          {/* Three switches in a triangle — no STP */}
+          {[
+            { id: 'SW1', x: 140, y: 25  },
+            { id: 'SW2', x: 40,  y: 140 },
+            { id: 'SW3', x: 240, y: 140 },
+          ].map((sw, i) => (
+            <g key={i}>
+              <rect x={sw.x - 28} y={sw.y - 16} width={56} height={32} rx="5"
+                fill={active ? 'rgba(255,82,82,0.2)' : 'rgba(0,229,255,0.08)'}
+                stroke={active ? '#ff5252' : '#00e5ff'} strokeWidth="1.5"
+                style={{ transition: 'all 0.4s' }}/>
+              <text x={sw.x} y={sw.y + 5} textAnchor="middle"
+                fill={active ? '#ff5252' : '#00e5ff'}
+                fontFamily="monospace" fontSize="11" fontWeight="bold">{sw.id}</text>
+            </g>
+          ))}
+          {/* Links */}
+          {[[140,41,56,140],[140,41,212,140],[56,140,212,140]].map(([x1,y1,x2,y2],i) => (
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={active ? '#ff5252' : 'var(--border-subtle)'}
+              strokeWidth={active ? 2.5 : 1.5}
+              style={{ transition: 'stroke 0.4s' }}/>
+          ))}
+          {/* Storm arrows */}
+          {active && [
+            { x1:100,y1:65,  x2:70,  y2:120, rot: 0   },
+            { x1:180,y1:65,  x2:210, y2:120, rot: 0   },
+            { x1:120,y1:140, x2:180, y2:140, rot: 0   },
+          ].map((a, i) => (
+            <g key={i} opacity={step >= 3 ? (0.4 + (i%2)*0.5) : 0.8}>
+              <line x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2}
+                stroke="#ff5252" strokeWidth="2" markerEnd="url(#arrowRed)"
+                strokeDasharray="4,2"/>
+              <text x={(a.x1+a.x2)/2} y={(a.y1+a.y2)/2 - 4}
+                textAnchor="middle" fill="#ff5252" fontSize="10">⚡</text>
+            </g>
+          ))}
+          {step >= 3 && (
+            <text x="140" y="90" textAnchor="middle" fill="#ff5252"
+              fontFamily="monospace" fontSize="22" fontWeight="bold" opacity="0.6">∞</text>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+            {step === 0 && 'Three switches are connected in a physical loop — common for redundancy.'}
+            {step === 1 && 'PC sends a broadcast frame. SW1 receives it and floods to all ports.'}
+            {step === 2 && 'SW2 and SW3 receive the frame and each flood it back — the loop is complete.'}
+            {step === 3 && '⚠ Frames circulate forever. CPU spikes to 100%, links saturate, network collapses.'}
+            {step >= 4 && '⚠ Without STP, one broadcast creates an infinite forwarding loop. STP prevents this by blocking one port in the triangle.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Root Bridge Election ───────────────────────────────────
+function RootBridgeElection() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const switches = [
+    { id: 'SW1', priority: 32768, mac: 'aa:bb:cc:00:00:01', x: 140, y: 30  },
+    { id: 'SW2', priority: 32768, mac: 'aa:bb:cc:00:00:02', x: 40,  y: 140 },
+    { id: 'SW3', priority: 4096,  mac: 'aa:bb:cc:00:00:03', x: 240, y: 140 },
+  ];
+  // SW3 wins because priority 4096 < 32768
+  const rootIdx = 2;
+  useEffect(() => {
+    if (isPaused || step >= 3) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="STEP 1 — ROOT BRIDGE ELECTION (lowest Bridge ID wins)" accent="#ffab00">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 185" style={{ width: 260, maxHeight: 185, flexShrink: 0 }}>
+          {/* Links */}
+          {[[140,46,56,140],[140,46,212,140],[56,140,212,140]].map(([x1,y1,x2,y2],i) => (
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={step >= 1 ? '#ffab00' : 'var(--border-subtle)'}
+              strokeWidth="1.5" strokeDasharray={step >= 1 ? '5,3' : 'none'}
+              style={{ transition: 'stroke 0.4s' }}/>
+          ))}
+          {step >= 1 && (
+            <text x="140" y="100" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="8">
+              BPDU exchanges
+            </text>
+          )}
+          {switches.map((sw, i) => {
+            const isRoot = i === rootIdx && step >= 2;
+            const color = isRoot ? '#00e676' : step >= 1 ? '#ffab00' : '#00e5ff';
+            return (
+              <g key={i}>
+                <rect x={sw.x - 34} y={sw.y - 22} width={68} height={44} rx="5"
+                  fill={isRoot ? 'rgba(0,230,118,0.15)' : 'rgba(255,171,0,0.08)'}
+                  stroke={color} strokeWidth={isRoot ? 2.5 : 1.5}
+                  style={{ transition: 'all 0.4s' }}/>
+                <text x={sw.x} y={sw.y - 6} textAnchor="middle" fill={color}
+                  fontFamily="monospace" fontSize="11" fontWeight="bold">{sw.id}</text>
+                <text x={sw.x} y={sw.y + 6} textAnchor="middle" fill={color}
+                  fontFamily="monospace" fontSize="8">pri: {sw.priority}</text>
+                <text x={sw.x} y={sw.y + 16} textAnchor="middle" fill="var(--text-muted)"
+                  fontFamily="monospace" fontSize="7">…{sw.mac.slice(-5)}</text>
+                {isRoot && (
+                  <text x={sw.x} y={sw.y + 36} textAnchor="middle" fill="#00e676"
+                    fontFamily="monospace" fontSize="9" fontWeight="bold">★ ROOT</text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+            {step === 0 && 'Each switch starts claiming to be the root bridge and sends BPDUs.'}
+            {step === 1 && 'Switches exchange BPDUs. Bridge ID = Priority (2B) + MAC Address (6B). Lowest Bridge ID wins.'}
+            {step === 2 && 'SW3 has priority 4096 vs SW1/SW2\'s 32768. SW3 has the lowest Bridge ID — it becomes root.'}
+            {step >= 3 && '✓ SW3 is the Root Bridge. All other switches now calculate paths TO SW3 to determine port roles.'}
+          </div>
+          <div style={{ padding: '8px 12px', borderRadius: 6, background: 'rgba(255,171,0,0.08)', border: '1px solid rgba(255,171,0,0.2)', fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 10 }}>
+            Bridge ID = Priority + MAC<br/>
+            SW1: 32768.aa:bb:cc:…:01<br/>
+            SW3: <span style={{ color: '#00e676' }}>04096</span>.aa:bb:cc:…:03 ← wins
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Port Role Assignment ───────────────────────────────────
+function PortRoleAssignment() {
+  const [hovered, setHovered] = React.useState(null);
+  const roles = [
+    { name: 'Root Port',       color: '#00e676', abbr: 'RP', desc: 'Best path toward the Root Bridge. One per non-root switch. Always in forwarding state.' },
+    { name: 'Designated Port', color: '#00e5ff', abbr: 'DP', desc: 'Best port on each network segment toward root. Forwards traffic away from root. Root bridge has all designated ports.' },
+    { name: 'Blocking Port',   color: '#ff5252', abbr: 'BP', desc: 'Not root port or designated port. Blocked to break the loop. Receives BPDUs but discards data frames.' },
+  ];
+  return (
+    <InlineViz label="STEP 2 — PORT ROLE ASSIGNMENT (3-switch triangle)" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 185" style={{ width: 260, maxHeight: 185, flexShrink: 0 }}>
+          {/* SW3 = root (bottom right) */}
+          {[
+            { id: 'SW1', x: 140, y: 28,  label: 'non-root', color: '#ffab00' },
+            { id: 'SW2', x: 40,  y: 145, label: 'non-root', color: '#ffab00' },
+            { id: 'SW3', x: 240, y: 145, label: '★ ROOT',   color: '#00e676' },
+          ].map((sw, i) => (
+            <g key={i}>
+              <rect x={sw.x-30} y={sw.y-18} width={60} height={36} rx="5"
+                fill={i===2 ? 'rgba(0,230,118,0.12)' : 'rgba(255,171,0,0.08)'}
+                stroke={sw.color} strokeWidth={i===2 ? 2.5 : 1.5}/>
+              <text x={sw.x} y={sw.y-3} textAnchor="middle" fill={sw.color} fontFamily="monospace" fontSize="10" fontWeight="bold">{sw.id}</text>
+              <text x={sw.x} y={sw.y+9} textAnchor="middle" fill={sw.color} fontFamily="monospace" fontSize="7">{sw.label}</text>
+            </g>
+          ))}
+          {/* Links with port role labels */}
+          {/* SW1-SW3 (right side): SW1 RP, SW3 DP */}
+          <line x1="165" y1="40" x2="222" y2="132" stroke="#546e7a" strokeWidth="1.5"/>
+          <text x="205" y="88" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="9" fontWeight="bold">RP</text>
+          <text x="222" y="125" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">DP</text>
+          {/* SW2-SW3 (bottom): SW2 RP, SW3 DP */}
+          <line x1="70" y1="145" x2="210" y2="145" stroke="#546e7a" strokeWidth="1.5"/>
+          <text x="105" y="158" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="9" fontWeight="bold">RP</text>
+          <text x="185" y="158" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">DP</text>
+          {/* SW1-SW2 (left side): one DP, one BP */}
+          <line x1="115" y1="40" x2="58" y2="132" stroke="#ff5252" strokeWidth="2" strokeDasharray="5,3"/>
+          <text x="75" y="82" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">DP</text>
+          <text x="60" y="125" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="9" fontWeight="bold">BP</text>
+          <text x="75" y="175" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="8">⛔ BLOCKED</text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 140 }}>
+          {roles.map((r, i) => (
+            <div key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{ padding: '7px 10px', marginBottom: 6, borderRadius: 5,
+                background: hovered === i ? `${r.color}15` : `${r.color}06`,
+                border: `1px solid ${hovered === i ? r.color : r.color + '30'}`,
+                transition: 'all 0.2s', cursor: 'default' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                <div style={{ width: 24, height: 18, borderRadius: 3, background: `${r.color}25`,
+                  border: `1px solid ${r.color}`, fontFamily: 'var(--font-mono)',
+                  fontSize: '0.625rem', fontWeight: 700, color: r.color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{r.abbr}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: r.color }}>{r.name}</div>
+              </div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{r.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Port States — state machine ────────────────────────────
+function StpPortStates() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const states = [
+    { name: 'Blocking',   time: '—',    color: '#ff5252', desc: 'Receives BPDUs only. No data frames forwarded. Default state for non-designated ports.', bpdu: true,  learn: false, fwd: false },
+    { name: 'Listening',  time: '15s',  color: '#ffab00', desc: 'Participates in active topology. Sends and receives BPDUs. No data forwarding, no MAC learning.', bpdu: true, learn: false, fwd: false },
+    { name: 'Learning',   time: '15s',  color: '#7c4dff', desc: 'Starts learning MAC addresses to populate the MAC table. Still no data forwarding.', bpdu: true, learn: true, fwd: false },
+    { name: 'Forwarding', time: '∞',    color: '#00e676', desc: 'Normal operation. Forwards data frames and BPDUs. MAC table populated.', bpdu: true, learn: true, fwd: true },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= states.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="STEP 3 — STP PORT STATES (total ~30–50 seconds)" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, justifyContent: 'flex-end' }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+      {/* State flow */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 16, overflowX: 'auto' }}>
+        {states.map((s, i) => (
+          <React.Fragment key={i}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+              opacity: step >= i ? 1 : 0.25, transition: 'opacity 0.5s', minWidth: 72,
+            }}>
+              <div style={{
+                width: 56, height: 40, borderRadius: 6, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                background: step >= i ? `${s.color}20` : 'var(--bg-elevated)',
+                border: `2px solid ${step >= i ? s.color : 'var(--border-subtle)'}`,
+                fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', fontWeight: 700,
+                color: step >= i ? s.color : 'var(--text-muted)',
+                boxShadow: step === i ? `0 0 14px ${s.color}50` : 'none',
+                transition: 'all 0.5s',
+              }}>
+                <span>{s.name}</span>
+                <span style={{ fontSize: '0.5rem', opacity: 0.7 }}>{s.time}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[['BPDU',s.bpdu],['Learn',s.learn],['Fwd',s.fwd]].map(([label,enabled]) => (
+                  <div key={label} style={{ fontSize: '0.4rem', fontFamily: 'var(--font-mono)',
+                    color: enabled ? s.color : '#546e7a',
+                    background: enabled ? `${s.color}15` : 'transparent',
+                    padding: '1px 3px', borderRadius: 2 }}>{label}</div>
+                ))}
+              </div>
+            </div>
+            {i < states.length - 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '0 4px' }}>
+                <div style={{ width: 20, height: 2, background: step > i ? states[i].color : 'var(--border-subtle)', transition: 'background 0.4s' }}/>
+                <div style={{ fontSize: '0.45rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{states[i].time}</div>
+              </div>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+      {step < states.length && (
+        <div style={{ padding: '8px 12px', borderRadius: 6,
+          background: `${states[step].color}10`, border: `1px solid ${states[step].color}30`,
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: states[step].color }}>{states[step].name}: </span>
+          {states[step].desc}
+        </div>
+      )}
+      <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+        Total convergence: 15s (listening) + 15s (learning) = ~30s · Max age: 20s · Hello: 2s
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── RSTP vs STP convergence comparison ─────────────────────
+function RstpComparison() {
+  const [mode, setMode] = React.useState('stp');
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const isStp = mode === 'stp';
+  const totalSteps = isStp ? 5 : 2;
+  useEffect(() => {
+    if (isPaused || step >= totalSteps) return;
+    const t = setTimeout(() => setStep(s => s + 1), isStp ? 1000 : 700);
+    return () => clearTimeout(t);
+  }, [step, isPaused, mode]);
+  function reset(m) { setMode(m); setStep(0); setIsPaused(false); }
+  const stpStages  = ['Detect failure','Max Age (20s)','Listening (15s)','Learning (15s)','Forwarding ✓'];
+  const rstpStages = ['Detect failure','Forwarding ✓ (<1s)'];
+  const stages = isStp ? stpStages : rstpStages;
+  return (
+    <InlineViz label="RSTP vs STP — CONVERGENCE TIME" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['stp','802.1D STP'],['rstp','802.1w RSTP']].map(([m, label]) => (
+          <button key={m} onClick={() => reset(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m==='stp' ? 'rgba(255,82,82,0.15)' : 'rgba(0,229,255,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m==='stp' ? '#ff5252' : '#00e5ff') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m==='stp' ? '#ff5252' : '#00e5ff') : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => reset(mode)}>↺</button>
+        </div>
+      </div>
+      {/* Timeline */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {stages.map((s, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            opacity: step >= i ? 1 : 0.2, transition: 'opacity 0.4s',
+          }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+              background: step > i ? '#00e676' : step === i ? (isStp ? '#ff5252' : '#00e5ff') : 'var(--bg-elevated)',
+              border: `2px solid ${step >= i ? (isStp ? '#ff5252' : '#00e5ff') : 'var(--border-subtle)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.5rem', color: '#000', fontWeight: 700,
+              transition: 'all 0.4s',
+            }}>{step > i ? '✓' : i+1}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
+              color: step >= i ? (isStp ? '#ff5252' : '#00e5ff') : 'var(--text-muted)',
+              fontWeight: s.includes('✓') ? 700 : 400 }}>{s}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6,
+        background: isStp ? 'rgba(255,82,82,0.06)' : 'rgba(0,229,255,0.06)',
+        border: `1px solid ${isStp ? 'rgba(255,82,82,0.2)' : 'rgba(0,229,255,0.2)'}`,
+        fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+        {isStp
+          ? '802.1D STP — Convergence ~30–50 seconds. Network is unreachable during transition.'
+          : '802.1w RSTP — Convergence <1 second using proposal/agreement handshake. Backwards compatible with 802.1D.'}
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── STP ──────────────────────────────────────────────────────
+  'stp': [
+    { afterSection: 'The Problem STP Solves',   component: BroadcastStormAnim },
+    { afterSection: 'Step 1: Root Bridge Election', component: RootBridgeElection },
+    { afterSection: 'Step 2: Port Role Assignment', component: PortRoleAssignment },
+    { afterSection: 'Step 3: Port States',       component: StpPortStates },
+    { afterSection: 'RSTP Port Roles',           component: RstpComparison },
+  ],
   // ── Subnetting ───────────────────────────────────────────────
   'subnetting': [
     { afterSection: 'IPv4 Address Structure',          component: SubnetBitBreakdown },
