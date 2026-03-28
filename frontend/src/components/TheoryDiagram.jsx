@@ -7238,7 +7238,358 @@ function NdpAnimation() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// WIRELESS ACCESS POINTS INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Key Concepts — 2.4 vs 5 GHz comparison ───────────────
+function WifiBandComparison() {
+  const [active, setActive] = React.useState(null);
+  const bands = [
+    {
+      freq: '2.4 GHz', color: '#ffab00', icon: '📡',
+      channels: '11 (US) / 13 (EU) — only 3 non-overlapping (1, 6, 11)',
+      range: 'Longer — better wall penetration',
+      throughput: 'Lower — max ~600 Mbps (802.11n)',
+      congestion: 'High — shared with microwaves, Bluetooth, baby monitors',
+      use: 'IoT devices, long range coverage, legacy devices',
+      pros: ['Better range & penetration', 'Wider device support', 'Better for IoT'],
+      cons: ['More interference', 'Only 3 non-overlapping channels', 'Lower max speed'],
+    },
+    {
+      freq: '5 GHz', color: '#00e5ff', icon: '📶',
+      channels: '25 non-overlapping 20 MHz channels (US)',
+      range: 'Shorter — absorbed by walls faster',
+      throughput: 'Higher — up to 3.5 Gbps (802.11ac Wave 2)',
+      congestion: 'Lower — less consumer device interference',
+      use: 'High-density environments, video streaming, enterprise WLANs',
+      pros: ['More channels = less interference', 'Higher throughput', 'Lower congestion'],
+      cons: ['Shorter range', 'Worse wall penetration', 'Older devices may not support'],
+    },
+    {
+      freq: '6 GHz', color: '#00e676', icon: '⚡',
+      channels: '59 non-overlapping 20 MHz channels (US, Wi-Fi 6E)',
+      range: 'Shortest — most affected by obstacles',
+      throughput: 'Highest — up to 9.6 Gbps (802.11ax)',
+      congestion: 'Very low — only Wi-Fi 6E devices',
+      use: 'High-density venues, AR/VR, ultra-low latency applications',
+      pros: ['Massive channel availability', 'Cleanest spectrum', 'Lowest latency'],
+      cons: ['Very short range', 'Requires Wi-Fi 6E hardware', 'Limited device support today'],
+    },
+  ];
+  return (
+    <InlineViz label="Wi-Fi BANDS — 2.4 GHz vs 5 GHz vs 6 GHz" accent="#ffab00">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+        {bands.map((b, i) => (
+          <div key={i} onClick={() => setActive(active === i ? null : i)}
+            style={{
+              padding: '10px 12px', borderRadius: 6, cursor: 'pointer',
+              background: active === i ? `${b.color}18` : `${b.color}08`,
+              border: `1px solid ${active === i ? b.color : b.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>{b.icon}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.875rem', color: b.color, marginBottom: 4 }}>{b.freq}</div>
+            <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              {b.use}
+            </div>
+          </div>
+        ))}
+      </div>
+      {active !== null && (
+        <div style={{ padding: '10px 14px', borderRadius: 6,
+          background: `${bands[active].color}08`,
+          border: `1px solid ${bands[active].color}30` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
+            {[
+              ['Channels',   bands[active].channels],
+              ['Range',      bands[active].range],
+              ['Throughput', bands[active].throughput],
+              ['Congestion', bands[active].congestion],
+            ].map(([label, val], i) => (
+              <div key={i}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                  color: 'var(--text-muted)', marginBottom: 2 }}>{label.toUpperCase()}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{val}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              {bands[active].pros.map((p, i) => (
+                <div key={i} style={{ fontSize: '0.6875rem', color: '#00e676', marginBottom: 2 }}>✓ {p}</div>
+              ))}
+            </div>
+            <div>
+              {bands[active].cons.map((c, i) => (
+                <div key={i} style={{ fontSize: '0.6875rem', color: '#ff5252', marginBottom: 2 }}>✗ {c}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── 2.4 GHz Channels — overlap diagram ───────────────────
+function WifiChannelOverlap() {
+  const [highlighted, setHighlighted] = React.useState(null);
+  // 2.4 GHz: channels 1-13, each 22 MHz wide, spaced 5 MHz apart
+  const channels = Array.from({length: 11}, (_, i) => ({
+    num: i + 1,
+    center: 2412 + i * 5, // MHz
+    nonOverlap: [1, 6, 11].includes(i + 1),
+  }));
+  const minFreq = 2401, maxFreq = 2483;
+  const freqRange = maxFreq - minFreq;
+  return (
+    <InlineViz label="2.4 GHz CHANNEL OVERLAP — ONLY 1, 6, 11 ARE NON-OVERLAPPING" accent="#ffab00">
+      <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+        <svg viewBox="0 0 500 140" style={{ width: '100%', minWidth: 400, maxHeight: 140, display: 'block' }}>
+          {/* Frequency axis */}
+          <line x1="20" y1="120" x2="490" y2="120" stroke="var(--border-subtle)" strokeWidth="1"/>
+          {[2412,2437,2462].map((f, i) => {
+            const x = 20 + ((f - minFreq) / freqRange) * 470;
+            return (
+              <g key={i}>
+                <line x1={x} y1="115" x2={x} y2="125" stroke="#ffab00" strokeWidth="1.5"/>
+                <text x={x} y="135" textAnchor="middle" fill="#ffab00"
+                  fontFamily="monospace" fontSize="8">{f} MHz</text>
+              </g>
+            );
+          })}
+          {/* Channel bands */}
+          {channels.map((ch, i) => {
+            const startFreq = ch.center - 11;
+            const endFreq   = ch.center + 11;
+            const x1 = 20 + ((startFreq - minFreq) / freqRange) * 470;
+            const x2 = 20 + ((endFreq   - minFreq) / freqRange) * 470;
+            const cx = (x1 + x2) / 2;
+            const isHighlighted = highlighted === ch.num;
+            const color = ch.nonOverlap ? '#ffab00' : '#546e7a';
+            const y = ch.nonOverlap ? 25 : 55 + (i % 3) * 14;
+            return (
+              <g key={i}
+                onMouseEnter={() => setHighlighted(ch.num)}
+                onMouseLeave={() => setHighlighted(null)}
+                style={{ cursor: 'pointer' }}>
+                <rect x={x1} y={y} width={x2-x1} height={ch.nonOverlap ? 60 : 18} rx={2}
+                  fill={`${color}${isHighlighted ? '35' : '15'}`}
+                  stroke={color} strokeWidth={isHighlighted ? 1.5 : 0.75}
+                  opacity={ch.nonOverlap ? 1 : 0.6}
+                  style={{ transition: 'all 0.2s' }}/>
+                <text x={cx} y={y + (ch.nonOverlap ? 12 : 12)} textAnchor="middle"
+                  fill={color} fontFamily="monospace"
+                  fontSize={ch.nonOverlap ? 10 : 7} fontWeight={ch.nonOverlap ? 'bold' : 'normal'}>
+                  {ch.num}
+                </text>
+              </g>
+            );
+          })}
+          {/* Labels */}
+          <text x="10" y="50" fill="#ffab00" fontFamily="monospace" fontSize="7" fontWeight="bold">NON-</text>
+          <text x="10" y="58" fill="#ffab00" fontFamily="monospace" fontSize="7" fontWeight="bold">OVERLAPPING</text>
+        </svg>
+      </div>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: 'rgba(255,171,0,0.08)', border: '1px solid rgba(255,171,0,0.25)',
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        Each 2.4 GHz channel is <strong style={{ color: '#ffab00' }}>22 MHz wide</strong> but channels are spaced only 5 MHz apart — so adjacent channels overlap heavily. Only channels <strong style={{ color: '#ffab00' }}>1, 6, and 11</strong> are spaced far enough apart (25 MHz) to be non-overlapping. Adjacent APs should always use these three channels to avoid co-channel interference.
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── AP Modes — autonomous vs lightweight ──────────────────
+function ApModes() {
+  const [selected, setSelected] = React.useState(null);
+  const modes = [
+    {
+      name: 'Autonomous AP',  color: '#ffab00', icon: '📡',
+      desc: 'Standalone — all intelligence on the AP itself. Manages its own SSIDs, security, and RF. Configured individually via CLI or GUI. Common in small offices with 1–5 APs. No WLC required.',
+      pros: ['No WLC needed', 'Simple for small deployments', 'Works independently if uplink fails'],
+      cons: ['No central management', 'Manual per-AP config', 'No seamless roaming', 'Harder to troubleshoot at scale'],
+      config: 'Managed via: IOS CLI, web GUI, or Cisco Prime (legacy)',
+    },
+    {
+      name: 'Lightweight AP', color: '#00e5ff', icon: '⚡',
+      desc: 'Thin AP — all intelligence offloaded to a Wireless LAN Controller (WLC). AP handles only RF (real-time 802.11 MAC). WLC handles auth, roaming, config, firmware, and policy. Uses CAPWAP tunnel.',
+      pros: ['Centralized management', 'Seamless Layer 2/3 roaming', 'Auto firmware updates', 'Zero-touch provisioning'],
+      cons: ['Requires WLC', 'Single point of failure (mitigated by HA WLC)', 'More complex initial setup'],
+      config: 'Managed via: Cisco WLC GUI/CLI, DNA Center, Meraki Dashboard',
+    },
+    {
+      name: 'Monitor Mode',   color: '#7c4dff', icon: '👁️',
+      desc: 'AP passively scans all channels continuously — does not serve clients. Used for WIDS (Wireless Intrusion Detection), rogue AP detection, and spectrum analysis. Dedicated scanning role.',
+      pros: ['Full-time WIDS/WIPS', 'Rogue AP detection', 'Interference monitoring'],
+      cons: ['Cannot serve clients', 'Dedicated hardware cost', 'Usually needs nearby serving APs'],
+      config: 'Set via: ap-type monitor (on WLC)',
+    },
+    {
+      name: 'SE-Connect',     color: '#00e676', icon: '🔬',
+      desc: 'Spectrum Expert Connect mode — AP streams raw RF spectrum data to a PC running Cisco Spectrum Expert software. Used for deep RF analysis, interference hunting, and spectrum surveys.',
+      pros: ['Detailed RF spectrum visibility', 'Identifies non-Wi-Fi interference sources', 'Real-time spectral analysis'],
+      cons: ['Cannot serve clients', 'Requires Spectrum Expert software licence', 'Dedicated hardware'],
+      config: 'Set via: ap-type se-connect (on WLC)',
+    },
+  ];
+  return (
+    <InlineViz label="AP MODES — AUTONOMOUS vs LIGHTWEIGHT vs MONITOR vs SE-CONNECT" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+        {modes.map((m, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '8px 12px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${m.color}18` : `${m.color}08`,
+              border: `1px solid ${selected === i ? m.color : m.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+              <span style={{ fontSize: '1.1rem' }}>{m.icon}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.75rem', color: m.color }}>{m.name}</span>
+            </div>
+            {selected === i ? (
+              <>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)',
+                  lineHeight: 1.5, marginBottom: 8 }}>{m.desc}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
+                  <div>
+                    {m.pros.map((p, j) => (
+                      <div key={j} style={{ fontSize: '0.625rem', color: '#00e676', marginBottom: 2 }}>✓ {p}</div>
+                    ))}
+                  </div>
+                  <div>
+                    {m.cons.map((c, j) => (
+                      <div key={j} style={{ fontSize: '0.625rem', color: '#ff5252', marginBottom: 2 }}>✗ {c}</div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+                  color: m.color }}>{m.config}</div>
+              </>
+            ) : (
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                {m.desc.split('.')[0]}.
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── CAPWAP — AP join process animation ───────────────────
+function CapwapJoinAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const steps = [
+    { phase: 'Discovery',      color: '#ffab00', icon: '🔍',
+      ap: 'Broadcast CAPWAP Discovery Request', wlc: 'Discovery Response (IP + capability)',
+      desc: 'AP boots and sends CAPWAP Discovery Requests (broadcast + multicast + DHCP Option 43 + DNS). WLC responds. AP collects responses from multiple WLCs.' },
+    { phase: 'WLC Selection',  color: '#ffab00', icon: '⚖️',
+      ap: 'Select best WLC', wlc: '(waiting)',
+      desc: 'AP selects the best WLC based on: Master controller preference, least-loaded WLC, or configured primary/secondary/tertiary WLC.' },
+    { phase: 'DTLS Handshake', color: '#7c4dff', icon: '🔒',
+      ap: 'DTLS Client Hello', wlc: 'DTLS Server Hello + Certificate',
+      desc: 'DTLS (Datagram TLS) tunnel established for secure CAPWAP control channel. AP and WLC exchange certificates and establish encrypted session over UDP 5246.' },
+    { phase: 'Join',           color: '#00e5ff', icon: '🤝',
+      ap: 'CAPWAP Join Request (AP info)', wlc: 'Join Response (Accept)',
+      desc: 'AP sends Join Request with model, serial, firmware version, capabilities. WLC accepts and assigns AP to an AP group.' },
+    { phase: 'Config Push',    color: '#00e5ff', icon: '⬇️',
+      ap: '(receiving config)', wlc: 'Push: SSIDs, VLANs, RF policy, QoS',
+      desc: 'WLC pushes the full configuration — SSID profiles, VLAN mappings, RF channel/power settings, QoS policy, security profiles.' },
+    { phase: 'Run State',      color: '#00e676', icon: '✓',
+      ap: 'Serving clients', wlc: 'Monitoring + managing AP',
+      desc: '✓ AP enters RUN state. Starts beaconing SSIDs and accepting client associations. Keepalive heartbeats maintain CAPWAP session.' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= steps.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const cur = steps[step];
+  return (
+    <InlineViz label="CAPWAP — LIGHTWEIGHT AP JOIN PROCESS" accent="#7c4dff">
+      {/* Phase progress */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 14, overflowX: 'auto' }}>
+        {steps.map((s, i) => (
+          <React.Fragment key={i}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              opacity: step >= i ? 1 : 0.25, transition: 'opacity 0.4s', minWidth: 58,
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: step >= i ? `${s.color}20` : 'var(--bg-elevated)',
+                border: `2px solid ${step >= i ? s.color : 'var(--border-subtle)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1rem', boxShadow: step === i ? `0 0 12px ${s.color}50` : 'none',
+                transition: 'all 0.4s',
+              }}>{s.icon}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.45rem',
+                color: step >= i ? s.color : 'var(--text-muted)', textAlign: 'center',
+                fontWeight: step === i ? 700 : 400 }}>{s.phase}</div>
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{ width: 10, height: 2, alignSelf: 'center', marginBottom: 14, flexShrink: 0,
+                background: step > i ? steps[i].color : 'var(--border-subtle)',
+                transition: 'background 0.4s' }}/>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+      {/* AP ↔ WLC exchange */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 10,
+        alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ padding: '8px 10px', borderRadius: 5,
+          background: `${cur.color}08`, border: `1px solid ${cur.color}25`, textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem',
+            color: cur.color, marginBottom: 4 }}>ACCESS POINT</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+            color: 'var(--text-secondary)' }}>{cur.ap}</div>
+        </div>
+        <div style={{ fontSize: '1.25rem', color: cur.color, textAlign: 'center' }}>⇌</div>
+        <div style={{ padding: '8px 10px', borderRadius: 5,
+          background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)',
+          textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem',
+            color: '#00e676', marginBottom: 4 }}>WLC</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+            color: 'var(--text-secondary)' }}>{cur.wlc}</div>
+        </div>
+      </div>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: `${cur.color}08`, border: `1px solid ${cur.color}25`,
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {cur.desc}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Wireless AP ───────────────────────────────────────────────
+  'wireless-ap': [
+    { afterSection: 'Key Concepts',      component: WifiBandComparison },
+    { afterSection: '2.4 GHz Channels',  component: WifiChannelOverlap },
+    { afterSection: 'AP Modes',          component: ApModes },
+    { afterSection: 'CAPWAP Protocol',   component: CapwapJoinAnim },
+  ],
+  'wireless-ap-config': [
+    { afterSection: 'Key Concepts',      component: WifiBandComparison },
+    { afterSection: '2.4 GHz Channels',  component: WifiChannelOverlap },
+    { afterSection: 'AP Modes',          component: ApModes },
+    { afterSection: 'CAPWAP Protocol',   component: CapwapJoinAnim },
+  ],
   // ── IPv6 ──────────────────────────────────────────────────────
   'ipv6': [
     { afterSection: 'Address Format',                   component: Ipv6AddressBreakdown },
