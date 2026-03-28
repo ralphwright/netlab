@@ -8404,7 +8404,307 @@ function WirelessCoverageDesign() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// REMOTE ACCESS VPN INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Remote Access Technologies — comparison cards ─────────
+function RemoteAccessComparison() {
+  const [selected, setSelected] = React.useState(null);
+  const techs = [
+    {
+      name: 'IPsec VPN',    icon: '🔒', color: '#00e5ff',
+      desc: 'Full tunnel — all traffic encrypted in IPsec ESP. Requires VPN client software. Strong encryption (AES-256). Works at L3 so all applications are tunneled transparently.',
+      use: 'Corporate laptops needing full network access, security-sensitive environments',
+      pros: ['Full network access', 'Strong encryption', 'All traffic protected'],
+      cons: ['Client software required', 'Complex firewall traversal (UDP 500/4500)', 'High overhead'],
+    },
+    {
+      name: 'SSL/TLS VPN',  icon: '🌐', color: '#00e676',
+      desc: 'Browser-based or lightweight client over HTTPS (TCP 443). Works through most firewalls and proxies. Clientless mode gives web-app access only. Full-tunnel client mode gives broader access.',
+      use: 'Remote workers on personal devices, contractor access, guest VPN',
+      pros: ['Works through any firewall (port 443)', 'Clientless option', 'Per-app access control'],
+      cons: ['Clientless limited to web apps', 'SSL inspection can break it', 'Less performant than IPsec'],
+    },
+    {
+      name: 'DMVPN',        icon: '🕸️', color: '#7c4dff',
+      desc: 'Dynamic Multipoint VPN — hub-and-spoke WAN that dynamically builds spoke-to-spoke tunnels on demand. GRE over IPsec. Enables routing protocols (OSPF/EIGRP) over the tunnel. Cisco-proprietary.',
+      use: 'Enterprise WAN replacing MPLS, connecting branch offices over internet',
+      pros: ['Dynamic spoke-to-spoke tunnels', 'Supports routing protocols', 'Scalable to thousands of spokes'],
+      cons: ['Cisco-proprietary (NHRP)', 'Complex configuration', 'Requires GRE overhead'],
+    },
+    {
+      name: 'Site-to-Site VPN', icon: '🏢', color: '#ffab00',
+      desc: 'Permanent IPsec tunnel between two fixed endpoints (HQ to branch). Always-on — no user interaction. Configured on routers/firewalls. Traffic between the two sites is automatically encrypted.',
+      use: 'Connecting branch offices to HQ, small deployments without MPLS',
+      pros: ['Transparent to users', 'Always-on — no client needed', 'Simple two-site connection'],
+      cons: ['Fixed endpoints only', 'All traffic via hub (no direct branch-branch)', 'Manual provisioning per site'],
+    },
+  ];
+  return (
+    <InlineViz label="REMOTE ACCESS TECHNOLOGIES — FOUR APPROACHES" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {techs.map((t, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '10px 12px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${t.color}18` : `${t.color}08`,
+              border: `1px solid ${selected === i ? t.color : t.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: '1.25rem' }}>{t.icon}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.75rem', color: t.color }}>{t.name}</span>
+            </div>
+            {selected === i ? (
+              <>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)',
+                  lineHeight: 1.5, marginBottom: 8 }}>{t.desc}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
+                  <div>
+                    {t.pros.map((p, j) => (
+                      <div key={j} style={{ fontSize: '0.625rem', color: '#00e676', marginBottom: 2 }}>✓ {p}</div>
+                    ))}
+                  </div>
+                  <div>
+                    {t.cons.map((c, j) => (
+                      <div key={j} style={{ fontSize: '0.625rem', color: '#ff5252', marginBottom: 2 }}>✗ {c}</div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+                  color: t.color }}>Best for: {t.use}</div>
+              </>
+            ) : (
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                {t.desc.split('.')[0]}.
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── IPsec Phases — Phase 1 IKE + Phase 2 IPsec ────────────
+function IpsecPhasesAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const steps = [
+    {
+      phase: 1, label: 'IKE Phase 1 — Main Mode',
+      color: '#7c4dff',
+      peer1: 'Propose: AES-256, SHA-256, DH group 14',
+      peer2: 'Accept proposal',
+      desc: 'Peers negotiate encryption algorithm, hash, DH group, and authentication method (PSK or certificate). Sets up a secure channel to protect Phase 2.',
+    },
+    {
+      phase: 1, label: 'IKE Phase 1 — Key Exchange',
+      color: '#7c4dff',
+      peer1: 'DH public key →',
+      peer2: '← DH public key',
+      desc: 'Diffie-Hellman key exchange derives shared secret. Both peers compute the same symmetric key without ever transmitting it.',
+    },
+    {
+      phase: 1, label: 'IKE Phase 1 — Authentication',
+      color: '#7c4dff',
+      peer1: 'Authenticate (PSK hash / cert)',
+      peer2: 'Authenticate (PSK hash / cert)',
+      desc: 'Peers authenticate each other. PSK: each side hashes the pre-shared key + IDs. Certificate: RSA/ECDSA signature. ISAKMP SA established.',
+    },
+    {
+      phase: 2, label: 'IKE Phase 2 — Quick Mode',
+      color: '#00e5ff',
+      peer1: 'Propose: ESP, AES-256-GCM, traffic selectors',
+      peer2: 'Accept IPsec proposal',
+      desc: 'Negotiates IPsec SA parameters — protocol (ESP/AH), encryption, HMAC, and which traffic to protect (traffic selectors/ACL). Protected by Phase 1 channel.',
+    },
+    {
+      phase: 2, label: 'IPsec SA Established',
+      color: '#00e676',
+      peer1: '→ Encrypted data (ESP)',
+      peer2: '← Encrypted data (ESP)',
+      desc: '✓ Bidirectional IPsec SAs established. All matching traffic is encrypted in ESP. SAs have lifetime (time/bytes) — Phase 2 renegotiated before expiry.',
+    },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= steps.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const cur = steps[step];
+  return (
+    <InlineViz label="IPSEC PHASES — IKE PHASE 1 (ISAKMP SA) + PHASE 2 (IPSEC SA)" accent="#7c4dff">
+      {/* Phase indicator */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        {[1, 2].map(ph => {
+          const isActive = cur.phase === ph;
+          const isDone   = (ph === 1 && step >= 3) || (ph === 2 && step >= 4);
+          const color    = ph === 1 ? '#7c4dff' : '#00e5ff';
+          return (
+            <div key={ph} style={{
+              flex: 1, padding: '6px 10px', borderRadius: 5, textAlign: 'center',
+              background: isActive ? `${color}20` : isDone ? `${color}10` : 'var(--bg-elevated)',
+              border: `1px solid ${isActive ? color : isDone ? color + '40' : 'var(--border-subtle)'}`,
+              transition: 'all 0.4s',
+            }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.75rem', color: isActive || isDone ? color : 'var(--text-muted)' }}>
+                {isDone && ph === 1 ? '✓ ' : ''}Phase {ph}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                color: 'var(--text-muted)' }}>
+                {ph === 1 ? 'ISAKMP SA (management channel)' : 'IPsec SA (data channel)'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Peer exchange */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr',
+        gap: 10, alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ padding: '8px 10px', borderRadius: 5,
+          background: `${cur.color}08`, border: `1px solid ${cur.color}25`, textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+            fontSize: '0.6875rem', color: cur.color, marginBottom: 4 }}>PEER A</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+            color: 'var(--text-secondary)' }}>{cur.peer1}</div>
+        </div>
+        <div style={{ fontSize: '1.25rem', color: cur.color, textAlign: 'center' }}>⇌</div>
+        <div style={{ padding: '8px 10px', borderRadius: 5,
+          background: `${cur.color}08`, border: `1px solid ${cur.color}25`, textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+            fontSize: '0.6875rem', color: cur.color, marginBottom: 4 }}>PEER B</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+            color: 'var(--text-secondary)' }}>{cur.peer2}</div>
+        </div>
+      </div>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: `${cur.color}08`, border: `1px solid ${cur.color}30`,
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+          color: cur.color }}>{cur.label}: </span>{cur.desc}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── VPN Split Tunneling — traffic flow toggle ──────────────
+function VpnSplitTunnel() {
+  const [mode, setMode] = React.useState('full');
+  const isFull = mode === 'full';
+  return (
+    <InlineViz label="VPN SPLIT TUNNELING — FULL TUNNEL vs SPLIT TUNNEL" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['full','Full Tunnel'],['split','Split Tunnel']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m==='full' ? 'rgba(0,229,255,0.15)' : 'rgba(0,230,118,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m==='full' ? '#00e5ff' : '#00e676') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m==='full' ? '#00e5ff' : '#00e676') : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <svg viewBox="0 0 420 140" style={{ width: '100%', maxHeight: 140, display: 'block', marginBottom: 12 }}>
+        {/* Client */}
+        <rect x="10" y="55" width="70" height="35" rx="4"
+          fill="rgba(0,229,255,0.08)" stroke="#00e5ff" strokeWidth="1.5"/>
+        <text x="45" y="70" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">CLIENT</text>
+        <text x="45" y="81" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Remote user</text>
+        {/* VPN Gateway */}
+        <rect x="170" y="50" width="80" height="45" rx="4"
+          fill="rgba(124,77,255,0.1)" stroke="#7c4dff" strokeWidth="1.5"/>
+        <text x="210" y="68" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="9" fontWeight="bold">VPN GW</text>
+        <text x="210" y="79" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">IPsec/SSL</text>
+        <text x="210" y="89" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Terminator</text>
+        {/* Corp Network */}
+        <rect x="330" y="55" width="80" height="35" rx="4"
+          fill="rgba(0,230,118,0.08)" stroke="#00e676" strokeWidth="1.5"/>
+        <text x="370" y="70" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="9" fontWeight="bold">CORP</text>
+        <text x="370" y="81" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Internal apps</text>
+        {/* Internet cloud */}
+        {!isFull && (
+          <ellipse cx="210" cy="120" rx="50" ry="14"
+            fill="rgba(255,171,0,0.08)" stroke="#ffab00" strokeWidth="1" strokeDasharray="3,2"/>
+        )}
+        {!isFull && (
+          <text x="210" y="124" textAnchor="middle" fill="#ffab00"
+            fontFamily="monospace" fontSize="8">Internet (direct)</text>
+        )}
+        {/* Full tunnel — all traffic to VPN GW */}
+        {isFull && (
+          <>
+            <line x1="80" y1="70" x2="170" y2="72"
+              stroke="#00e5ff" strokeWidth="2.5"/>
+            <line x1="80" y1="75" x2="170" y2="80"
+              stroke="#ffab00" strokeWidth="2.5"/>
+            <text x="125" y="63" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">Corp traffic</text>
+            <text x="125" y="90" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">Internet traffic</text>
+            <line x1="250" y1="72" x2="330" y2="70"
+              stroke="#00e5ff" strokeWidth="2.5"/>
+            <text x="340" y="120" textAnchor="middle" fill="#ffab00"
+              fontFamily="monospace" fontSize="7">Internet exits via GW</text>
+            <text x="290" y="63" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">Corp only →</text>
+          </>
+        )}
+        {/* Split tunnel */}
+        {!isFull && (
+          <>
+            <line x1="80" y1="68" x2="170" y2="68"
+              stroke="#00e5ff" strokeWidth="2.5"/>
+            <text x="125" y="60" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">Corp traffic →</text>
+            <line x1="250" y1="68" x2="330" y2="68"
+              stroke="#00e5ff" strokeWidth="2"/>
+            <line x1="80" y1="80" x2="160" y2="110"
+              stroke="#ffab00" strokeWidth="2.5" strokeDasharray="4,2"/>
+            <text x="100" y="103" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">Internet →</text>
+          </>
+        )}
+      </svg>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ padding: '8px 12px', borderRadius: 5,
+          background: isFull ? 'rgba(0,229,255,0.08)' : 'rgba(0,229,255,0.04)',
+          border: `1px solid ${isFull ? '#00e5ff40' : 'var(--border-subtle)'}` }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+            fontSize: '0.6875rem', color: '#00e5ff', marginBottom: 4 }}>Full Tunnel</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            ALL traffic routed through VPN gateway — both corporate and internet. Corp can inspect/filter internet traffic. Higher latency for internet browsing. More secure for compliance.
+          </div>
+        </div>
+        <div style={{ padding: '8px 12px', borderRadius: 5,
+          background: !isFull ? 'rgba(0,230,118,0.08)' : 'rgba(0,230,118,0.04)',
+          border: `1px solid ${!isFull ? '#00e67640' : 'var(--border-subtle)'}` }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+            fontSize: '0.6875rem', color: '#00e676', marginBottom: 4 }}>Split Tunnel</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            Corporate traffic via VPN, internet traffic goes direct. Lower VPN gateway load. Better internet performance. Risk: malware on client can reach internet without corp inspection.
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Remote Access VPN ─────────────────────────────────────────
+  'remote-access': [
+    { afterSection: 'Remote Access Technologies', component: RemoteAccessComparison },
+    { afterSection: 'IPsec Phases',               component: IpsecPhasesAnim },
+    { afterSection: 'VPN Split Tunneling',         component: VpnSplitTunnel },
+  ],
+  'remote-access-vpn': [
+    { afterSection: 'Remote Access Technologies', component: RemoteAccessComparison },
+    { afterSection: 'IPsec Phases',               component: IpsecPhasesAnim },
+    { afterSection: 'VPN Split Tunneling',         component: VpnSplitTunnel },
+  ],
   // ── Wireless Topology ─────────────────────────────────────────
   'wireless-topology': [
     { afterSection: 'Site Survey Types',      component: SiteSurveyTypes },
