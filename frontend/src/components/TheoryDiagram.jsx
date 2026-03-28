@@ -7576,7 +7576,296 @@ function CapwapJoinAnim() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// WIRELESS CONTROLLER INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── WLC Functions — split-MAC architecture ────────────────
+function WlcSplitMac() {
+  const [hovered, setHovered] = React.useState(null);
+  const apFunctions = [
+    { label: 'Real-time 802.11 MAC', color: '#00e5ff', detail: 'Beacon transmission, probe responses, ACKs, retransmissions — must happen in microseconds, cannot tolerate WLC round-trip latency.' },
+    { label: 'RF Transmission/Reception', color: '#00e5ff', detail: 'Antenna, radio chipset, modulation/demodulation, power amplification — all physical layer work stays on the AP.' },
+    { label: 'Encryption/Decryption (DTLS)', color: '#00e5ff', detail: 'Frame encryption for the air interface (WPA2/WPA3) happens on the AP in hardware for throughput.' },
+    { label: 'Client Association (local)', color: '#00e5ff', detail: 'Initial 802.11 association frames handled locally. Auth and policy decisions forwarded to WLC.' },
+  ];
+  const wlcFunctions = [
+    { label: 'Authentication & Policy', color: '#00e676', detail: 'WPA2-Enterprise auth, 802.1X/RADIUS integration, client policy enforcement (QoS, ACL, VLAN assignment).' },
+    { label: 'SSID / VLAN Management', color: '#00e676', detail: 'SSID profiles mapped to VLANs, guest WLAN isolation, anchor controller for guest tunneling.' },
+    { label: 'RF Management (RRM)', color: '#00e676', detail: 'Auto channel selection, Tx power control, coverage hole detection — WLC coordinates RF across all APs.' },
+    { label: 'Roaming (L2/L3)', color: '#00e676', detail: 'Seamless client roaming between APs — L2 within same subnet, L3 (mobility tunnel) across subnets.' },
+    { label: 'Firmware & Config Push', color: '#00e676', detail: 'Centralized firmware upgrades, SSID/policy changes pushed simultaneously to all APs.' },
+    { label: 'Monitoring & Reporting', color: '#00e676', detail: 'Client statistics, rogue AP detection, interference alerts, compliance reporting.' },
+  ];
+  return (
+    <InlineViz label="WLC SPLIT-MAC — WHAT THE AP DOES vs WHAT THE WLC DOES" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 1fr', gap: 8 }}>
+        {/* AP column */}
+        <div>
+          <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700,
+            fontSize: '0.75rem', color: '#00e5ff', marginBottom: 8,
+            padding: '5px', borderRadius: 5, background: 'rgba(0,229,255,0.1)',
+            border: '1px solid rgba(0,229,255,0.3)' }}>📡 ACCESS POINT<br/>
+            <span style={{ fontSize: '0.5rem', fontWeight: 400, color: 'var(--text-muted)' }}>Real-time functions</span>
+          </div>
+          {apFunctions.map((f, i) => (
+            <div key={i}
+              onMouseEnter={() => setHovered(`ap-${i}`)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                padding: '6px 8px', borderRadius: 4, marginBottom: 4, cursor: 'default',
+                background: hovered === `ap-${i}` ? 'rgba(0,229,255,0.12)' : 'rgba(0,229,255,0.05)',
+                border: `1px solid ${hovered === `ap-${i}` ? '#00e5ff' : 'rgba(0,229,255,0.2)'}`,
+                transition: 'all 0.2s',
+              }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem',
+                color: '#00e5ff', fontWeight: 600, marginBottom: hovered === `ap-${i}` ? 4 : 0 }}>{f.label}</div>
+              {hovered === `ap-${i}` && (
+                <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{f.detail}</div>
+              )}
+            </div>
+          ))}
+        </div>
+        {/* CAPWAP tunnel */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 4 }}>
+          <div style={{ fontSize: '0.5rem', fontFamily: 'var(--font-mono)',
+            color: '#7c4dff', textAlign: 'center' }}>CAPWAP</div>
+          {['⬆','⬇','⬆','⬇'].map((a, i) => (
+            <div key={i} style={{ color: '#7c4dff', fontSize: '0.75rem', lineHeight: 1 }}>{a}</div>
+          ))}
+          <div style={{ fontSize: '0.5rem', fontFamily: 'var(--font-mono)',
+            color: '#7c4dff', textAlign: 'center' }}>UDP 5246/5247</div>
+        </div>
+        {/* WLC column */}
+        <div>
+          <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700,
+            fontSize: '0.75rem', color: '#00e676', marginBottom: 8,
+            padding: '5px', borderRadius: 5, background: 'rgba(0,230,118,0.1)',
+            border: '1px solid rgba(0,230,118,0.3)' }}>🎛️ WLC<br/>
+            <span style={{ fontSize: '0.5rem', fontWeight: 400, color: 'var(--text-muted)' }}>Centralized intelligence</span>
+          </div>
+          {wlcFunctions.map((f, i) => (
+            <div key={i}
+              onMouseEnter={() => setHovered(`wlc-${i}`)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                padding: '6px 8px', borderRadius: 4, marginBottom: 4, cursor: 'default',
+                background: hovered === `wlc-${i}` ? 'rgba(0,230,118,0.12)' : 'rgba(0,230,118,0.05)',
+                border: `1px solid ${hovered === `wlc-${i}` ? '#00e676' : 'rgba(0,230,118,0.2)'}`,
+                transition: 'all 0.2s',
+              }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem',
+                color: '#00e676', fontWeight: 600, marginBottom: hovered === `wlc-${i}` ? 4 : 0 }}>{f.label}</div>
+              {hovered === `wlc-${i}` && (
+                <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{f.detail}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+        Hover any function to see details · AP handles real-time RF · WLC handles intelligence and policy
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Deployment Models — WLC options ───────────────────────
+function WlcDeploymentModels() {
+  const [selected, setSelected] = React.useState(null);
+  const models = [
+    {
+      name: 'Centralized (Local Mode)',
+      color: '#00e5ff', icon: '🏢',
+      desc: 'All client traffic tunneled back to WLC via CAPWAP data tunnel. WLC is the central point — located in the data centre or campus core. Default mode for most enterprise deployments.',
+      pros: ['Centralized policy enforcement', 'Full WLC visibility', 'Simple VLAN management'],
+      cons: ['All traffic hairpins to WLC', 'WAN latency for remote branches', 'WLC is bottleneck'],
+      use: 'Campus buildings with low-latency WLC access',
+    },
+    {
+      name: 'FlexConnect',
+      color: '#00e676', icon: '🌿',
+      desc: 'AP can locally switch client traffic even when WAN to WLC is down. Config cached on AP. Best for branch offices — clients stay connected during WAN outages.',
+      pros: ['Local switching reduces WAN traffic', 'Survives WLC WAN failure', 'VLAN locally mapped'],
+      cons: ['More complex config', 'Some features unavailable in standalone mode', 'AP must cache config'],
+      use: 'Branch offices, retail stores with unreliable WAN',
+    },
+    {
+      name: 'Cloud (Meraki / Catalyst Center)',
+      color: '#7c4dff', icon: '☁️',
+      desc: 'WLC function hosted in cloud (Cisco Meraki or Catalyst Center cloud). Zero-touch provisioning — APs phone home to cloud on boot. No on-premise WLC hardware needed.',
+      pros: ['No WLC hardware to manage', 'Zero-touch AP provisioning', 'Dashboard accessible anywhere'],
+      cons: ['Requires internet for management', 'Subscription cost', 'Data sovereignty concerns'],
+      use: 'Distributed enterprises, retail chains, SMB',
+    },
+    {
+      name: 'Embedded / Mobility Express',
+      color: '#ffab00', icon: '📦',
+      desc: 'WLC software runs directly on one of the APs (master AP). Other APs join as subordinates. No separate WLC hardware. Suitable for small deployments up to 100 APs.',
+      pros: ['No separate WLC hardware', 'Lower cost', 'Simple for small sites'],
+      cons: ['Master AP is single point of failure', 'Limited scalability', 'Fewer advanced features'],
+      use: 'SMB, single-building deployments < 100 APs',
+    },
+  ];
+  return (
+    <InlineViz label="WLC DEPLOYMENT MODELS — FOUR OPTIONS" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {models.map((m, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '10px 12px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${m.color}15` : `${m.color}06`,
+              border: `1px solid ${selected === i ? m.color : m.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: '1.25rem' }}>{m.icon}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.6875rem', color: m.color }}>{m.name}</span>
+            </div>
+            {selected === i ? (
+              <>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)',
+                  lineHeight: 1.5, marginBottom: 8 }}>{m.desc}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+                  <div>
+                    {m.pros.map((p, j) => (
+                      <div key={j} style={{ fontSize: '0.6rem', color: '#00e676', marginBottom: 2 }}>✓ {p}</div>
+                    ))}
+                  </div>
+                  <div>
+                    {m.cons.map((c, j) => (
+                      <div key={j} style={{ fontSize: '0.6rem', color: '#ff5252', marginBottom: 2 }}>✗ {c}</div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: m.color }}>
+                  Best for: {m.use}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                {m.desc.split('.')[0]}.
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Channel Planning — RRM visualization ─────────────────
+function RrmChannelPlanning() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const aps = [
+    { id: 'AP1', x: 80,  y: 60,  ch: null, power: null, finalCh: 1,  finalPow: 'Med' },
+    { id: 'AP2', x: 200, y: 60,  ch: null, power: null, finalCh: 6,  finalPow: 'Low' },
+    { id: 'AP3', x: 320, y: 60,  ch: null, power: null, finalCh: 11, finalPow: 'Med' },
+    { id: 'AP4', x: 80,  y: 130, ch: null, power: null, finalCh: 6,  finalPow: 'Med' },
+    { id: 'AP5', x: 200, y: 130, ch: null, power: null, finalCh: 11, finalPow: 'Low' },
+    { id: 'AP6', x: 320, y: 130, ch: null, power: null, finalCh: 1,  finalPow: 'Med' },
+  ];
+  const chColors = { 1: '#00e5ff', 6: '#00e676', 11: '#ffab00' };
+  useEffect(() => {
+    if (isPaused || step >= 3) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="CHANNEL PLANNING — RRM AUTO ASSIGNS NON-OVERLAPPING CHANNELS" accent="#00e676">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 400 190" style={{ width: 380, maxHeight: 190, flexShrink: 0 }}>
+          {/* Floor plan outline */}
+          <rect x="20" y="20" width="360" height="160" rx="6"
+            fill="var(--bg-elevated)" stroke="var(--border-subtle)" strokeWidth="1"/>
+          <text x="200" y="14" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="8">Office Floor Plan</text>
+          {/* Coverage circles */}
+          {step >= 2 && aps.map((ap, i) => (
+            <circle key={i} cx={ap.x} cy={ap.y} r={52}
+              fill={`${chColors[ap.finalCh]}08`}
+              stroke={`${chColors[ap.finalCh]}30`} strokeWidth="1"/>
+          ))}
+          {/* APs */}
+          {aps.map((ap, i) => {
+            const assigned = step >= 2;
+            const color = assigned ? chColors[ap.finalCh] : '#546e7a';
+            return (
+              <g key={i}>
+                <rect x={ap.x - 20} y={ap.y - 16} width={40} height={32} rx={4}
+                  fill={assigned ? `${color}20` : 'var(--bg-elevated)'}
+                  stroke={color} strokeWidth={assigned ? 1.5 : 1}
+                  style={{ transition: 'all 0.5s' }}/>
+                <text x={ap.x} y={ap.y - 3} textAnchor="middle" fill={color}
+                  fontFamily="monospace" fontSize="9" fontWeight="bold">{ap.id}</text>
+                <text x={ap.x} y={ap.y + 9} textAnchor="middle" fill={color}
+                  fontFamily="monospace" fontSize="8">
+                  {assigned ? `ch${ap.finalCh}` : '?'}
+                </text>
+              </g>
+            );
+          })}
+          {/* RRM scanning arrows */}
+          {step === 1 && (
+            <g opacity="0.6">
+              <text x="200" y="110" textAnchor="middle" fill="#7c4dff"
+                fontFamily="monospace" fontSize="10">📡 scanning RF...</text>
+            </g>
+          )}
+          {/* Legend */}
+          {step >= 2 && (
+            <g>
+              {[[1,'#00e5ff'],[6,'#00e676'],[11,'#ffab00']].map(([ch, col], i) => (
+                <g key={i}>
+                  <rect x={30 + i*60} y={170} width={10} height={10} rx={2}
+                    fill={`${col}40`} stroke={col} strokeWidth={1}/>
+                  <text x={44 + i*60} y={179} fill={col}
+                    fontFamily="monospace" fontSize="8">Ch {ch}</text>
+                </g>
+              ))}
+            </g>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+            {step === 0 && 'APs boot up. All channels are unassigned (shown as ?).'}
+            {step === 1 && 'RRM (Radio Resource Management) scans all channels on each AP — measuring neighbour signal strength and interference levels.'}
+            {step === 2 && 'WLC runs the RRM algorithm. Adjacent APs are assigned non-overlapping channels (1, 6, 11) to minimize co-channel interference.'}
+            {step >= 3 && '✓ Tx power is also automatically tuned — APs in the centre of dense areas use lower power to avoid overlapping coverage and causing hidden node problems.'}
+          </div>
+          <div style={{ padding: '8px 10px', borderRadius: 5,
+            background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.2)',
+            fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            RRM runs automatically and continuously — it can respond to interference from a new microwave or neighbouring WLAN by reassigning channels with minimal disruption.
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Wireless Controllers ──────────────────────────────────────
+  'wireless-controller': [
+    { afterSection: 'WLC Functions',      component: WlcSplitMac },
+    { afterSection: 'AP Join Process',    component: CapwapJoinAnim },
+    { afterSection: 'Deployment Models',  component: WlcDeploymentModels },
+    { afterSection: 'Channel Planning',   component: RrmChannelPlanning },
+  ],
+  'wireless-controller-mgmt': [
+    { afterSection: 'WLC Functions',      component: WlcSplitMac },
+    { afterSection: 'AP Join Process',    component: CapwapJoinAnim },
+    { afterSection: 'Deployment Models',  component: WlcDeploymentModels },
+    { afterSection: 'Channel Planning',   component: RrmChannelPlanning },
+  ],
   // ── Wireless AP ───────────────────────────────────────────────
   'wireless-ap': [
     { afterSection: 'Key Concepts',      component: WifiBandComparison },
