@@ -9480,6 +9480,326 @@ function TopologyFailureImpact() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// NETWORK DEVICES — ADDITIONAL SECTION DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── L3 Switch — routing vs switching in hardware ──────────
+function L3SwitchDiagram() {
+  const [mode, setMode] = React.useState('switching');
+  const isSwitching = mode === 'switching';
+  return (
+    <InlineViz label="MULTILAYER SWITCH — L2 SWITCHING + L3 ROUTING IN HARDWARE" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['switching','L2 Switching (intra-VLAN)'],['routing','L3 Routing (inter-VLAN via SVI)']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? 'rgba(124,77,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? '#7c4dff' : 'var(--border-subtle)'}`,
+            color: mode === m ? '#7c4dff' : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 360 140" style={{ width: 340, maxHeight: 140, flexShrink: 0 }}>
+          {/* L3 Switch */}
+          <rect x="130" y="45" width="100" height="50" rx="6"
+            fill="rgba(124,77,255,0.12)" stroke="#7c4dff" strokeWidth="2"/>
+          <text x="180" y="63" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="10" fontWeight="bold">L3 SWITCH</text>
+          <text x="180" y="75" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="8">
+            {isSwitching ? 'CAM table lookup' : 'SVI + FIB lookup'}
+          </text>
+          <text x="180" y="86" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">
+            {isSwitching ? '(hardware ASIC — wire speed)' : '(hardware ASIC — no CPU)'}
+          </text>
+          {isSwitching ? (
+            <>
+              {/* Two PCs in same VLAN 10 */}
+              {[{x:30,label:'PC-A',vlan:10},{x:300,label:'PC-B',vlan:10}].map((d,i) => (
+                <g key={i}>
+                  <rect x={d.x-30} y={60} width={60} height={25} rx="3"
+                    fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+                  <text x={d.x} y={71} textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">{d.label}</text>
+                  <text x={d.x} y={81} textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">VLAN {d.vlan}</text>
+                  <line x1={i===0?60:300} y1={72} x2={i===0?130:230} y2={70}
+                    stroke="#00e5ff" strokeWidth="2"/>
+                </g>
+              ))}
+              <text x="180" y="125" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8">
+                ✓ Same VLAN — pure L2 frame switching (MAC lookup)
+              </text>
+            </>
+          ) : (
+            <>
+              {/* Two PCs in different VLANs */}
+              {[{x:30,label:'PC-A',vlan:10,color:'#00e5ff'},{x:300,label:'PC-B',vlan:20,color:'#00e676'}].map((d,i) => (
+                <g key={i}>
+                  <rect x={d.x-30} y={60} width={60} height={25} rx="3"
+                    fill={`${d.color}12`} stroke={d.color} strokeWidth="1"/>
+                  <text x={d.x} y={71} textAnchor="middle" fill={d.color} fontFamily="monospace" fontSize="9" fontWeight="bold">{d.label}</text>
+                  <text x={d.x} y={81} textAnchor="middle" fill={d.color} fontFamily="monospace" fontSize="7">VLAN {d.vlan}</text>
+                  <line x1={i===0?60:300} y1={72} x2={i===0?130:230} y2={70}
+                    stroke={d.color} strokeWidth="2"/>
+                </g>
+              ))}
+              {/* SVI labels inside switch */}
+              <text x="155" y="98" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">SVI10</text>
+              <text x="205" y="98" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="7">SVI20</text>
+              <text x="180" y="125" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="8">
+                ✓ Different VLANs — L3 route via SVI (no external router needed)
+              </text>
+            </>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 110 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            {isSwitching
+              ? 'Same-VLAN traffic is switched at wire speed using the CAM table — identical to a plain L2 switch. No routing involved.'
+              : 'Cross-VLAN traffic is routed between SVIs (Switch Virtual Interfaces) entirely in hardware. No external router needed. Much faster than Router-on-a-Stick.'}
+          </div>
+          <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 4,
+            background: 'rgba(124,77,255,0.08)', border: '1px solid rgba(124,77,255,0.2)',
+            fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: '#7c4dff' }}>
+            {isSwitching ? 'ip routing NOT needed for L2 switching' : 'Requires: ip routing + interface vlan X configured'}
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── WLC — centralised management diagram ──────────────────
+function WlcManagementDiagram() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const aps = [{x:60,y:140},{x:180,y:140},{x:300,y:140}];
+  const clients = [{x:30,y:200},{x:90,y:200},{x:150,y:200},{x:210,y:200},{x:270,y:200},{x:330,y:200}];
+  useEffect(() => {
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="WIRELESS LAN CONTROLLER — CENTRALISED AP MANAGEMENT" accent="#00e676">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 360 220" style={{ width: 340, maxHeight: 220, flexShrink: 0 }}>
+          {/* WLC */}
+          <rect x="120" y="10" width="120" height="40" rx="5"
+            fill="rgba(0,230,118,0.12)" stroke="#00e676" strokeWidth="2"/>
+          <text x="180" y="27" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="10" fontWeight="bold">WLC</text>
+          <text x="180" y="40" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">
+            Auth · RF · Policy · Roaming
+          </text>
+          {/* Distribution switch */}
+          <rect x="130" y="75" width="100" height="28" rx="4"
+            fill="rgba(0,229,255,0.08)" stroke="#00e5ff" strokeWidth="1.5"/>
+          <text x="180" y="91" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">DIST-SW</text>
+          <line x1="180" y1="50" x2="180" y2="75" stroke="#00e676" strokeWidth="2"/>
+          {/* APs */}
+          {aps.map((ap, i) => (
+            <g key={i}>
+              <line x1="180" y1="103" x2={ap.x} y2={ap.y}
+                stroke={step >= 1 ? '#7c4dff' : 'var(--border-subtle)'}
+                strokeWidth="1.5" strokeDasharray={step >= 1 ? '4,2' : 'none'}
+                style={{ transition: 'stroke 0.4s' }}/>
+              {step >= 1 && (
+                <text x={(180+ap.x)/2} y={(103+ap.y)/2 - 3} textAnchor="middle"
+                  fill="#7c4dff" fontFamily="monospace" fontSize="7">CAPWAP</text>
+              )}
+              <circle cx={ap.x} cy={ap.y} r={16}
+                fill={step >= 1 ? 'rgba(0,229,255,0.12)' : 'var(--bg-elevated)'}
+                stroke={step >= 1 ? '#00e5ff' : 'var(--border-subtle)'}
+                strokeWidth="1.5" style={{ transition: 'all 0.4s' }}/>
+              <text x={ap.x} y={ap.y + 4} textAnchor="middle"
+                fill={step >= 1 ? '#00e5ff' : 'var(--text-muted)'}
+                fontFamily="monospace" fontSize="8" fontWeight="bold">AP{i+1}</text>
+            </g>
+          ))}
+          {/* Clients */}
+          {clients.map((c, i) => (
+            <g key={i}>
+              <line x1={aps[Math.floor(i/2)].x} y1={140} x2={c.x} y2={c.y}
+                stroke={step >= 2 ? 'rgba(255,171,0,0.4)' : 'transparent'}
+                strokeWidth="1" style={{ transition: 'stroke 0.4s' }}/>
+              <circle cx={c.x} cy={c.y} r={8}
+                fill={step >= 2 ? 'rgba(255,171,0,0.15)' : 'var(--bg-elevated)'}
+                stroke={step >= 2 ? '#ffab00' : 'var(--border-subtle)'}
+                strokeWidth="1" style={{ transition: 'all 0.4s' }}/>
+              <text x={c.x} y={c.y+3} textAnchor="middle"
+                fill={step >= 2 ? '#ffab00' : 'var(--text-muted)'}
+                fontFamily="monospace" fontSize="6">📱</text>
+            </g>
+          ))}
+          {/* Roaming arrow */}
+          {step >= 3 && (
+            <path d="M 90 200 Q 180 165 270 200" fill="none"
+              stroke="#00e676" strokeWidth="2" strokeDasharray="4,2"
+              markerEnd="url(#arrowGreen)"/>
+          )}
+          {step >= 3 && (
+            <text x="180" y="160" textAnchor="middle" fill="#00e676"
+              fontFamily="monospace" fontSize="8">seamless roam</text>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 110 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+            {step === 0 && 'Lightweight APs are "thin" — they have no local config. All intelligence lives in the WLC.'}
+            {step === 1 && 'APs connect to WLC via CAPWAP tunnels (UDP 5246/5247). The WLC pushes SSID config, channels, power settings, and firmware to all APs simultaneously.'}
+            {step === 2 && 'Clients associate to their nearest AP. The WLC handles 802.1X authentication via RADIUS, VLAN assignment per SSID, and QoS policy.'}
+            {step === 3 && 'Client roams from AP1 to AP3. The WLC coordinates the handoff — client keeps the same IP address (Layer 3 roaming via mobility tunnel if needed).'}
+            {step >= 4 && '✓ One WLC manages all APs across the network. Config changes, firmware updates, and RF adjustments applied centrally in seconds.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── IDS/IPS — detection vs prevention modes ───────────────
+function IdsIpsDiagram() {
+  const [mode, setMode] = React.useState('ids');
+  const isIds = mode === 'ids';
+  return (
+    <InlineViz label="IDS vs IPS — DETECT vs PREVENT" accent="#f43f5e">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['ids','IDS — Intrusion Detection'],['ips','IPS — Intrusion Prevention']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m==='ids' ? 'rgba(255,171,0,0.15)' : 'rgba(244,63,94,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m==='ids' ? '#ffab00' : '#f43f5e') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m==='ids' ? '#ffab00' : '#f43f5e') : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <svg viewBox="0 0 420 110" style={{ width: '100%', maxHeight: 110, display: 'block', marginBottom: 12 }}>
+        {/* Internet */}
+        <rect x="5" y="35" width="70" height="30" rx="4"
+          fill="rgba(255,82,82,0.08)" stroke="#ff5252" strokeWidth="1"/>
+        <text x="40" y="52" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="9" fontWeight="bold">Internet</text>
+        {/* Traffic flow line */}
+        <line x1="75" y1="50" x2="345" y2="50"
+          stroke="var(--border-subtle)" strokeWidth="1.5"/>
+        {/* Malicious packet */}
+        <circle cx="140" cy="50" r="8" fill="rgba(255,82,82,0.3)" stroke="#ff5252" strokeWidth="1.5"/>
+        <text x="140" y="53" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="7">💀</text>
+        {isIds ? (
+          <>
+            {/* IDS tapped off the wire */}
+            <line x1="200" y1="50" x2="200" y2="80" stroke="#ffab00" strokeWidth="1.5" strokeDasharray="3,2"/>
+            <rect x="170" y="80" width="60" height="22" rx="4"
+              fill="rgba(255,171,0,0.12)" stroke="#ffab00" strokeWidth="1.5"/>
+            <text x="200" y="95" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="9" fontWeight="bold">IDS</text>
+            <text x="200" y="69" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">copy of traffic</text>
+            {/* Alert */}
+            <text x="270" y="80" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="9">⚠ ALERT</text>
+            {/* Malicious packet still passes */}
+            <circle cx="310" cy="50" r="8" fill="rgba(255,82,82,0.3)" stroke="#ff5252" strokeWidth="1.5"/>
+            <text x="310" y="53" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="7">💀</text>
+          </>
+        ) : (
+          <>
+            {/* IPS inline */}
+            <rect x="175" y="35" width="70" height="30" rx="4"
+              fill="rgba(244,63,94,0.15)" stroke="#f43f5e" strokeWidth="2"/>
+            <text x="210" y="52" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="9" fontWeight="bold">IPS</text>
+            <text x="210" y="62" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">inline — inspects all</text>
+            {/* Block symbol */}
+            <text x="280" y="45" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="16">🚫</text>
+            <text x="280" y="62" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="8">BLOCKED</text>
+          </>
+        )}
+        {/* Corp Network */}
+        <rect x="345" y="35" width="70" height="30" rx="4"
+          fill="rgba(0,230,118,0.08)" stroke="#00e676" strokeWidth="1"/>
+        <text x="380" y="52" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="9" fontWeight="bold">Corp LAN</text>
+      </svg>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {[
+          { label: 'IDS', color: '#ffab00', points: [
+            'Passive — copy of traffic via SPAN/TAP',
+            'Detects and alerts — never blocks',
+            'Zero impact on traffic flow',
+            'Cannot stop zero-day attack in real time',
+            'Good for forensics and compliance logging',
+          ]},
+          { label: 'IPS', color: '#f43f5e', points: [
+            'Inline — all traffic passes through it',
+            'Detects AND blocks malicious traffic',
+            'Adds latency (small but real)',
+            'False positive blocks legitimate traffic',
+            'Modern NGFWs include IPS functionality',
+          ]},
+        ].map((col, i) => (
+          <div key={i}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.75rem', color: col.color, marginBottom: 6 }}>{col.label}</div>
+            {col.points.map((p, j) => (
+              <div key={j} style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)',
+                marginBottom: 3, lineHeight: 1.5 }}>• {p}</div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Device Layer Summary — visual table ───────────────────
+function DeviceLayerSummaryTable() {
+  const [hovered, setHovered] = React.useState(null);
+  const devices = [
+    { name: 'Hub',        layer: 'L1',   color: '#78909c', addressing: 'None (bit repeater)', broadcast: 'Shared (entire network)', icon: '●', note: 'Obsolete — replaced by switches' },
+    { name: 'Switch',     layer: 'L2',   color: '#00e5ff', addressing: 'MAC address',          broadcast: 'Per VLAN',               icon: '⊞', note: 'Core access-layer device' },
+    { name: 'L3 Switch',  layer: 'L2–3', color: '#7c4dff', addressing: 'MAC + IP',             broadcast: 'Per VLAN / SVI',         icon: '⊡', note: 'Routing in hardware ASICs' },
+    { name: 'Router',     layer: 'L3',   color: '#2979ff', addressing: 'IP address',           broadcast: 'Per interface',          icon: '⬡', note: 'Connects different networks' },
+    { name: 'Firewall',   layer: 'L3–7', color: '#ff6d00', addressing: 'IP + Port + State',   broadcast: 'Per zone',               icon: '🔥', note: 'Stateful security boundary' },
+    { name: 'AP',         layer: 'L2',   color: '#00e676', addressing: 'MAC address',          broadcast: 'Per SSID/VLAN',          icon: '📡', note: 'Wireless bridge to wired LAN' },
+    { name: 'WLC',        layer: 'L2–3', color: '#00e676', addressing: 'MAC + IP',             broadcast: 'Per SSID/VLAN',          icon: '🎛️', note: 'Centralised AP management' },
+    { name: 'IDS/IPS',    layer: 'L3–7', color: '#f43f5e', addressing: 'IP + Port + Payload', broadcast: 'N/A (passive/inline)',   icon: '👁️', note: 'Detect/prevent intrusions' },
+  ];
+  return (
+    <InlineViz label="DEVICE LAYER SUMMARY — OSI LAYER AND CAPABILITY" accent="#00e5ff">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {devices.map((d, i) => (
+          <div key={i}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              display: 'grid', gridTemplateColumns: '28px 90px 50px 1fr 1fr',
+              alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 5,
+              background: hovered === i ? `${d.color}15` : `${d.color}06`,
+              border: `1px solid ${hovered === i ? d.color : d.color + '25'}`,
+              transition: 'all 0.2s', cursor: 'default',
+            }}>
+            <div style={{ textAlign: 'center', fontSize: '0.875rem' }}>{d.icon}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.75rem', color: d.color }}>{d.name}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.625rem', color: d.color, background: `${d.color}18`,
+              padding: '2px 6px', borderRadius: 4, textAlign: 'center' }}>{d.layer}</div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>
+              {hovered === i ? d.addressing : d.addressing.split(' ')[0]}
+            </div>
+            <div style={{ fontSize: '0.6875rem', color: hovered === i ? d.color : 'var(--text-muted)' }}>
+              {hovered === i ? d.note : d.broadcast}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 6, fontSize: '0.6875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+        Hover a row — left column shows addressing, right column switches to key note
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Remote Access VPN ─────────────────────────────────────────
   'remote-access': [
@@ -9752,12 +10072,15 @@ export const INLINE_DIAGRAMS = {
   ],
   // ── Network Devices — one diagram per ### device section ───
   'network-devices': [
-    { afterSection: 'Hub — Layer 1',                         component: HubFloodAnim },
-    { afterSection: 'Switch — Layer 2',                      component: SwitchMacLearning },
-    { afterSection: 'Router — Layer 3',                      component: RouterForwardingAnim },
-    { afterSection: 'Firewall — Layer 3–7',                  component: FirewallZoneAnim },
-    { afterSection: 'Wireless Access Point (AP) — Layer 2',  component: ApAssociationAnim },
-    { afterSection: 'Device Layer Summary',                   component: DeviceExplorer },
+    { afterSection: 'Hub — Layer 1',                              component: HubFloodAnim },
+    { afterSection: 'Switch — Layer 2',                           component: SwitchMacLearning },
+    { afterSection: 'Multilayer Switch (L3 Switch) — Layer 2 + 3', component: L3SwitchDiagram },
+    { afterSection: 'Router — Layer 3',                           component: RouterForwardingAnim },
+    { afterSection: 'Firewall — Layer 3–7',                       component: FirewallZoneAnim },
+    { afterSection: 'Wireless Access Point (AP) — Layer 2',       component: ApAssociationAnim },
+    { afterSection: 'Wireless LAN Controller (WLC) — Layer 2–3',  component: WlcManagementDiagram },
+    { afterSection: 'IDS / IPS — Layer 3–7',                      component: IdsIpsDiagram },
+    { afterSection: 'Device Layer Summary',                        component: DeviceLayerSummaryTable },
   ],
   // ── Cables ──────────────────────────────────────────────────
   'cables-transmission': [
