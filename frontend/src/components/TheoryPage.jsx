@@ -22,12 +22,12 @@ function TheoryPageContent({ slug, theoryMd }) {
     );
   }
 
-  // Split markdown into sections on ## headings
+  // Split markdown into sections on ## and ### headings
   const sections = [];
   const lines = (theoryMd || '').split('\n');
   let current = { heading: null, lines: [] };
   for (const line of lines) {
-    if (line.startsWith('## ') || line.startsWith('# ')) {
+    if (line.startsWith('### ') || line.startsWith('## ') || line.startsWith('# ')) {
       if (current.lines.length > 0 || current.heading) {
         sections.push({ ...current });
       }

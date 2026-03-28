@@ -3443,7 +3443,7 @@ function InterVlanRoutingAnim() {
   function reset(m) { setMode(m); setStep(0); setIsPaused(false); }
   const isRoas = mode === 'roas';
   return (
-    <InlineViz label="INTER-VLAN ROUTING — ROUTER-ON-A-STICK vs L3 SWITCH SVI" accent="#7c4dff">
+    <InlineViz label="INTER-VLAN ROUTING — TWO APPROACHES" accent="#7c4dff">
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         {[['roas','Router-on-a-Stick'],['svi','L3 Switch SVI']].map(([m, label]) => (
           <button key={m} onClick={() => reset(m)} style={{
@@ -3685,73 +3685,69 @@ function LsaFloodingAnim() {
 export const INLINE_DIAGRAMS = {
   // ── OSI Model ──────────────────────────────────────────────
   'osi-model': [
-    { afterSection: 'OSI Model', component: OsiLayerBreakdown },
-    { afterSection: 'The OSI Model', component: OsiLayerBreakdown },
-    { afterSection: 'How to Remember the Layers', component: OsiEncapsulationInline },
+    { afterSection: 'The Seven Layers',           component: OsiLayerBreakdown },
+    { afterSection: 'Encapsulation and Decapsulation', component: OsiEncapsulationInline },
   ],
-  // ── Network Layer Architecture ──────────────────────────────
+  // ── Network Layer Architecture (3-tier content per migrate_netarch_redo) ─
   'network-layer-arch': [
-    { afterSection: 'The TCP/IP Model', component: TcpIpVsOsi },
-    { afterSection: 'IP Addressing and Encapsulation', component: OsiEncapsulationInline },
-    { afterSection: 'The Cisco Three-Tier Hierarchical Model', component: ThreeTierModel },
-    { afterSection: 'Two-Tier (Collapsed Core)', component: TwoTierModel },
+    { afterSection: 'Hierarchical Network Design', component: ThreeTierModel },
+    { afterSection: 'Collapsed Core',              component: TwoTierModel },
   ],
   // ── Network Types ───────────────────────────────────────────
   'network-types': [
-    { afterSection: 'Network Types', component: NetworkScopeRings },
-    { afterSection: 'Network Type Comparison', component: NetworkScopeRings },
+    { afterSection: 'Network Type Comparison',     component: NetworkScopeRings },
   ],
   // ── Network Topologies ──────────────────────────────────────
   'network-topologies': [
-    { afterSection: 'Network Topologies', component: TopologyAnimComparison },
     { afterSection: 'Topology and Failure Impact', component: TopologyAnimComparison },
   ],
-  // ── Network Devices ─────────────────────────────────────────
+  // ── Network Devices — one diagram per ### device section ───
   'network-devices': [
-    { afterSection: 'Hub — Layer 1', component: HubFloodAnim },
-    { afterSection: 'Switch — Layer 2', component: SwitchMacLearning },
-    { afterSection: 'Router — Layer 3', component: RouterForwardingAnim },
-    { afterSection: 'Firewall — Layer 3–7', component: FirewallZoneAnim },
-    { afterSection: 'Wireless Access Point (AP) — Layer 2', component: ApAssociationAnim },
-    { afterSection: 'Device Layer Summary', component: DeviceExplorer },
+    { afterSection: 'Hub — Layer 1',                         component: HubFloodAnim },
+    { afterSection: 'Switch — Layer 2',                      component: SwitchMacLearning },
+    { afterSection: 'Router — Layer 3',                      component: RouterForwardingAnim },
+    { afterSection: 'Firewall — Layer 3–7',                  component: FirewallZoneAnim },
+    { afterSection: 'Wireless Access Point (AP) — Layer 2',  component: ApAssociationAnim },
+    { afterSection: 'Device Layer Summary',                   component: DeviceExplorer },
   ],
   // ── Cables ──────────────────────────────────────────────────
   'cables-transmission': [
-    { afterSection: 'Cables and Transmission Media', component: CablesComparisonInline },
-    { afterSection: 'Cable Selection Guide', component: CablesComparisonInline },
+    { afterSection: 'Cable Selection Guide',       component: CablesComparisonInline },
   ],
   // ── Routing ─────────────────────────────────────────────────
   'routing-fundamentals': [
-    { afterSection: 'The Routing Table', component: RoutingTableWalkthrough },
-    { afterSection: 'Longest Prefix Match', component: RoutingTableWalkthrough },
+    { afterSection: 'The Routing Table',           component: RoutingTableWalkthrough },
+    { afterSection: 'Longest Prefix Match',        component: RoutingTableWalkthrough },
   ],
   // ── How Internet Works ──────────────────────────────────────
   'how-internet-works': [
-    { afterSection: 'How The Internet Works', component: BrowserRequestJourney },
-    { afterSection: 'End-to-End Summary', component: BrowserRequestJourney },
+    { afterSection: 'End-to-End Summary',          component: BrowserRequestJourney },
   ],
-  // ── VLANs ───────────────────────────────────────────────────
+  // ── VLANs — exact ## / ### headings from migrate_theory.sql ─
   'vlans': [
-    { afterSection: 'Why VLANs Exist', component: VlanWhyItMatters },
-    { afterSection: 'VLAN Database', component: VlanDatabaseViz },
-    { afterSection: 'Trunk Ports', component: VlanTrunkAnimation },
-    { afterSection: 'Inter-VLAN Routing', component: InterVlanRoutingAnim },
+    { afterSection: 'Why VLANs Exist',             component: VlanWhyItMatters },
+    { afterSection: 'VLAN Database',               component: VlanDatabaseViz },
+    { afterSection: 'Trunk Ports',                 component: VlanTrunkAnimation },
+    { afterSection: 'Inter-VLAN Routing',          component: InterVlanRoutingAnim },
   ],
   'vlan-roas': [
-    { afterSection: 'Why VLANs Exist', component: VlanWhyItMatters },
-    { afterSection: 'VLAN Database', component: VlanDatabaseViz },
-    { afterSection: 'Trunk Ports', component: VlanTrunkAnimation },
-    { afterSection: 'Inter-VLAN Routing', component: InterVlanRoutingAnim },
+    { afterSection: 'Why VLANs Exist',             component: VlanWhyItMatters },
+    { afterSection: 'VLAN Database',               component: VlanDatabaseViz },
+    { afterSection: 'Trunk Ports',                 component: VlanTrunkAnimation },
+    { afterSection: 'Inter-VLAN Routing',          component: InterVlanRoutingAnim },
   ],
   'vlan-svi': [
-    { afterSection: 'Why VLANs Exist', component: VlanWhyItMatters },
-    { afterSection: 'VLAN Database', component: VlanDatabaseViz },
+    { afterSection: 'Why VLANs Exist',             component: VlanWhyItMatters },
+    { afterSection: 'VLAN Database',               component: VlanDatabaseViz },
   ],
-  // ── OSPF ────────────────────────────────────────────────────
+  // ── OSPF — ## headings from migrate_theory.sql ──────────────
+  // Sub-headings (###) are under ## OSPF Concepts
   'ospf': [
-    { afterSection: 'Neighbor States', component: OspfAdjacencyWalkthrough },
-    { afterSection: 'DR/BDR Election', component: DrBdrElectionAnim },
-    { afterSection: 'LSA Types', component: LsaFloodingAnim },
-    { afterSection: 'Cost Calculation', component: OspfSpfTree },
+    { afterSection: 'What Is OSPF?',               component: OspfAdjacencyWalkthrough },
+    { afterSection: 'OSPF Concepts',               component: DrBdrElectionAnim },
+    { afterSection: 'LSA Types',                   component: LsaFloodingAnim },
+    { afterSection: 'Neighbor States',             component: OspfAdjacencyWalkthrough },
+    { afterSection: 'DR/BDR Election',             component: DrBdrElectionAnim },
+    { afterSection: 'Cost Calculation',            component: OspfSpfTree },
   ],
 };
