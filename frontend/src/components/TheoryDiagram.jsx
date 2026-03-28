@@ -6680,6 +6680,94 @@ function TunnelEncapsulationAnim() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// GRE INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── GRE Header — field anatomy ────────────────────────────
+function GreHeaderAnatomy() {
+  const [hovered, setHovered] = React.useState(null);
+  const fields = [
+    { name: 'C',       bits: 1,  color: '#ffab00', desc: 'Checksum Present. If set, a 2-byte checksum field follows the header to verify integrity.' },
+    { name: 'Rsvd',    bits: 1,  color: '#546e7a', desc: 'Reserved — must be 0. Was used for routing in early GRE (RFC 1701), deprecated in RFC 2784.' },
+    { name: 'K',       bits: 1,  color: '#00e5ff', desc: 'Key Present. If set, a 4-byte key field is included. Used to identify different GRE tunnels sharing the same endpoints.' },
+    { name: 'S',       bits: 1,  color: '#7c4dff', desc: 'Sequence Number Present. If set, a 4-byte sequence number is included. Used by GRE keepalives to detect tunnel failures.' },
+    { name: 'Rsvd',    bits: 9,  color: '#546e7a', desc: 'Reserved bits — must be zero. Padded to align the Protocol Type field.' },
+    { name: 'Ver',     bits: 3,  color: '#78909c', desc: 'Version — always 0 for standard GRE (RFC 2784). Enhanced GRE (PPTP) uses version 1.' },
+    { name: 'Protocol Type', bits: 16, color: '#f43f5e', desc: 'EtherType of the encapsulated (inner) protocol. 0x0800 = IPv4, 0x86DD = IPv6, 0x8100 = 802.1Q VLAN.' },
+  ];
+  const totalBits = fields.reduce((a, f) => a + f.bits, 0); // 32
+  return (
+    <InlineViz label="GRE HEADER — MINIMUM 4 BYTES (32 bits)" accent="#00e5ff">
+      {/* Bit field bar */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', height: 32, borderRadius: 5, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+          {fields.map((f, i) => (
+            <div key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                width: `${(f.bits / totalBits) * 100}%`,
+                background: hovered === i ? `${f.color}40` : `${f.color}18`,
+                borderRight: i < fields.length - 1 ? '1px solid var(--bg-panel)' : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', transition: 'background 0.2s',
+                fontFamily: 'var(--font-mono)', fontSize: f.bits >= 8 ? '0.625rem' : '0.5rem',
+                fontWeight: 700, color: f.color, overflow: 'hidden',
+              }}>
+              {f.bits >= 3 ? f.name.split(' ')[0] : ''}
+            </div>
+          ))}
+        </div>
+        {/* Bit labels */}
+        <div style={{ display: 'flex', marginTop: 2 }}>
+          {fields.map((f, i) => (
+            <div key={i} style={{
+              width: `${(f.bits / totalBits) * 100}%`,
+              textAlign: 'center', fontFamily: 'var(--font-mono)',
+              fontSize: '0.45rem', color: 'var(--text-muted)',
+            }}>{f.bits}b</div>
+          ))}
+        </div>
+      </div>
+      {/* Field list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {fields.filter(f => f.color !== '#546e7a').map((f, i) => {
+          const origIdx = fields.indexOf(f);
+          const isHov = hovered === origIdx;
+          return (
+            <div key={i}
+              onMouseEnter={() => setHovered(origIdx)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start', padding: '5px 8px',
+                borderRadius: 4, cursor: 'default',
+                background: isHov ? `${f.color}12` : 'transparent',
+                border: `1px solid ${isHov ? f.color + '40' : 'transparent'}`,
+                transition: 'all 0.2s',
+              }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, minWidth: 100 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: f.color, flexShrink: 0 }}/>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem', color: f.color }}>{f.name}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--text-muted)' }}>({f.bits}b)</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{f.desc}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: 10, padding: '7px 10px', borderRadius: 5,
+        background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+        fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
+        Minimum GRE overhead: 4 bytes (flags + Protocol Type only, no optional fields)<br/>
+        + 20 bytes outer IP header = <span style={{ color: '#00e5ff' }}>24 bytes total minimum overhead</span><br/>
+        Optional fields (C, K, S) add 4 bytes each when present
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Network Tunneling ─────────────────────────────────────────
   'tunneling': [
@@ -6690,13 +6778,16 @@ export const INLINE_DIAGRAMS = {
     { afterSection: 'Common Tunnel Types', component: TunnelTypesComparison },
     { afterSection: 'Encapsulation',       component: TunnelEncapsulationAnim },
   ],
+  // ── GRE Tunnels ───────────────────────────────────────────────
   'gre': [
-    { afterSection: 'Common Tunnel Types', component: TunnelTypesComparison },
-    { afterSection: 'Encapsulation',       component: TunnelEncapsulationAnim },
+    { afterSection: 'What Is GRE?',  component: TunnelEncapsulationAnim },
+    { afterSection: 'GRE Header',    component: GreHeaderAnatomy },
+    { afterSection: 'GRE vs IPsec',  component: TunnelTypesComparison },
   ],
   'gre-tunnels': [
-    { afterSection: 'Common Tunnel Types', component: TunnelTypesComparison },
-    { afterSection: 'Encapsulation',       component: TunnelEncapsulationAnim },
+    { afterSection: 'What Is GRE?',  component: TunnelEncapsulationAnim },
+    { afterSection: 'GRE Header',    component: GreHeaderAnatomy },
+    { afterSection: 'GRE vs IPsec',  component: TunnelTypesComparison },
   ],
   // ── BGP ───────────────────────────────────────────────────────
   'bgp': [
