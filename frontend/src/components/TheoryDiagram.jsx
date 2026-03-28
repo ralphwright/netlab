@@ -9102,6 +9102,384 @@ function NetworkTypeComparisonTable() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// NETWORK TOPOLOGIES — SECTION-SPECIFIC DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Bus Topology — with failure animation ─────────────────
+function BusTopologyDiagram() {
+  const [broken, setBroken] = React.useState(false);
+  const nodes = [20, 100, 180, 260, 340];
+  return (
+    <InlineViz label="BUS TOPOLOGY — SHARED SINGLE CABLE (OBSOLETE)" accent="#78909c">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 380 120" style={{ width: 360, maxHeight: 120, flexShrink: 0 }}>
+          {/* Bus cable */}
+          <line x1="10" y1="60" x2="370" y2="60"
+            stroke={broken ? '#ff5252' : '#78909c'} strokeWidth="3"
+            style={{ transition: 'stroke 0.4s' }}/>
+          {/* Break indicator */}
+          {broken && (
+            <g>
+              <line x1="178" y1="55" x2="182" y2="65" stroke="#ff5252" strokeWidth="2"/>
+              <line x1="182" y1="55" x2="178" y2="65" stroke="#ff5252" strokeWidth="2"/>
+              <text x="180" y="85" textAnchor="middle" fill="#ff5252"
+                fontFamily="monospace" fontSize="9">BREAK</text>
+            </g>
+          )}
+          {/* Terminators */}
+          <rect x="2" y="54" width="8" height="12" rx="2"
+            fill="#78909c" stroke="#546e7a" strokeWidth="1"/>
+          <rect x="370" y="54" width="8" height="12" rx="2"
+            fill="#78909c" stroke="#546e7a" strokeWidth="1"/>
+          {/* Nodes */}
+          {nodes.map((x, i) => (
+            <g key={i}>
+              <line x1={x} y1="60" x2={x} y2="30" stroke="#78909c" strokeWidth="1.5"/>
+              <rect x={x-20} y="10" width="40" height="20" rx="3"
+                fill={broken ? 'rgba(255,82,82,0.1)' : 'rgba(120,144,156,0.15)'}
+                stroke={broken ? '#ff5252' : '#78909c'} strokeWidth="1"
+                style={{ transition: 'all 0.4s' }}/>
+              <text x={x} y="23" textAnchor="middle"
+                fill={broken ? '#ff5252' : '#78909c'}
+                fontFamily="monospace" fontSize="8" fontWeight="bold">PC{i+1}</text>
+            </g>
+          ))}
+          <text x="190" y="112" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="8">
+            {broken ? '⚠ Cable break isolates entire network' : 'All devices share the bus — CSMA/CD'}
+          </text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <button onClick={() => setBroken(b => !b)} style={{
+            ...BASE.btn, marginBottom: 10, width: '100%',
+            color: broken ? '#00e676' : '#ff5252',
+            borderColor: broken ? '#00e676' : '#ff5252',
+          }}>{broken ? '↺ Restore cable' : '✂ Break the cable'}</button>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            {broken
+              ? '⚠ Entire network down. No device can communicate. This is why bus topology is obsolete.'
+              : 'Data broadcast to ALL devices. Only intended recipient accepts it. One device transmits at a time (CSMA/CD). Used in 10BASE2 coax Ethernet — now obsolete.'}
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Ring Topology — token passing animation ───────────────
+function RingTopologyDiagram() {
+  const [broken, setBroken] = React.useState(false);
+  const [tokenPos, setTokenPos] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const nodes = [
+    { x: 150, y: 20 }, { x: 260, y: 75 }, { x: 220, y: 180 },
+    { x: 80,  y: 180 }, { x: 40,  y: 75 },
+  ];
+  useEffect(() => {
+    if (isPaused || broken) return;
+    const t = setTimeout(() => setTokenPos(p => (p + 1) % nodes.length), 700);
+    return () => clearTimeout(t);
+  }, [tokenPos, isPaused, broken]);
+  return (
+    <InlineViz label="RING TOPOLOGY — TOKEN PASSING (OBSOLETE FOR LAN)" accent="#e040fb">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 300 210" style={{ width: 280, maxHeight: 210, flexShrink: 0 }}>
+          {/* Ring links */}
+          {nodes.map((n, i) => {
+            const next = nodes[(i + 1) % nodes.length];
+            const isBroken = broken && i === 1;
+            return (
+              <line key={i} x1={n.x} y1={n.y} x2={next.x} y2={next.y}
+                stroke={isBroken ? '#ff5252' : '#e040fb'}
+                strokeWidth={isBroken ? 2 : 1.5}
+                strokeDasharray={isBroken ? '5,3' : 'none'}
+                style={{ transition: 'stroke 0.4s' }}/>
+            );
+          })}
+          {broken && (
+            <text x="215" y="135" textAnchor="middle" fill="#ff5252"
+              fontFamily="monospace" fontSize="9">✗ BREAK</text>
+          )}
+          {/* Nodes */}
+          {nodes.map((n, i) => (
+            <g key={i}>
+              <circle cx={n.x} cy={n.y} r={18}
+                fill={broken ? 'rgba(255,82,82,0.1)' : 'rgba(224,64,251,0.12)'}
+                stroke={broken ? '#ff5252' : '#e040fb'} strokeWidth={tokenPos === i ? 2.5 : 1.5}
+                style={{ transition: 'all 0.4s' }}/>
+              <text x={n.x} y={n.y + 4} textAnchor="middle"
+                fill={broken ? '#ff5252' : '#e040fb'}
+                fontFamily="monospace" fontSize="9" fontWeight="bold">N{i+1}</text>
+              {!broken && tokenPos === i && (
+                <circle cx={n.x} cy={n.y} r={24}
+                  fill="none" stroke="#e040fb" strokeWidth="1" opacity="0.5"
+                  strokeDasharray="4,2"/>
+              )}
+            </g>
+          ))}
+          {!broken && (
+            <text x="150" y="105" textAnchor="middle" fill="#e040fb"
+              fontFamily="monospace" fontSize="8">🎫 Token at N{tokenPos + 1}</text>
+          )}
+          {broken && (
+            <text x="150" y="105" textAnchor="middle" fill="#ff5252"
+              fontFamily="monospace" fontSize="9">⚠ Ring broken — all down</text>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 110 }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => setBroken(b => !b)} style={{
+              ...BASE.btn, color: broken ? '#00e676' : '#ff5252',
+              borderColor: broken ? '#00e676' : '#ff5252',
+            }}>{broken ? '↺ Restore' : '✂ Break link'}</button>
+            {!broken && (
+              <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>
+                {isPaused ? '▶' : '⏸'}
+              </button>
+            )}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            {broken
+              ? '⚠ Single break takes down the entire ring. Dual-ring (FDDI) mitigates this by wrapping around the break.'
+              : 'Token passed around the ring — only the device holding the token may transmit. Predictable, no collisions. Used in Token Ring (802.5) and FDDI. Now obsolete for LAN.'}
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Star Topology — failure isolation ─────────────────────
+function StarTopologyDiagram() {
+  const [failedLink, setFailedLink] = React.useState(null);
+  const [switchFailed, setSwitchFailed] = React.useState(false);
+  const spokes = [
+    { label: 'PC-A', angle: -90, color: '#00e5ff' },
+    { label: 'PC-B', angle: -30, color: '#00e5ff' },
+    { label: 'PC-C', angle:  30, color: '#00e5ff' },
+    { label: 'PC-D', angle:  90, color: '#00e5ff' },
+    { label: 'PC-E', angle: 150, color: '#00e5ff' },
+    { label: 'AP-1', angle: 210, color: '#00e676' },
+  ];
+  const cx = 150, cy = 105, r = 70;
+  function pos(angle) {
+    const rad = (angle * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+  return (
+    <InlineViz label="STAR TOPOLOGY — THE MODERN STANDARD (CLICK TO TEST FAILURES)" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 300 210" style={{ width: 280, maxHeight: 210, flexShrink: 0 }}>
+          {/* Links */}
+          {spokes.map((s, i) => {
+            const p = pos(s.angle);
+            const failed = switchFailed || failedLink === i;
+            return (
+              <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y}
+                stroke={failed ? '#ff5252' : '#00e5ff'}
+                strokeWidth={failed ? 1.5 : 1.5}
+                strokeDasharray={failed ? '4,3' : 'none'}
+                style={{ transition: 'stroke 0.4s' }}
+                onClick={() => !switchFailed && setFailedLink(failedLink === i ? null : i)}
+              />
+            );
+          })}
+          {/* Central switch */}
+          <rect x={cx-28} y={cy-18} width={56} height={36} rx={5}
+            fill={switchFailed ? 'rgba(255,82,82,0.2)' : 'rgba(0,229,255,0.12)'}
+            stroke={switchFailed ? '#ff5252' : '#00e5ff'} strokeWidth={2}
+            style={{ cursor: 'pointer', transition: 'all 0.4s' }}
+            onClick={() => { setSwitchFailed(f => !f); setFailedLink(null); }}/>
+          <text x={cx} y={cy - 2} textAnchor="middle"
+            fill={switchFailed ? '#ff5252' : '#00e5ff'}
+            fontFamily="monospace" fontSize="10" fontWeight="bold">SW1</text>
+          <text x={cx} y={cy + 10} textAnchor="middle"
+            fill="var(--text-muted)" fontFamily="monospace" fontSize="7">click to fail</text>
+          {/* Spoke nodes */}
+          {spokes.map((s, i) => {
+            const p = pos(s.angle);
+            const failed = switchFailed || failedLink === i;
+            return (
+              <g key={i} style={{ cursor: 'pointer' }}
+                onClick={() => !switchFailed && setFailedLink(failedLink === i ? null : i)}>
+                <circle cx={p.x} cy={p.y} r={16}
+                  fill={failed ? 'rgba(255,82,82,0.12)' : `${s.color}12`}
+                  stroke={failed ? '#ff5252' : s.color} strokeWidth={1.5}
+                  style={{ transition: 'all 0.4s' }}/>
+                <text x={p.x} y={p.y + 4} textAnchor="middle"
+                  fill={failed ? '#ff5252' : s.color}
+                  fontFamily="monospace" fontSize="8" fontWeight="bold">{s.label}</text>
+              </g>
+            );
+          })}
+        </svg>
+        <div style={{ flex: 1, minWidth: 110 }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+            {switchFailed
+              ? '⚠ Switch failure takes down ALL devices. The central switch is the single point of failure — use redundant switches (stacking or dual-homing) in production.'
+              : failedLink !== null
+              ? `✓ Only ${spokes[failedLink].label} is affected. All other devices continue normally — isolation is star topology's biggest advantage.`
+              : 'Click any link to simulate a cable failure. Click the switch to simulate a switch failure. See how each affects the network.'}
+          </div>
+          <button onClick={() => { setSwitchFailed(false); setFailedLink(null); }} style={BASE.btn}>
+            ↺ Reset
+          </button>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Extended Star / Mesh — enterprise topology ────────────
+function ExtendedStarAndMesh() {
+  const [mode, setMode] = React.useState('extended');
+  const isExtended = mode === 'extended';
+  return (
+    <InlineViz label="EXTENDED STAR vs FULL MESH — REAL-WORLD ENTERPRISE" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['extended','Extended Star (Enterprise)'],['mesh','Full Mesh (Core/WAN)']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? 'rgba(124,77,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? '#7c4dff' : 'var(--border-subtle)'}`,
+            color: mode === m ? '#7c4dff' : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 310 190" style={{ width: 290, maxHeight: 190, flexShrink: 0 }}>
+          {isExtended ? (
+            <>
+              {/* Core */}
+              <rect x="120" y="5" width="70" height="28" rx="4"
+                fill="rgba(244,63,94,0.12)" stroke="#f43f5e" strokeWidth="1.5"/>
+              <text x="155" y="22" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="9" fontWeight="bold">CORE SW</text>
+              {/* Dist */}
+              {[{x:55, y:65},{x:255, y:65}].map((d,i) => (
+                <g key={i}>
+                  <line x1={155} y1={33} x2={d.x} y2={d.y}
+                    stroke="#f43f5e" strokeWidth="2"/>
+                  <rect x={d.x-35} y={d.y} width="70" height="24" rx="4"
+                    fill="rgba(124,77,255,0.12)" stroke="#7c4dff" strokeWidth="1.5"/>
+                  <text x={d.x} y={d.y+15} textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="8" fontWeight="bold">DIST {i+1}</text>
+                </g>
+              ))}
+              {/* Access */}
+              {[{x:20,py:65,ay:130},{x:90,py:65,ay:130},{x:220,py:65,ay:130},{x:290,py:65,ay:130}].map((a,i) => (
+                <g key={i}>
+                  <line x1={i<2?55:255} y1={89} x2={a.x} y2={a.ay}
+                    stroke="#7c4dff" strokeWidth="1.5"/>
+                  <rect x={a.x-24} y={a.ay} width="48" height="22" rx="3"
+                    fill="rgba(0,229,255,0.08)" stroke="#00e5ff" strokeWidth="1"/>
+                  <text x={a.x} y={a.ay+14} textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8">ACC{i+1}</text>
+                  {/* End devices */}
+                  {[{dx:-15},{dx:15}].map((e, ei) => (
+                    <g key={ei}>
+                      <line x1={a.x+e.dx} y1={a.ay+22} x2={a.x+e.dx} y2={175}
+                        stroke="rgba(0,229,255,0.3)" strokeWidth="1"/>
+                      <circle cx={a.x+e.dx} cy={178} r={5}
+                        fill="rgba(0,229,255,0.12)" stroke="#00e5ff" strokeWidth="0.8"/>
+                    </g>
+                  ))}
+                </g>
+              ))}
+              <text x="155" y="190" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">
+                Access → Distribution → Core hierarchy
+              </text>
+            </>
+          ) : (
+            <>
+              {/* Full mesh — 5 nodes */}
+              {[{x:155,y:25},{x:265,y:85},{x:225,y:175},{x:85,y:175},{x:45,y:85}].map((n,i,arr) => (
+                <g key={i}>
+                  {arr.map((m2, j) => j > i && (
+                    <line key={j} x1={n.x} y1={n.y} x2={m2.x} y2={m2.y}
+                      stroke="rgba(124,77,255,0.5)" strokeWidth="1.5"/>
+                  ))}
+                  <circle cx={n.x} cy={n.y} r={20}
+                    fill="rgba(124,77,255,0.12)" stroke="#7c4dff" strokeWidth="1.5"/>
+                  <text x={n.x} y={n.y+4} textAnchor="middle"
+                    fill="#7c4dff" fontFamily="monospace" fontSize="9" fontWeight="bold">R{i+1}</text>
+                </g>
+              ))}
+              <text x="155" y="190" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">
+                5 nodes → 10 links (n×(n-1)/2)
+              </text>
+            </>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 110 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            {isExtended
+              ? 'Extended star (hierarchical): Access switches connect to distribution switches, which connect to the core. This is the Cisco three-tier model. Scalable — add access switches without redesigning the core. Most failures are isolated to a subtree.'
+              : 'Full mesh: every node directly connects to every other node. Maximum redundancy — any link can fail without isolating any device. Impractical at scale: 10 nodes need 45 links, 20 nodes need 190. Used in WAN cores and small data centre interconnects only.'}
+          </div>
+          <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+            color: '#7c4dff', padding: '5px 8px', borderRadius: 4,
+            background: 'rgba(124,77,255,0.08)', border: '1px solid rgba(124,77,255,0.2)' }}>
+            {isExtended ? 'Links: proportional to depth × width — scales well' : `Links = n(n-1)/2 — grows quadratically`}
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Topology failure impact — interactive table ───────────
+function TopologyFailureImpact() {
+  const [highlighted, setHighlighted] = React.useState(null);
+  const rows = [
+    { topo: 'Bus',          device: '🔴 Entire network', link: '🔴 Entire network', scale: 1, color: '#ff5252' },
+    { topo: 'Ring',         device: '🔴 Entire network', link: '🔴 Entire network', scale: 1, color: '#e040fb' },
+    { topo: 'Star',         device: '🟡 One device',     link: '🟡 One device',     scale: 4, color: '#00e5ff' },
+    { topo: 'Full Mesh',    device: '🟢 None',           link: '🟢 None',           scale: 2, color: '#7c4dff' },
+    { topo: 'Partial Mesh', device: '🟡 Varies',         link: '🟡 Varies',         scale: 3, color: '#ffab00' },
+    { topo: 'Extended Star',device: '🟡 Subtree only',   link: '🟡 Subtree only',   scale: 5, color: '#00e676' },
+  ];
+  return (
+    <InlineViz label="TOPOLOGY FAILURE IMPACT — HOVER TO COMPARE" accent="#00e5ff">
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+        <thead>
+          <tr>
+            {['Topology','Device failure','Link failure','Scalability'].map(h => (
+              <th key={h} style={{ padding: '5px 10px', textAlign: 'left',
+                borderBottom: '2px solid var(--border-subtle)',
+                color: 'var(--text-muted)', fontSize: '0.5875rem' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}
+              onMouseEnter={() => setHighlighted(i)}
+              onMouseLeave={() => setHighlighted(null)}
+              style={{ background: highlighted === i ? `${r.color}10` : 'transparent',
+                cursor: 'default', transition: 'background 0.2s' }}>
+              <td style={{ padding: '7px 10px', fontWeight: 700, color: r.color }}>
+                <span style={{ background: `${r.color}15`, padding: '2px 8px',
+                  borderRadius: 4, border: `1px solid ${r.color}30` }}>{r.topo}</span>
+              </td>
+              <td style={{ padding: '7px 10px', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{r.device}</td>
+              <td style={{ padding: '7px 10px', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{r.link}</td>
+              <td style={{ padding: '7px 10px' }}>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  {Array.from({length: 5}, (_, j) => (
+                    <div key={j} style={{ width: 14, height: 10, borderRadius: 2,
+                      background: j < r.scale ? r.color : 'var(--border-subtle)' }}/>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Remote Access VPN ─────────────────────────────────────────
   'remote-access': [
@@ -9365,7 +9743,12 @@ export const INLINE_DIAGRAMS = {
   ],
   // ── Network Topologies ──────────────────────────────────────
   'network-topologies': [
-    { afterSection: 'Topology and Failure Impact', component: TopologyAnimComparison },
+    { afterSection: 'Bus Topology',                    component: BusTopologyDiagram },
+    { afterSection: 'Ring Topology',                   component: RingTopologyDiagram },
+    { afterSection: 'Star Topology',                   component: StarTopologyDiagram },
+    { afterSection: 'Extended Star (Hierarchical Star)', component: ExtendedStarAndMesh },
+    { afterSection: 'Mesh Topology',                   component: ExtendedStarAndMesh },
+    { afterSection: 'Topology and Failure Impact',     component: TopologyFailureImpact },
   ],
   // ── Network Devices — one diagram per ### device section ───
   'network-devices': [
