@@ -9800,6 +9800,343 @@ function DeviceLayerSummaryTable() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// CABLES & TRANSMISSION — SECTION DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Twisted Pair — UTP category comparison ────────────────
+function UtpCategoryComparison() {
+  const [selected, setSelected] = React.useState(null);
+  const cats = [
+    { name:'Cat5e', speed:'1 Gbps',    dist:'100m',      color:'#ffab00', speedPct:20, distPct:100, use:'Older installs, home networks. Still works fine for 1G.',         freq:'100 MHz' },
+    { name:'Cat6',  speed:'10 Gbps',   dist:'55m (10G)', color:'#f97316', speedPct:40, distPct:55,  use:'Standard for new office installs. 10G limited to 55m.',           freq:'250 MHz' },
+    { name:'Cat6a', speed:'10 Gbps',   dist:'100m',      color:'#f43f5e', speedPct:40, distPct:100, use:'Augmented Cat6. Full 100m at 10G. Thicker, harder to pull.',       freq:'500 MHz' },
+    { name:'Cat8',  speed:'25–40 Gbps',dist:'30m',       color:'#7c4dff', speedPct:80, distPct:30,  use:'Data centre server-to-ToR switch. Short distances only.',         freq:'2000 MHz' },
+    { name:'MMF',   speed:'100 Gbps',  dist:'400m',      color:'#00e5ff', speedPct:90, distPct:80,  use:'Intra-building backbone, data centre uplinks. No EMI.',           freq:'Light (OM4)' },
+    { name:'SMF',   speed:'100 Gbps+', dist:'80 km',     color:'#00e676', speedPct:95, distPct:100, use:'Campus/WAN backbone, inter-building. Longest distance.',           freq:'Light (OS2)' },
+  ];
+  return (
+    <InlineViz label="TWISTED PAIR & FIBRE — SPEED AND DISTANCE AT A GLANCE" accent="#f43f5e">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {cats.map((c, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${c.color}14` : 'transparent',
+              border: `1px solid ${selected === i ? c.color : 'transparent'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 52, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.6875rem', color: c.color, flexShrink: 0 }}>{c.name}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                  <div style={{ width: 36, fontSize: '0.5rem', color: 'var(--text-muted)',
+                    fontFamily: 'var(--font-mono)' }}>Speed</div>
+                  <div style={{ flex: 1, height: 6, background: 'var(--bg-elevated)',
+                    borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${c.speedPct}%`, height: '100%',
+                      background: c.color, borderRadius: 3, transition: 'width 0.4s' }}/>
+                  </div>
+                  <div style={{ width: 70, fontSize: '0.5875rem', color: c.color,
+                    fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{c.speed}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 36, fontSize: '0.5rem', color: 'var(--text-muted)',
+                    fontFamily: 'var(--font-mono)' }}>Range</div>
+                  <div style={{ flex: 1, height: 6, background: 'var(--bg-elevated)',
+                    borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${c.distPct}%`, height: '100%',
+                      background: `${c.color}70`, borderRadius: 3, transition: 'width 0.4s' }}/>
+                  </div>
+                  <div style={{ width: 70, fontSize: '0.5875rem', color: 'var(--text-muted)',
+                    fontFamily: 'var(--font-mono)' }}>{c.dist}</div>
+                </div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem',
+                color: 'var(--text-muted)', flexShrink: 0, width: 60,
+                textAlign: 'right' }}>{c.freq}</div>
+            </div>
+            {selected === i && (
+              <div style={{ marginTop: 6, paddingLeft: 62, fontSize: '0.6875rem',
+                color: 'var(--text-secondary)', lineHeight: 1.5 }}>{c.use}</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 6, fontSize: '0.6rem', color: 'var(--text-muted)',
+        textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+        Click a row for use-case details · Bars are relative — not to a fixed scale
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Fibre Optic — SMF vs MMF visual ──────────────────────
+function FibreOpticComparison() {
+  const [mode, setMode] = React.useState('smf');
+  const isSmf = mode === 'smf';
+  return (
+    <InlineViz label="FIBRE OPTIC — SINGLE-MODE vs MULTIMODE" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['smf','Single-Mode (SMF)'],['mmf','Multimode (MMF)']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m==='smf' ? 'rgba(0,230,118,0.15)' : 'rgba(0,229,255,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m==='smf' ? '#00e676' : '#00e5ff') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m==='smf' ? '#00e676' : '#00e5ff') : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 300 130" style={{ width: 280, maxHeight: 130, flexShrink: 0 }}>
+          {/* Cable cross-section */}
+          <text x="75" y="15" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="8">Cross-section</text>
+          {/* Outer jacket */}
+          <circle cx="75" cy="55" r="40" fill={isSmf ? '#1a2e1a' : '#1a1a2e'}
+            stroke={isSmf ? '#00e676' : '#00e5ff'} strokeWidth="2"/>
+          {/* Cladding */}
+          <circle cx="75" cy="55" r="28" fill={isSmf ? '#0d1f0d' : '#0d0d1f'}
+            stroke={isSmf ? '#00e676' : '#00e5ff'} strokeWidth="1" opacity="0.6"/>
+          {/* Core */}
+          <circle cx="75" cy="55" r={isSmf ? 3 : 14}
+            fill={isSmf ? '#00e676' : '#00e5ff'} opacity="0.9"
+            style={{ transition: 'r 0.5s' }}/>
+          <text x="75" y="58" textAnchor="middle"
+            fill={isSmf ? '#00e676' : '#00e5ff'}
+            fontFamily="monospace" fontSize={isSmf ? '5' : '8'} fontWeight="bold">
+            {isSmf ? '9µm' : '50µm'}
+          </text>
+          <text x="75" y="105" textAnchor="middle"
+            fill={isSmf ? '#00e676' : '#00e5ff'}
+            fontFamily="monospace" fontSize="8">
+            {isSmf ? 'Yellow jacket' : 'Orange / Aqua jacket'}
+          </text>
+          {/* Light path diagram */}
+          <text x="220" y="15" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="8">Light path</text>
+          {/* Fibre cross-section side view */}
+          <rect x="155" y="42" width="130" height="26" rx="4"
+            fill="rgba(0,0,0,0.3)" stroke={isSmf ? '#00e676' : '#00e5ff'} strokeWidth="1"/>
+          {isSmf ? (
+            // SMF — single straight ray
+            <line x1="160" y1="55" x2="280" y2="55"
+              stroke="#00e676" strokeWidth="2" opacity="0.9"/>
+          ) : (
+            // MMF — multiple bouncing rays
+            <>
+              <polyline points="160,50 195,65 230,50 265,65 280,58"
+                fill="none" stroke="#00e5ff" strokeWidth="1.5" opacity="0.8"/>
+              <polyline points="160,55 195,42 230,55 265,42 280,50"
+                fill="none" stroke="#2979ff" strokeWidth="1.5" opacity="0.7"/>
+              <polyline points="160,60 195,50 230,60 265,50 280,55"
+                fill="none" stroke="#7c4dff" strokeWidth="1" opacity="0.6"/>
+            </>
+          )}
+          <text x="155" y="82" fill={isSmf ? '#00e676' : '#00e5ff'}
+            fontFamily="monospace" fontSize="7">
+            {isSmf ? '→ laser, 1 path, no modal dispersion' : '→ LED/VCSEL, many paths, modal dispersion'}
+          </text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 130 }}>
+          {isSmf ? (
+            <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {[
+                  ['Core', '8–10 µm (very narrow)'],
+                  ['Source', 'Laser (expensive)'],
+                  ['Distance', '10 km – 80+ km'],
+                  ['Bandwidth', '100 Gbps+'],
+                  ['Cost', 'Higher (laser transceivers)'],
+                  ['Jacket', 'Yellow (OS1/OS2)'],
+                  ['Use', 'WAN, campus backbone, inter-building'],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', gap: 8, fontSize: '0.75rem' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+                      fontSize: '0.625rem', width: 60, flexShrink: 0 }}>{k}</span>
+                    <span style={{ color: '#00e676' }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {[
+                  ['Core', '50–62.5 µm (wide)'],
+                  ['Source', 'LED / VCSEL (cheaper)'],
+                  ['OM3', '300m @ 10G'],
+                  ['OM4', '400m @ 10G'],
+                  ['OM5', '150m @ 100G'],
+                  ['Jacket', 'Orange (OM1/2) or Aqua (OM3/4)'],
+                  ['Use', 'Data centre, intra-building backbone'],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', gap: 8, fontSize: '0.75rem' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+                      fontSize: '0.625rem', width: 60, flexShrink: 0 }}>{k}</span>
+                    <span style={{ color: '#00e5ff' }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Wireless Standards — 802.11 comparison ────────────────
+function WifiStandardsComparison() {
+  const [selected, setSelected] = React.useState(null);
+  const standards = [
+    { name:'802.11n',  alias:'Wi-Fi 4', year:2009, color:'#78909c',
+      band:'2.4/5 GHz', maxSpeed:'600 Mbps', channel:'20/40 MHz',
+      tech:'MIMO (4×4)', desc:'Still common in legacy devices. Dual-band capable. Max 4 spatial streams.' },
+    { name:'802.11ac', alias:'Wi-Fi 5', year:2013, color:'#ffab00',
+      band:'5 GHz only', maxSpeed:'3.5 Gbps', channel:'80/160 MHz',
+      tech:'MU-MIMO (downlink)', desc:'Current enterprise standard. 5 GHz only. MU-MIMO for multiple clients. Wave 2 adds 160 MHz and 8×8 MIMO.' },
+    { name:'802.11ax', alias:'Wi-Fi 6', year:2019, color:'#00e5ff',
+      band:'2.4/5 GHz', maxSpeed:'9.6 Gbps', channel:'20–160 MHz',
+      tech:'OFDMA + MU-MIMO', desc:'High-density environments. OFDMA splits channels into sub-carriers per client. BSS Colouring reduces interference. WPA3 mandatory.' },
+    { name:'802.11ax', alias:'Wi-Fi 6E', year:2021, color:'#00e676',
+      band:'6 GHz added', maxSpeed:'9.6 Gbps', channel:'Up to 160 MHz',
+      tech:'OFDMA + 6 GHz', desc:'Adds 6 GHz band — 59 non-overlapping 20 MHz channels. Cleanest spectrum available. Short range. Requires 6E-capable hardware.' },
+  ];
+  return (
+    <InlineViz label="WIRELESS TRANSMISSION — 802.11 STANDARDS COMPARISON" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
+        {standards.map((s, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '8px 12px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${s.color}18` : `${s.color}06`,
+              border: `1px solid ${selected === i ? s.color : s.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800,
+                fontSize: '0.75rem', color: s.color }}>{s.alias}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                color: 'var(--text-muted)' }}>({s.name} · {s.year})</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+              {[['Band',s.band],['Max',s.maxSpeed]].map(([k,v]) => (
+                <div key={k}>
+                  <div style={{ fontFamily:'var(--font-mono)',fontSize:'0.45rem',
+                    color:'var(--text-muted)' }}>{k}</div>
+                  <div style={{ fontFamily:'var(--font-mono)',fontSize:'0.6rem',
+                    color:s.color,fontWeight:600 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            {selected === i && (
+              <div style={{ marginTop: 8, fontSize: '0.75rem',
+                color: 'var(--text-secondary)', lineHeight: 1.5, borderTop: `1px solid ${s.color}25`, paddingTop: 6 }}>
+                <div style={{ marginBottom: 4 }}><span style={{ color:s.color, fontFamily:'var(--font-mono)',fontWeight:700 }}>{s.tech}</span></div>
+                {s.desc}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Straight-Through vs Crossover — pinout diagram ────────
+function CablePinoutDiagram() {
+  const [type, setType] = React.useState('straight');
+  const isStraight = type === 'straight';
+  // T568B pinout colours
+  const pins = [
+    { n:1, color:'#f97316', label:'W/Or' },
+    { n:2, color:'#f97316', label:'Or'   },
+    { n:3, color:'#00e5ff', label:'W/Gr' },
+    { n:4, color:'#2979ff', label:'Bl'   },
+    { n:5, color:'#2979ff', label:'W/Bl' },
+    { n:6, color:'#00e5ff', label:'Gr'   },
+    { n:7, color:'#78909c', label:'W/Br' },
+    { n:8, color:'#78909c', label:'Br'   },
+  ];
+  // Crossover swaps 1↔3 and 2↔6
+  const crossMap = [3,6,1,4,5,2,7,8];
+  return (
+    <InlineViz label="STRAIGHT-THROUGH vs CROSSOVER CABLE PINOUT" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['straight','Straight-Through (T568B→T568B)'],['crossover','Crossover (T568A→T568B)']].map(([t, label]) => (
+          <button key={t} onClick={() => setType(t)} style={{
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: type === t ? 'rgba(0,229,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${type === t ? '#00e5ff' : 'var(--border-subtle)'}`,
+            color: type === t ? '#00e5ff' : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <svg viewBox="0 0 400 130" style={{ width: '100%', maxHeight: 130, display: 'block', marginBottom: 12 }}>
+        {/* Left connector pins */}
+        {pins.map((p, i) => (
+          <g key={i}>
+            <rect x="30" y={14 + i*13} width="50" height="11" rx="2"
+              fill={`${p.color}30`} stroke={p.color} strokeWidth="1"/>
+            <text x="55" y={23 + i*13} textAnchor="middle"
+              fill={p.color} fontFamily="monospace" fontSize="8" fontWeight="bold">
+              {p.n} {p.label}
+            </text>
+          </g>
+        ))}
+        {/* Right connector pins */}
+        {pins.map((p, i) => {
+          const rightIdx = isStraight ? i : crossMap[i] - 1;
+          const rightPin = pins[rightIdx];
+          return (
+            <g key={i}>
+              <rect x="320" y={14 + i*13} width="50" height="11" rx="2"
+                fill={`${rightPin.color}30`} stroke={rightPin.color} strokeWidth="1"/>
+              <text x="345" y={23 + i*13} textAnchor="middle"
+                fill={rightPin.color} fontFamily="monospace" fontSize="8" fontWeight="bold">
+                {rightPin.n} {rightPin.label}
+              </text>
+            </g>
+          );
+        })}
+        {/* Connecting wires */}
+        {pins.map((p, i) => {
+          const rightIdx = isStraight ? i : crossMap[i] - 1;
+          const rightPin = pins[rightIdx];
+          const y1 = 19 + i*13;
+          const y2 = 19 + rightIdx*13;
+          const isCrossed = !isStraight && i !== rightIdx;
+          return (
+            <line key={i}
+              x1="80" y1={y1} x2="320" y2={y2}
+              stroke={isCrossed ? '#ff5252' : p.color}
+              strokeWidth={isCrossed ? 1.5 : 1}
+              opacity={0.7}
+              style={{ transition: 'y2 0.4s, stroke 0.4s' }}/>
+          );
+        })}
+        {/* Labels */}
+        <text x="55" y="122" textAnchor="middle" fill="var(--text-muted)"
+          fontFamily="monospace" fontSize="8">End A</text>
+        <text x="345" y="122" textAnchor="middle" fill="var(--text-muted)"
+          fontFamily="monospace" fontSize="8">End B</text>
+      </svg>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: 'rgba(0,229,255,0.06)', border: '1px solid rgba(0,229,255,0.2)',
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {isStraight
+          ? 'Straight-through: pins 1-8 connect to pins 1-8. Used for unlike devices (PC→Switch, Router→Switch). Most common cable type.'
+          : 'Crossover: TX pins (1,2) connect to RX pins (3,6) on the other end. Used for like devices (Switch→Switch, PC→PC). Modern devices with Auto-MDIX make this distinction unnecessary — the hardware detects and corrects automatically.'}
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Remote Access VPN ─────────────────────────────────────────
   'remote-access': [
@@ -10082,9 +10419,13 @@ export const INLINE_DIAGRAMS = {
     { afterSection: 'IDS / IPS — Layer 3–7',                      component: IdsIpsDiagram },
     { afterSection: 'Device Layer Summary',                        component: DeviceLayerSummaryTable },
   ],
-  // ── Cables ──────────────────────────────────────────────────
+  // ── Cables & Transmission ──────────────────────────────────
   'cables-transmission': [
-    { afterSection: 'Cable Selection Guide',       component: CablesComparisonInline },
+    { afterSection: 'Twisted Pair Copper (UTP/STP)', component: UtpCategoryComparison },
+    { afterSection: 'Fibre Optic',                   component: FibreOpticComparison },
+    { afterSection: 'Wireless Transmission',          component: WifiStandardsComparison },
+    { afterSection: 'Cable Selection Guide',          component: CablesComparisonInline },
+    { afterSection: 'Straight-Through vs Crossover',  component: CablePinoutDiagram },
   ],
   // ── Routing ─────────────────────────────────────────────────
   'routing-fundamentals': [
