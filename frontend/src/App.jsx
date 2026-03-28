@@ -8,6 +8,7 @@ import TheoryList from './components/TheoryList';
 import TheoryPage from './components/TheoryPage';
 import UserBadge from './components/UserBadge';
 import ThemeToggle from './components/ThemeToggle';
+import SearchBar from './components/SearchBar';
 import { Network, Terminal, BookOpen, ExternalLink } from 'lucide-react';
 
 function AppInner() {
@@ -30,11 +31,13 @@ function AppInner() {
              target="_blank" rel="noopener noreferrer">
             IOS Reference
           </a>
+          <SearchBar />
           <ThemeToggle />
           <UserBadge />
         </nav>
-        {/* Mobile header right — theme + user only */}
+        {/* Mobile header right — search + theme + user */}
         <div className="app-nav-mobile-header">
+          <SearchBar />
           <ThemeToggle />
           <UserBadge />
         </div>
