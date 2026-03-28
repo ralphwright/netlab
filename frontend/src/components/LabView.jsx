@@ -6,7 +6,7 @@ import TopologyGraph from './TopologyGraph';
 import TerminalEmulator from './TerminalEmulator';
 import StepPanel from './StepPanel';
 import DeviceInspector from './DeviceInspector';
-import { ArrowLeft, CheckCircle, Circle, BookOpen, Lightbulb, RotateCcw, Zap } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Circle, BookOpen, Lightbulb, RotateCcw, Zap, ChevronRight } from 'lucide-react';
 
 // ── Protocol map for packet animations ────────────────────────────
 const PROTOCOL_MAP = {
@@ -57,6 +57,7 @@ export default function LabView() {
   const { userId } = useUser();
 
   const [lab, setLab]                       = useState(null);
+  const [labs, setLabs]                     = useState([]);
   const [topology, setTopology]             = useState(null);
   const [currentStep, setCurrentStep]       = useState(1);
   const [completedSteps, setCompletedSteps] = useState(new Set());
@@ -108,9 +109,11 @@ export default function LabView() {
       api.getLab(slug),
       api.getTopology(slug).catch(() => ({ devices: [], interfaces: [], links: [] })),
       api.getLabProgress(slug, userId).catch(() => null),
-    ]).then(([labData, topoData, progressData]) => {
+      api.getLabs().catch(() => []),
+    ]).then(([labData, topoData, progressData, labsData]) => {
       setLab(labData);
       setTopology(topoData);
+      setLabs(labsData);
 
       const hasProgress = progressData && (
         (progressData.completed_steps && progressData.completed_steps.length > 0) ||
@@ -272,9 +275,68 @@ export default function LabView() {
   const currentProtocol   = deriveProtocol(slug);
   const currentHeaderInfo = HEADER_INFO[currentProtocol.protocol] || null;
 
+  // Prev / next lab navigation
+  const currentLabIdx = labs.findIndex(l => l.slug === slug);
+  const prevLab = currentLabIdx > 0 ? labs[currentLabIdx - 1] : null;
+  const nextLab = currentLabIdx >= 0 && currentLabIdx < labs.length - 1 ? labs[currentLabIdx + 1] : null;
+
+  function LabNav() {
+    if (!prevLab && !nextLab) return null;
+    return (
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        gap: 'var(--space-md)', margin: 'var(--space-lg) 0',
+        borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-lg)',
+      }}>
+        {prevLab ? (
+          <Link to={`/lab/${prevLab.slug}`} style={{ textDecoration: 'none', flex: 1 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: 'var(--space-sm) var(--space-md)',
+              background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)', transition: 'border-color 0.2s, background 0.2s',
+              cursor: 'pointer',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-glow)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-panel)'; }}
+            >
+              <ArrowLeft size={16} color="var(--accent)" style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '0.625rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 2, letterSpacing: '0.06em' }}>PREVIOUS</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{prevLab.title}</div>
+              </div>
+            </div>
+          </Link>
+        ) : <div style={{ flex: 1 }} />}
+
+        {nextLab ? (
+          <Link to={`/lab/${nextLab.slug}`} style={{ textDecoration: 'none', flex: 1 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+              padding: 'var(--space-sm) var(--space-md)',
+              background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)', transition: 'border-color 0.2s, background 0.2s',
+              cursor: 'pointer',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-glow)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-panel)'; }}
+            >
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '0.625rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 2, letterSpacing: '0.06em' }}>NEXT</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{nextLab.title}</div>
+              </div>
+              <ChevronRight size={16} color="var(--accent)" style={{ flexShrink: 0 }} />
+            </div>
+          </Link>
+        ) : <div style={{ flex: 1 }} />}
+      </div>
+    );
+  }
+
   return (
     <div className="fade-in">
-      {/* ── Header ──────────────────────────────────────────── */}
+      {/* ── Lab nav — top ─────────────────────────────────────── */}
+      <LabNav />
       <div className="lab-header">
         <div className="lab-header-left">
           <Link to="/" className="btn btn-ghost btn-sm">
@@ -527,6 +589,9 @@ export default function LabView() {
           />
         </div>
       </div>
+
+      {/* ── Lab nav — bottom ─────────────────────────────────── */}
+      <LabNav />
     </div>
   );
 }
