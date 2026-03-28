@@ -5999,7 +5999,276 @@ function StatefulInspectionAnim() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// AUTONOMOUS SYSTEMS INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Internet Structure — Tier hierarchy ───────────────────
+function InternetTierHierarchy() {
+  const [hovered, setHovered] = React.useState(null);
+  const tiers = [
+    {
+      tier: 1, label: 'Tier 1 — Global Transit',
+      color: '#f43f5e', y: 20,
+      nodes: ['AT&T (AS7018)', 'NTT (AS2914)', 'Telia (AS1299)', 'Level3 (AS3356)'],
+      desc: 'Global backbone providers. Peer freely with each other — no transit fees. Can reach every prefix on the internet without paying upstream. ~15 networks worldwide.',
+      links: 'settlement-free peering',
+    },
+    {
+      tier: 2, label: 'Tier 2 — Regional ISPs',
+      color: '#7c4dff', y: 85,
+      nodes: ['Comcast (AS7922)', 'Deutsche Telekom', 'BT (AS2856)', 'Telstra'],
+      desc: 'Regional providers. Buy transit from Tier 1 for global reach. Peer with other Tier 2s where traffic volumes justify it. Your ISP is likely Tier 2 or Tier 3.',
+      links: 'paid transit + peering',
+    },
+    {
+      tier: 3, label: 'Tier 3 — Local / Access',
+      color: '#00e5ff', y: 150,
+      nodes: ['Local ISP A', 'Enterprise AS', 'University AS', 'Cloud DC AS'],
+      desc: 'Last-mile providers and enterprise networks. Buy all transit from Tier 2 upstream. Typically single-homed or dual-homed. Many use private ASNs (64512–65534).',
+      links: 'paid transit only',
+    },
+  ];
+  return (
+    <InlineViz label="INTERNET STRUCTURE — THREE-TIER AS HIERARCHY" accent="#f43f5e">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 380 200" style={{ width: 360, maxHeight: 200, flexShrink: 0 }}>
+          {/* Tier connections */}
+          {/* T1-T1 peering */}
+          <line x1="75" y1="42" x2="155" y2="42" stroke="#f43f5e" strokeWidth="2"/>
+          <line x1="155" y1="42" x2="235" y2="42" stroke="#f43f5e" strokeWidth="2"/>
+          <line x1="235" y1="42" x2="305" y2="42" stroke="#f43f5e" strokeWidth="2"/>
+          {/* T1-T2 transit */}
+          {[75,155,235,305].map((x,i) => (
+            <line key={i} x1={x} y1="50" x2={[75,155,235,305][i]} y2="95"
+              stroke="#546e7a" strokeWidth="1" strokeDasharray="3,2"/>
+          ))}
+          {/* T2-T3 transit */}
+          {[75,155,235,305].map((x,i) => (
+            <line key={i} x1={x} y1="103" x2={[75,155,235,305][i]} y2="155"
+              stroke="#546e7a" strokeWidth="1" strokeDasharray="3,2"/>
+          ))}
+          {tiers.map((t, ti) => (
+            <g key={ti}>
+              {/* Tier label */}
+              <text x="5" y={t.y + 22} fill={t.color} fontFamily="monospace" fontSize="8" fontWeight="bold">{`T${t.tier}`}</text>
+              {t.nodes.map((n, i) => {
+                const x = 50 + i * 80;
+                const isHov = hovered === `${ti}-${i}`;
+                return (
+                  <g key={i}
+                    onMouseEnter={() => setHovered(`${ti}-${i}`)}
+                    onMouseLeave={() => setHovered(null)}
+                    style={{ cursor: 'pointer' }}>
+                    <rect x={x - 32} y={t.y + 8} width={64} height={26} rx={4}
+                      fill={isHov ? `${t.color}22` : `${t.color}10`}
+                      stroke={isHov ? t.color : `${t.color}40`} strokeWidth={isHov ? 2 : 1}
+                      style={{ transition: 'all 0.2s' }}/>
+                    <text x={x} y={t.y + 24} textAnchor="middle" fill={t.color}
+                      fontFamily="monospace" fontSize="7" fontWeight="bold">{n.split(' ')[0]}</text>
+                    <text x={x} y={t.y + 31} textAnchor="middle" fill="var(--text-muted)"
+                      fontFamily="monospace" fontSize="6">{n.split('(')[1]?.replace(')','') || ''}</text>
+                  </g>
+                );
+              })}
+              {/* Link type label */}
+              <text x="190" y={t.y + 70} textAnchor="middle" fill="var(--text-muted)"
+                fontFamily="monospace" fontSize="7" fontStyle="italic">{t.links}</text>
+            </g>
+          ))}
+        </svg>
+        <div style={{ flex: 1, minWidth: 130 }}>
+          {hovered ? (() => {
+            const [ti] = hovered.split('-').map(Number);
+            const t = tiers[ti];
+            return (
+              <div style={{ padding: '10px 12px', borderRadius: 6,
+                background: `${t.color}10`, border: `1px solid ${t.color}40` }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                  color: t.color, marginBottom: 6, fontSize: '0.75rem' }}>{t.label}</div>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {t.desc}
+                </div>
+              </div>
+            );
+          })() : (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Hover any AS node to learn about that tier's role, cost model, and who operates at that level.
+            </p>
+          )}
+          <div style={{ marginTop: 10, padding: '7px 10px', borderRadius: 5,
+            background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+            fontSize: '0.625rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', lineHeight: 1.7 }}>
+            T1↔T1: free settlement-free peering<br/>
+            T2→T1: paid transit (per Mbps/Gbps)<br/>
+            T3→T2: paid transit (per Mbps or flat)
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Peering Types — transit vs peering at IXP ────────────
+function PeeringTypesViz() {
+  const [selected, setSelected] = React.useState(null);
+  const types = [
+    {
+      id: 'transit',
+      label: 'Transit',
+      color: '#ff5252',
+      icon: '💰',
+      desc: 'AS A pays AS B to carry traffic to/from the entire internet. AS B provides a default route. Used when AS A can\'t peer directly with every destination.',
+      example: 'Your ISP sells you internet access — you pay for transit to all destinations.',
+      direction: 'bidirectional, paid',
+    },
+    {
+      id: 'peer',
+      label: 'Settlement-Free Peering',
+      color: '#00e676',
+      icon: '🤝',
+      desc: 'Two ASes exchange traffic for FREE between their own customers only. No default route exchanged. Traffic must originate or terminate within one of the two ASes.',
+      example: 'Two large ISPs at an IXP agree to exchange traffic — saves both money on transit costs.',
+      direction: 'bilateral, free',
+    },
+    {
+      id: 'paid-peer',
+      label: 'Paid Peering',
+      color: '#ffab00',
+      icon: '📄',
+      desc: 'Peering where one side pays a smaller fee (less than transit). Common when traffic ratios are asymmetric — the side sending more traffic often pays.',
+      example: 'Content provider with high outbound traffic pays a nominal fee to peer with a large ISP.',
+      direction: 'bilateral, partial payment',
+    },
+    {
+      id: 'customer',
+      label: 'Customer Cone',
+      color: '#7c4dff',
+      icon: '📡',
+      desc: 'The set of all ASes reachable through a provider\'s customer relationships. Providers carry customer routes to peers and upstreams to give customers global reach.',
+      example: 'Enterprise buys transit from ISP — ISP advertises enterprise prefixes to its peers and upstreams.',
+      direction: 'provider → customer routes',
+    },
+  ];
+  return (
+    <InlineViz label="PEERING TYPES — HOW ASes EXCHANGE TRAFFIC" accent="#00e676">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+        {types.map(t => (
+          <div key={t.id} onClick={() => setSelected(selected === t.id ? null : t.id)}
+            style={{
+              padding: '8px 12px', borderRadius: 6, cursor: 'pointer',
+              background: selected === t.id ? `${t.color}15` : `${t.color}06`,
+              border: `1px solid ${selected === t.id ? t.color : t.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+              <span style={{ fontSize: '1rem' }}>{t.icon}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.75rem', color: t.color }}>{t.label}</span>
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+              color: 'var(--text-muted)' }}>{t.direction}</div>
+          </div>
+        ))}
+      </div>
+      {selected && (() => {
+        const t = types.find(x => x.id === selected);
+        return (
+          <div style={{ padding: '10px 14px', borderRadius: 6,
+            background: `${t.color}10`, border: `1px solid ${t.color}40` }}>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)',
+              lineHeight: 1.6, marginBottom: 6 }}>{t.desc}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+              color: t.color, padding: '4px 8px', background: 'var(--bg-terminal)',
+              borderRadius: 4 }}>Example: {t.example}</div>
+          </div>
+        );
+      })()}
+    </InlineViz>
+  );
+}
+
+// ── ASN Ranges — visual number line ───────────────────────
+function AsnRangeViz() {
+  const [hovered, setHovered] = React.useState(null);
+  const ranges = [
+    { label: '1–64495',              desc: 'Public 16-bit ASNs (IANA assigned)',    color: '#00e5ff', pct: 25, use: 'Global internet routing. Requires ARIN/RIPE/APNIC application.' },
+    { label: '64512–65534',          desc: 'Private 16-bit ASNs',                   color: '#00e676', pct: 12, use: 'Internal use — MPLS VPNs, labs, multi-AS enterprise. Not routed on public internet.' },
+    { label: '65535',                desc: 'Reserved',                              color: '#78909c', pct: 3,  use: 'Reserved by IANA. Do not use.' },
+    { label: '131072–4199999999',    desc: 'Public 32-bit ASNs',                    color: '#7c4dff', pct: 40, use: 'Expanded public pool. Written as plain number (e.g. 131072) or dotted (2.0).' },
+    { label: '4200000000–4294967294',desc: 'Private 32-bit ASNs',                   color: '#ffab00', pct: 18, use: 'Private use with 32-bit ASNs. Useful for large-scale MPLS/SD-WAN deployments.' },
+    { label: '4294967295',           desc: 'Reserved',                              color: '#546e7a', pct: 2,  use: 'Reserved (AS_TRANS — RFC 4893). Do not use.' },
+  ];
+  return (
+    <InlineViz label="ASN RANGES — 16-BIT AND 32-BIT ALLOCATION" accent="#00e5ff">
+      {/* Bar chart */}
+      <div style={{ display: 'flex', height: 28, borderRadius: 6, overflow: 'hidden', marginBottom: 12, border: '1px solid var(--border-subtle)' }}>
+        {ranges.map((r, i) => (
+          <div key={i}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              width: `${r.pct}%`, background: hovered === i ? `${r.color}60` : `${r.color}30`,
+              borderRight: i < ranges.length-1 ? `1px solid var(--border-subtle)` : 'none',
+              transition: 'background 0.2s', cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+            {r.pct >= 10 && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem',
+                color: r.color, fontWeight: 700 }}>
+                {r.label.split('–')[0].replace('4200000000','4.2B').replace('131072','131K').replace('64512','64K')}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+      {/* Legend */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {ranges.map((r, i) => (
+          <div key={i}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10, padding: '5px 8px',
+              borderRadius: 4, cursor: 'default',
+              background: hovered === i ? `${r.color}10` : 'transparent',
+              border: `1px solid ${hovered === i ? r.color + '40' : 'transparent'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, flexShrink: 0, marginTop: 2,
+              background: r.color }}/>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 1 }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                  fontSize: '0.6875rem', color: r.color }}>{r.label}</span>
+                <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)' }}>{r.desc}</span>
+              </div>
+              {hovered === i && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  {r.use}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Autonomous Systems ────────────────────────────────────────
+  'autonomous-systems': [
+    { afterSection: 'Internet Structure', component: InternetTierHierarchy },
+    { afterSection: 'Peering Types',      component: PeeringTypesViz },
+    { afterSection: 'ASN Ranges',         component: AsnRangeViz },
+  ],
+  'bgp-peering': [
+    { afterSection: 'Internet Structure', component: InternetTierHierarchy },
+    { afterSection: 'Peering Types',      component: PeeringTypesViz },
+    { afterSection: 'ASN Ranges',         component: AsnRangeViz },
+  ],
   // ── Firewalls ─────────────────────────────────────────────────
   'firewalls': [
     { afterSection: 'Firewall Types',              component: FirewallTypesComparison },
