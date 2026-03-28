@@ -254,14 +254,21 @@ function Markdown({ text }) {
 export default function TheoryPage() {
   const { slug } = useParams();
   const [content, setContent] = useState(null);
+  const [topics,  setTopics]  = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('theory');
 
   useEffect(() => {
     setLoading(true);
     setActiveTab('theory');
-    api.getTheory(slug)
-      .then(setContent)
+    Promise.all([
+      api.getTheory(slug),
+      api.getTheoryList(),
+    ])
+      .then(([c, t]) => {
+        setContent(c);
+        setTopics(t.filter(x => x.has_content));
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [slug]);
@@ -287,6 +294,64 @@ export default function TheoryPage() {
   const mistakes = (() => { try { return JSON.parse(content.common_mistakes || '[]'); } catch { return []; } })();
   const rfcs = content.rfc_references || [];
   const relatedLabs = content.related_labs || [];
+
+  // Prev / next navigation
+  const currentIdx = topics.findIndex(t => t.slug === slug);
+  const prevTopic  = currentIdx > 0 ? topics[currentIdx - 1] : null;
+  const nextTopic  = currentIdx >= 0 && currentIdx < topics.length - 1 ? topics[currentIdx + 1] : null;
+
+  function LessonNav() {
+    if (!prevTopic && !nextTopic) return null;
+    return (
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        gap: 'var(--space-md)', margin: 'var(--space-lg) 0',
+        borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-lg)',
+      }}>
+        {prevTopic ? (
+          <Link to={`/theory/${prevTopic.slug}`} style={{ textDecoration: 'none', flex: 1 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: 'var(--space-sm) var(--space-md)',
+              background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)', transition: 'border-color 0.2s, background 0.2s',
+              cursor: 'pointer',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-glow)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-panel)'; }}
+            >
+              <ArrowLeft size={16} color="var(--accent)" style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '0.625rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 2, letterSpacing: '0.06em' }}>PREVIOUS</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{prevTopic.name}</div>
+              </div>
+            </div>
+          </Link>
+        ) : <div style={{ flex: 1 }} />}
+
+        {nextTopic ? (
+          <Link to={`/theory/${nextTopic.slug}`} style={{ textDecoration: 'none', flex: 1 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+              padding: 'var(--space-sm) var(--space-md)',
+              background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)', transition: 'border-color 0.2s, background 0.2s',
+              cursor: 'pointer',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-glow)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-panel)'; }}
+            >
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '0.625rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 2, letterSpacing: '0.06em' }}>NEXT</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{nextTopic.name}</div>
+              </div>
+              <ChevronRight size={16} color="var(--accent)" style={{ flexShrink: 0 }} />
+            </div>
+          </Link>
+        ) : <div style={{ flex: 1 }} />}
+      </div>
+    );
+  }
 
   const tabs = [
     { id: 'theory', label: 'Theory', icon: BookOpen },
@@ -328,6 +393,9 @@ export default function TheoryPage() {
           </div>
         </div>
       </div>
+
+      {/* Lesson navigation — top */}
+      <LessonNav />
 
       {/* Tab bar */}
       <div className="theory-tabs">
@@ -470,6 +538,9 @@ export default function TheoryPage() {
           </div>
         </section>
       )}
+
+      {/* Lesson navigation — bottom */}
+      <LessonNav />
     </div>
   );
 }
