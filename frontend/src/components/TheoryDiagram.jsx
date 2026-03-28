@@ -6001,12 +6001,17 @@ function StatefulInspectionAnim() {
 
 export const INLINE_DIAGRAMS = {
   // ── Firewalls ─────────────────────────────────────────────────
-  'firewall': [
+  'firewalls': [
     { afterSection: 'Firewall Types',              component: FirewallTypesComparison },
     { afterSection: 'Zone-Based Firewall (ZBF)',   component: ZbfTopology },
     { afterSection: 'Stateful Inspection',         component: StatefulInspectionAnim },
   ],
   'firewall-zones': [
+    { afterSection: 'Firewall Types',              component: FirewallTypesComparison },
+    { afterSection: 'Zone-Based Firewall (ZBF)',   component: ZbfTopology },
+    { afterSection: 'Stateful Inspection',         component: StatefulInspectionAnim },
+  ],
+  'firewall': [
     { afterSection: 'Firewall Types',              component: FirewallTypesComparison },
     { afterSection: 'Zone-Based Firewall (ZBF)',   component: ZbfTopology },
     { afterSection: 'Stateful Inspection',         component: StatefulInspectionAnim },
