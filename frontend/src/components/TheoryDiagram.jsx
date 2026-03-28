@@ -1656,3 +1656,1208 @@ export default function TheoryDiagram({ slug }) {
   if (!Component) return null;
   return <Component />;
 }
+
+// ══════════════════════════════════════════════════════════════
+// INLINE DIAGRAMS — injected between markdown sections
+// ══════════════════════════════════════════════════════════════
+
+// ── Shared inline shell ────────────────────────────────────────
+function InlineViz({ label, children, accent = 'var(--accent)' }) {
+  return (
+    <div style={{
+      margin: '24px 0', borderRadius: 10, overflow: 'hidden',
+      border: `1px solid ${accent}30`,
+      background: `${accent}05`,
+    }}>
+      {label && (
+        <div style={{
+          padding: '5px 14px', borderBottom: `1px solid ${accent}20`,
+          fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+          letterSpacing: '0.1em', color: accent, opacity: 0.8,
+          background: `${accent}08`,
+        }}>
+          ◈ {label}
+        </div>
+      )}
+      <div style={{ padding: '16px 20px' }}>{children}</div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// OSI — inline layer-by-layer breakdown with PDU names
+// ────────────────────────────────────────────────────────────────
+function OsiLayerBreakdown() {
+  const [hovered, setHovered] = useState(null);
+  const layers = [
+    { n: 7, name: 'Application',  pdu: 'Data',    proto: 'HTTP, DNS, FTP, SMTP',   color: '#6366f1', device: 'Host' },
+    { n: 6, name: 'Presentation', pdu: 'Data',    proto: 'TLS/SSL, JPEG, ASCII',   color: '#8b5cf6', device: 'Host' },
+    { n: 5, name: 'Session',      pdu: 'Data',    proto: 'NetBIOS, RPC, SOCKS',    color: '#a855f7', device: 'Host' },
+    { n: 4, name: 'Transport',    pdu: 'Segment', proto: 'TCP, UDP, SCTP',         color: '#ec4899', device: 'Host' },
+    { n: 3, name: 'Network',      pdu: 'Packet',  proto: 'IP, ICMP, OSPF, BGP',   color: '#f43f5e', device: 'Router' },
+    { n: 2, name: 'Data Link',    pdu: 'Frame',   proto: '802.3 Ethernet, 802.11', color: '#f97316', device: 'Switch' },
+    { n: 1, name: 'Physical',     pdu: 'Bits',    proto: 'Copper, Fiber, Wi-Fi',   color: '#eab308', device: 'Hub/NIC' },
+  ];
+  return (
+    <InlineViz label="OSI MODEL — 7 LAYERS" accent="#6366f1">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {layers.map((l) => (
+          <div key={l.n}
+            onMouseEnter={() => setHovered(l.n)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              display: 'grid', gridTemplateColumns: '28px 1fr 70px 1fr 60px',
+              alignItems: 'center', gap: 10,
+              padding: '7px 12px', borderRadius: 6, cursor: 'default',
+              background: hovered === l.n ? `${l.color}18` : `${l.color}08`,
+              border: `1px solid ${hovered === l.n ? l.color : l.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: l.color, fontSize: '0.875rem', textAlign: 'center' }}>{l.n}</div>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.8125rem' }}>{l.name}</div>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+              color: l.color, background: `${l.color}18`,
+              padding: '2px 8px', borderRadius: 4, textAlign: 'center',
+            }}>{l.pdu}</div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{l.proto}</div>
+            <div style={{ fontSize: '0.6rem', color: l.color, fontFamily: 'var(--font-mono)', textAlign: 'right', opacity: 0.8 }}>{l.device}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center' }}>
+        Hover a row · Sender encapsulates top→bottom · Receiver decapsulates bottom→top
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// OSI — encapsulation animation inline
+// ────────────────────────────────────────────────────────────────
+function OsiEncapsulationInline() {
+  const [step, setStep] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const layers = ['App', 'Pres', 'Sess', 'Trans', 'Net', 'Data', 'Phys'];
+  const colors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#f97316','#eab308'];
+  const headers = ['HTTP', 'TLS', 'SYN', 'TCP', 'IP', 'ETH', '01010'];
+  useEffect(() => {
+    if (isPaused || step >= layers.length) return;
+    const t = setTimeout(() => setStep(s => s + 1), 500);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+
+  return (
+    <InlineViz label="ENCAPSULATION — EACH LAYER ADDS A HEADER" accent="#f43f5e">
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+        {/* Encapsulation stack */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 220 }}>
+          {layers.map((l, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 6, opacity: step > i ? 1 : 0.25,
+              transition: 'opacity 0.4s',
+            }}>
+              <div style={{ width: 44, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: colors[i] }}>{l}</div>
+              {/* headers added so far */}
+              {[...Array(i + 1)].map((_, j) => (
+                <div key={j} style={{
+                  padding: '3px 6px', borderRadius: 3, fontSize: '0.5875rem',
+                  fontFamily: 'var(--font-mono)', fontWeight: 700,
+                  background: step > i ? `${colors[j]}25` : 'transparent',
+                  border: `1px solid ${step > i ? colors[j] : 'transparent'}`,
+                  color: colors[j], transition: 'all 0.4s',
+                  opacity: j === i ? 1 : 0.5,
+                }}>{headers[j]}</div>
+              ))}
+              <div style={{
+                flex: 1, padding: '3px 8px', borderRadius: 3, fontSize: '0.5875rem',
+                fontFamily: 'var(--font-mono)',
+                background: step > i ? 'var(--bg-elevated)' : 'transparent',
+                border: `1px solid ${step > i ? 'var(--border-subtle)' : 'transparent'}`,
+                color: 'var(--text-muted)', transition: 'all 0.4s',
+              }}>DATA</div>
+            </div>
+          ))}
+        </div>
+        {/* Status */}
+        <div style={{ textAlign: 'center', minWidth: 120 }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
+            {step === 0 && 'Application generates data'}
+            {step === 1 && 'Presentation encrypts (TLS)'}
+            {step === 2 && 'Session adds sync info'}
+            {step === 3 && 'Transport adds port + seq'}
+            {step === 4 && 'Network adds IP addresses'}
+            {step === 5 && 'Data Link adds MAC frame'}
+            {step >= 6 && '✓ Bits transmitted on wire'}
+          </div>
+          <button style={{ ...BASE.btn, fontSize: '0.6rem' }} onClick={() => setIsPaused(p => !p)}>
+            {isPaused ? '▶' : '⏸'}
+          </button>
+          {' '}
+          <button style={{ ...BASE.btn, fontSize: '0.6rem' }} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Network Devices — interactive device explorer
+// ────────────────────────────────────────────────────────────────
+function DeviceExplorer() {
+  const [selected, setSelected] = useState(0);
+  const devices = [
+    {
+      name: 'Hub', icon: '●', layer: 'L1 — Physical', color: '#78909c',
+      desc: 'Repeats every incoming bit out ALL ports simultaneously. No intelligence — cannot read MAC addresses. Creates one large collision domain. Obsolete in modern networks.',
+      pros: ['Simple', 'Cheap', 'Easy to troubleshoot'],
+      cons: ['Collisions on every frame', 'All ports share bandwidth', 'Security risk — all traffic visible to all'],
+      ports: [
+        { id: 'A', label: 'IN', active: true },
+        { id: 'B', label: 'OUT', active: true },
+        { id: 'C', label: 'OUT', active: true },
+        { id: 'D', label: 'OUT', active: true },
+      ],
+    },
+    {
+      name: 'Switch', icon: '⊞', layer: 'L2 — Data Link', color: '#00e5ff',
+      desc: 'Learns MAC addresses per port and forwards frames only to the correct destination. Each port is its own collision domain. Foundation of modern LANs.',
+      pros: ['Per-port collision domains', 'Learns MAC table automatically', 'Full-duplex on each port'],
+      cons: ['Broadcasts still flood all ports', 'Vulnerable to MAC flooding attacks', 'No IP routing'],
+      ports: [
+        { id: 'A', label: 'IN', active: true },
+        { id: 'B', label: 'OUT', active: true },
+        { id: 'C', label: 'idle', active: false },
+        { id: 'D', label: 'idle', active: false },
+      ],
+    },
+    {
+      name: 'Router', icon: '⬡', layer: 'L3 — Network', color: '#2979ff',
+      desc: 'Forwards packets between different IP networks using a routing table. Makes hop-by-hop decisions based on destination IP. Separates broadcast domains entirely.',
+      pros: ['Connects different networks/subnets', 'Stops broadcast storms', 'NAT, DHCP, ACLs, QoS'],
+      cons: ['Slower than switching (historically)', 'More complex config', 'Single point of failure without redundancy'],
+      ports: [
+        { id: 'A', label: 'LAN', active: true },
+        { id: 'B', label: 'WAN', active: true },
+        { id: 'C', label: 'LAN2', active: false },
+        { id: 'D', label: 'Mgmt', active: false },
+      ],
+    },
+    {
+      name: 'Firewall', icon: '🔥', layer: 'L3–L7', color: '#ff6d00',
+      desc: 'Inspects traffic against policy rules and permits or denies based on IP, port, state, or deep packet inspection. Guards the network perimeter and segments internal zones.',
+      pros: ['Stateful inspection', 'Application-layer filtering', 'Zone-based security policies'],
+      cons: ['Latency overhead', 'Complex rule management', 'Misconfiguration is common cause of outages'],
+      ports: [
+        { id: 'A', label: 'INSIDE', active: true },
+        { id: 'B', label: 'OUTSIDE', active: true },
+        { id: 'C', label: 'DMZ', active: true },
+        { id: 'D', label: 'Mgmt', active: false },
+      ],
+    },
+    {
+      name: 'Access Point', icon: '📡', layer: 'L1–L2', color: '#00e676',
+      desc: 'Bridges wireless clients onto a wired LAN. Operates as a multiport wireless bridge. Clients share the radio spectrum (CSMA/CA). Managed by a WLC in enterprise.',
+      pros: ['Wireless client access', 'VLAN tagging per SSID', 'Roaming with WLC'],
+      cons: ['Shared spectrum = contention', 'RF interference', 'Hidden-node problem'],
+      ports: [
+        { id: 'A', label: '2.4GHz', active: true },
+        { id: 'B', label: '5GHz', active: true },
+        { id: 'C', label: 'Uplink', active: true },
+        { id: 'D', label: 'PoE', active: false },
+      ],
+    },
+  ];
+
+  const dev = devices[selected];
+
+  return (
+    <InlineViz label="DEVICE EXPLORER — CLICK TO EXPLORE" accent={dev.color}>
+      {/* Selector */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+        {devices.map((d, i) => (
+          <button key={i} onClick={() => setSelected(i)} style={{
+            padding: '5px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: selected === i ? `${d.color}22` : 'var(--bg-elevated)',
+            border: `1px solid ${selected === i ? d.color : 'var(--border-subtle)'}`,
+            color: selected === i ? d.color : 'var(--text-muted)',
+            transition: 'all 0.2s',
+          }}>{d.icon} {d.name}</button>
+        ))}
+      </div>
+
+      {/* Device detail */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Left: diagram */}
+        <div>
+          <div style={{
+            borderRadius: 8, padding: 16,
+            background: `${dev.color}08`, border: `1px solid ${dev.color}30`,
+            marginBottom: 10,
+          }}>
+            {/* Device box */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+              <div style={{
+                width: 72, height: 56, borderRadius: 8,
+                background: `${dev.color}18`, border: `2px solid ${dev.color}`,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'var(--font-mono)', fontSize: dev.icon.length > 1 ? '1.5rem' : '1.25rem',
+                boxShadow: `0 0 20px ${dev.color}30`,
+              }}>
+                <span>{dev.icon}</span>
+                <span style={{ fontSize: '0.5rem', color: dev.color, fontWeight: 700, letterSpacing: '0.05em' }}>{dev.name.toUpperCase()}</span>
+              </div>
+            </div>
+            {/* Ports */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+              {dev.ports.map(p => (
+                <div key={p.id} style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                }}>
+                  <div style={{
+                    width: 8, height: 20,
+                    background: p.active ? dev.color : 'var(--border-subtle)',
+                    borderRadius: 2, transition: 'all 0.4s',
+                    boxShadow: p.active ? `0 0 6px ${dev.color}` : 'none',
+                  }} />
+                  <div style={{ fontSize: '0.5rem', color: p.active ? dev.color : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{p.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{
+            display: 'inline-block', padding: '3px 10px', borderRadius: 99,
+            fontFamily: 'var(--font-mono)', fontSize: '0.625rem', fontWeight: 700,
+            background: `${dev.color}18`, color: dev.color, border: `1px solid ${dev.color}40`,
+          }}>{dev.layer}</div>
+        </div>
+
+        {/* Right: description + pros/cons */}
+        <div>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>{dev.desc}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <div style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: '#00e676', marginBottom: 4 }}>✓ STRENGTHS</div>
+              {dev.pros.map((p, i) => (
+                <div key={i} style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', marginBottom: 2 }}>• {p}</div>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: '#ff1744', marginBottom: 4 }}>✗ LIMITATIONS</div>
+              {dev.cons.map((c, i) => (
+                <div key={i} style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', marginBottom: 2 }}>• {c}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Network Devices — traffic forwarding animation
+// ────────────────────────────────────────────────────────────────
+function DeviceForwardingAnim() {
+  const [mode, setMode] = useState('switch'); // hub | switch
+  const [step, setStep] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+
+  function reset(m) { setMode(m); setStep(0); setIsPaused(false); }
+
+  const ports = ['PC-A\n.10', 'PC-B\n.20', 'PC-C\n.30', 'PC-D\n.40'];
+  const isHub = mode === 'hub';
+  // Hub: frame floods to all, Switch: only to .20
+  const activePort = (i) => {
+    if (step === 0) return false;
+    if (isHub) return i !== 0; // floods to all except source
+    return i === 1; // switch: only to PC-B
+  };
+
+  return (
+    <InlineViz label="HUB vs SWITCH — FRAME FORWARDING BEHAVIOUR" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {['hub', 'switch'].map(m => (
+          <button key={m} onClick={() => reset(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m === 'hub' ? 'rgba(120,144,156,0.2)' : 'rgba(0,229,255,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m === 'hub' ? '#78909c' : '#00e5ff') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m === 'hub' ? '#78909c' : '#00e5ff') : 'var(--text-muted)',
+            transition: 'all 0.2s', textTransform: 'uppercase',
+          }}>{m}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => reset(mode)}>↺</button>
+        </div>
+      </div>
+
+      {/* Network diagram */}
+      <svg viewBox="0 0 400 160" style={{ width: '100%', maxHeight: 160, display: 'block' }}>
+        {/* Central device */}
+        <rect x="160" y="60" width="80" height="40" rx="6"
+          fill={isHub ? 'rgba(120,144,156,0.12)' : 'rgba(0,229,255,0.1)'}
+          stroke={isHub ? '#78909c' : '#00e5ff'} strokeWidth="1.5" />
+        <text x="200" y="77" textAnchor="middle" fill={isHub ? '#78909c' : '#00e5ff'}
+          fontFamily="monospace" fontSize="11" fontWeight="bold">{isHub ? 'HUB' : 'SWITCH'}</text>
+        <text x="200" y="91" textAnchor="middle" fill="var(--text-muted)"
+          fontFamily="monospace" fontSize="8">{isHub ? 'L1 — Dumb repeater' : 'L2 — MAC aware'}</text>
+
+        {/* Ports + links */}
+        {[
+          { x: 40,  y: 80, label: 'PC-A', sub: '(source)', isSource: true  },
+          { x: 360, y: 40, label: 'PC-B', sub: '(dest)',   isSource: false },
+          { x: 360, y: 80, label: 'PC-C', sub: '',         isSource: false },
+          { x: 360, y: 120,label: 'PC-D', sub: '',         isSource: false },
+        ].map((p, i) => {
+          const active = i === 0 ? step >= 1 : activePort(i);
+          const color = i === 0 ? '#ffab00' : (isHub ? '#ff5252' : (i === 1 ? '#00e676' : '#78909c'));
+          return (
+            <g key={i}>
+              <line
+                x1={i === 0 ? 80 : 320} y1={p.y}
+                x2={i === 0 ? 160 : 240} y2={80}
+                stroke={active ? color : 'var(--border-subtle)'}
+                strokeWidth={active ? 2 : 1}
+                strokeDasharray={active && i > 0 && isHub && i > 1 ? '4,2' : 'none'}
+                style={{ transition: 'stroke 0.4s, stroke-width 0.4s' }}
+              />
+              {/* Packet dot */}
+              {active && step >= 2 && i > 0 && (
+                <circle r="5" fill={color} opacity="0.9">
+                  <animateMotion
+                    dur="0.6s" repeatCount="1"
+                    path={`M${i === 0 ? '80,80' : '240,80'} L${i === 0 ? '160,80' : `${320},${p.y}`}`}
+                  />
+                </circle>
+              )}
+              <rect x={i === 0 ? 10 : 330} y={p.y - 12} width={i === 0 ? 70 : 60} height={24} rx="4"
+                fill={active ? `${color}15` : 'var(--bg-elevated)'}
+                stroke={active ? color : 'var(--border-subtle)'} strokeWidth="1"
+                style={{ transition: 'all 0.4s' }} />
+              <text x={i === 0 ? 45 : 360} y={p.y - 2} textAnchor="middle"
+                fill={active ? color : 'var(--text-muted)'}
+                fontFamily="monospace" fontSize="9" fontWeight="bold"
+                style={{ transition: 'fill 0.4s' }}>{p.label}</text>
+              <text x={i === 0 ? 45 : 360} y={p.y + 8} textAnchor="middle"
+                fill="var(--text-muted)" fontFamily="monospace" fontSize="7">{p.sub}</text>
+            </g>
+          );
+        })}
+      </svg>
+
+      <div style={{ textAlign: 'center', marginTop: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', minHeight: 20 }}>
+        {step === 0 && (isHub ? 'Hub has no MAC table — treats all traffic identically' : 'Switch builds MAC table: PC-A → Port 1')}
+        {step === 1 && 'PC-A sends frame destined for PC-B (MAC: aa:bb:cc:00:20)'}
+        {step === 2 && (isHub ? '⚠ Hub floods frame to ALL ports — PC-C and PC-D receive unwanted traffic' : '✓ Switch looks up MAC table → forwards ONLY to PC-B')}
+        {step >= 3 && (isHub ? '⚠ Every transmission wastes bandwidth — all devices share the collision domain' : '✓ PC-C and PC-D are not disturbed — each port is its own collision domain')}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Network Types — scope rings interactive
+// ────────────────────────────────────────────────────────────────
+function NetworkScopeRings() {
+  const [active, setActive] = useState(null);
+  const types = [
+    { name: 'PAN',  r: 36,  color: '#78909c', desc: 'Personal Area — Bluetooth, NFC. ~10m range, <3 Mbps.' },
+    { name: 'LAN',  r: 58,  color: '#00e5ff', desc: 'Local Area — Ethernet/Wi-Fi. Building-scale, 1–100 Gbps.' },
+    { name: 'MAN',  r: 80,  color: '#7c4dff', desc: 'Metro Area — City-scale. Metro Ethernet, 1–100 Gbps.' },
+    { name: 'WAN',  r: 102, color: '#f50057', desc: 'Wide Area — Country/continent. MPLS, SD-WAN, VPN.' },
+    { name: 'NET',  r: 124, color: '#ffab00', desc: 'Internet — Global. ~80,000 ASes connected via BGP.' },
+  ];
+  const cx = 140, cy = 130;
+  return (
+    <InlineViz label="NETWORK SCOPE — CLICK A RING" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 150" style={{ width: 280, flexShrink: 0, maxHeight: 150 }}>
+          {[...types].reverse().map(t => (
+            <circle key={t.name} cx={cx} cy={cy} r={t.r}
+              fill={active === t.name ? `${t.color}18` : 'transparent'}
+              stroke={t.color} strokeWidth={active === t.name ? 2 : 1}
+              strokeDasharray={t.name === 'NET' ? 'none' : t.name === 'WAN' ? 'none' : ''}
+              opacity={active && active !== t.name ? 0.3 : 1}
+              style={{ cursor: 'pointer', transition: 'all 0.3s' }}
+              onClick={() => setActive(a => a === t.name ? null : t.name)}
+            />
+          ))}
+          {types.map(t => (
+            <text key={t.name} x={cx} y={cy - t.r + 10}
+              textAnchor="middle" fill={t.color}
+              fontFamily="monospace" fontSize="8" fontWeight="bold"
+              opacity={active && active !== t.name ? 0.3 : 1}
+              style={{ cursor: 'pointer', transition: 'opacity 0.3s' }}
+              onClick={() => setActive(a => a === t.name ? null : t.name)}>
+              {t.name}
+            </text>
+          ))}
+          {/* Building icon */}
+          <text x={cx} y={cy + 4} textAnchor="middle" fontSize="12">🏢</text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 140 }}>
+          {active ? (
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: types.find(t => t.name === active)?.color, marginBottom: 6 }}>
+                {active === 'NET' ? 'Internet' : active}
+              </div>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {types.find(t => t.name === active)?.desc}
+              </p>
+            </div>
+          ) : (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Click a ring to learn about that network type and its typical speed and scale.
+            </p>
+          )}
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Network Topologies — animated comparison
+// ────────────────────────────────────────────────────────────────
+function TopologyAnimComparison() {
+  const [topo, setTopo] = useState('star');
+  const topos = {
+    star: {
+      label: 'Star', color: '#00e5ff',
+      desc: 'All nodes connect to a central switch/hub. Most common LAN topology. Easy to add/remove nodes. Single point of failure at center.',
+      nodes: [{x:140,y:75,center:true}, {x:70,y:30}, {x:210,y:30}, {x:50,y:110}, {x:230,y:110}, {x:140,y:140}],
+      links: [[0,1],[0,2],[0,3],[0,4],[0,5]],
+    },
+    bus: {
+      label: 'Bus', color: '#ffab00',
+      desc: 'All nodes connect to a single shared cable (bus). Simple but collisions occur. A break anywhere takes the whole network down.',
+      nodes: [{x:30,y:80},{x:80,y:80},{x:130,y:80},{x:180,y:80},{x:230,y:80}],
+      links: [[0,1],[1,2],[2,3],[3,4]],
+    },
+    ring: {
+      label: 'Ring', color: '#e040fb',
+      desc: 'Each node connects to exactly two neighbours forming a loop. Token passing prevents collisions. One break can disrupt the ring.',
+      nodes: [{x:140,y:20},{x:225,y:65},{x:200,y:145},{x:80,y:145},{x:55,y:65}],
+      links: [[0,1],[1,2],[2,3],[3,4],[4,0]],
+    },
+    mesh: {
+      label: 'Full Mesh', color: '#f43f5e',
+      desc: 'Every node connects to every other node. Maximum redundancy but cable count grows as n(n-1)/2. Used in WAN core and data centres.',
+      nodes: [{x:140,y:20},{x:240,y:80},{x:200,y:160},{x:80,y:160},{x:40,y:80}],
+      links: [[0,1],[0,2],[0,3],[0,4],[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]],
+    },
+  };
+  const t = topos[topo];
+  return (
+    <InlineViz label="TOPOLOGY COMPARISON — CLICK TO SWITCH" accent={t.color}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        {Object.entries(topos).map(([k, v]) => (
+          <button key={k} onClick={() => setTopo(k)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: topo === k ? `${v.color}20` : 'var(--bg-elevated)',
+            border: `1px solid ${topo === k ? v.color : 'var(--border-subtle)'}`,
+            color: topo === k ? v.color : 'var(--text-muted)',
+            transition: 'all 0.2s',
+          }}>{v.label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 170" style={{ width: 280, flexShrink: 0, maxHeight: 170 }}>
+          {t.links.map(([a, b], i) => (
+            <line key={i}
+              x1={t.nodes[a].x} y1={t.nodes[a].y}
+              x2={t.nodes[b].x} y2={t.nodes[b].y}
+              stroke={t.color} strokeWidth="1.5" opacity="0.6" />
+          ))}
+          {t.nodes.map((n, i) => (
+            <g key={i}>
+              <circle cx={n.x} cy={n.y} r={n.center ? 14 : 10}
+                fill={`${t.color}20`} stroke={t.color} strokeWidth={n.center ? 2 : 1.5} />
+              <text x={n.x} y={n.y + 4} textAnchor="middle"
+                fill={t.color} fontFamily="monospace"
+                fontSize={n.center ? 9 : 8} fontWeight="bold">
+                {n.center ? 'SW' : `N${i}`}
+              </text>
+            </g>
+          ))}
+        </svg>
+        <div style={{ flex: 1, minWidth: 140 }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t.desc}</p>
+          <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: '0.6875rem', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ color: '#00e676' }}>Links: {t.links.length}</div>
+            <div style={{ color: '#00e676' }}>Nodes: {t.nodes.length}</div>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Cables — visual speed/distance comparison
+// ────────────────────────────────────────────────────────────────
+function CablesComparisonInline() {
+  const [active, setActive] = useState(null);
+  const cables = [
+    { name: 'Cat5e UTP',   speed: '1 Gbps',    dist: '100m',  color: '#ffab00', speedPct: 25, distPct: 20, use: 'Office LAN, older installs' },
+    { name: 'Cat6 UTP',    speed: '10 Gbps',   dist: '55m',   color: '#ff6d00', speedPct: 50, distPct: 11, use: 'Modern LAN, data centres (short)' },
+    { name: 'Cat6A STP',   speed: '10 Gbps',   dist: '100m',  color: '#f43f5e', speedPct: 50, distPct: 20, use: 'Data centres, structured cabling' },
+    { name: 'MMF (OM4)',   speed: '100 Gbps',  dist: '400m',  color: '#7c4dff', speedPct: 80, distPct: 40, use: 'Campus backbone, data centre uplink' },
+    { name: 'SMF (OS2)',   speed: '100 Gbps',  dist: '80km',  color: '#2979ff', speedPct: 80, distPct: 100,use: 'WAN, inter-campus, long-haul' },
+    { name: 'Wi-Fi 6E',    speed: '9.6 Gbps',  dist: '~50m',  color: '#00e676', speedPct: 45, distPct: 10, use: 'Wireless LAN, high-density venues' },
+  ];
+  return (
+    <InlineViz label="CABLE TYPES — SPEED & DISTANCE" accent="#7c4dff">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {cables.map((c, i) => (
+          <div key={i} onClick={() => setActive(a => a === i ? null : i)}
+            style={{ cursor: 'pointer', borderRadius: 6, padding: '8px 10px',
+              background: active === i ? `${c.color}12` : 'transparent',
+              border: `1px solid ${active === i ? c.color : 'transparent'}`,
+              transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 80, fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: c.color, fontWeight: 700, flexShrink: 0 }}>{c.name}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                  <div style={{ width: 40, fontSize: '0.5875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Speed</div>
+                  <div style={{ flex: 1, height: 6, background: 'var(--bg-elevated)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${c.speedPct}%`, height: '100%', background: c.color, borderRadius: 3, transition: 'width 0.4s' }} />
+                  </div>
+                  <div style={{ width: 60, fontSize: '0.5875rem', color: c.color, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{c.speed}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 40, fontSize: '0.5875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Range</div>
+                  <div style={{ flex: 1, height: 6, background: 'var(--bg-elevated)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${c.distPct}%`, height: '100%', background: `${c.color}80`, borderRadius: 3, transition: 'width 0.4s' }} />
+                  </div>
+                  <div style={{ width: 60, fontSize: '0.5875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{c.dist}</div>
+                </div>
+              </div>
+            </div>
+            {active === i && (
+              <div style={{ marginTop: 6, fontSize: '0.6875rem', color: 'var(--text-secondary)', paddingLeft: 90 }}>
+                Use case: {c.use}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Routing — routing table walkthrough
+// ────────────────────────────────────────────────────────────────
+function RoutingTableWalkthrough() {
+  const [dest, setDest] = useState('10.0.1.50');
+  const [step, setStep] = useState(-1);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const routes = [
+    { prefix: '10.0.1.0/24',  mask: 24, nh: '10.0.0.1', iface: 'Gi0/0', type: 'C', color: '#00e5ff' },
+    { prefix: '10.0.2.0/24',  mask: 24, nh: '10.0.0.2', iface: 'Gi0/1', type: 'O', color: '#00e676' },
+    { prefix: '192.168.1.0/24', mask:24, nh: '10.1.0.1', iface: 'Gi0/2', type: 'S', color: '#ffab00' },
+    { prefix: '0.0.0.0/0',    mask: 0,  nh: '8.8.8.8',  iface: 'Gi0/3', type: 'S*', color: '#78909c' },
+  ];
+
+  const destIp = dest;
+  const match = routes.findIndex(r => {
+    if (r.mask === 0) return true;
+    const bits = destIp.split('.').map(Number);
+    const nbits = r.prefix.split('/')[0].split('.').map(Number);
+    const mask = r.mask;
+    let hostBits = 32 - mask;
+    let dNum = bits.reduce((a, b) => a * 256 + b, 0);
+    let nNum = nbits.reduce((a, b) => a * 256 + b, 0);
+    let mNum = ~((1 << hostBits) - 1) >>> 0;
+    return (dNum & mNum) === (nNum & mNum);
+  });
+
+  useEffect(() => {
+    if (isPaused) return;
+    setStep(-1);
+    let i = 0;
+    const run = () => {
+      setStep(i);
+      if (i < (match === -1 ? routes.length : match)) {
+        i++;
+        const t = setTimeout(run, 500);
+        return () => clearTimeout(t);
+      }
+    };
+    const t = setTimeout(run, 300);
+    return () => clearTimeout(t);
+  }, [dest, isPaused]);
+
+  return (
+    <InlineViz label="ROUTING TABLE — LONGEST PREFIX MATCH" accent="#2979ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Destination IP:</span>
+        {['10.0.1.50', '10.0.2.99', '192.168.1.1', '8.8.8.8'].map(ip => (
+          <button key={ip} onClick={() => { setDest(ip); setIsPaused(false); }} style={{
+            padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+            background: dest === ip ? 'rgba(41,121,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${dest === ip ? '#2979ff' : 'var(--border-subtle)'}`,
+            color: dest === ip ? '#2979ff' : 'var(--text-muted)',
+          }}>{ip}</button>
+        ))}
+        <button style={{ ...BASE.btn, marginLeft: 'auto' }} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {routes.map((r, i) => {
+          const checked = step >= i;
+          const isMatch = i === match && step >= match;
+          return (
+            <div key={i} style={{
+              display: 'grid', gridTemplateColumns: '20px 130px 1fr 80px 60px',
+              alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6,
+              background: isMatch ? `${r.color}18` : checked ? `${r.color}06` : 'var(--bg-elevated)',
+              border: `1px solid ${isMatch ? r.color : checked ? `${r.color}40` : 'var(--border-subtle)'}`,
+              transition: 'all 0.4s',
+            }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700, color: r.color }}>{r.type}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: checked ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: isMatch ? 700 : 400 }}>{r.prefix}</div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                {checked ? (isMatch ? '✓ MATCH — forwarding via ' + r.nh : '✗ no match — checking next') : '…'}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-muted)' }}>{r.iface}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: isMatch ? r.color : 'transparent' }}>
+                {isMatch ? '← BEST' : ''}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// How the Internet Works — browser request journey
+// ────────────────────────────────────────────────────────────────
+function BrowserRequestJourney() {
+  const [step, setStep] = useState(-1);
+  const [isPaused, setIsPaused] = useState(false);
+  const hops = [
+    { icon: '💻', label: 'Browser',       color: '#2979ff', detail: 'User types www.example.com. Browser checks local DNS cache.' },
+    { icon: '🔍', label: 'DNS Resolver',  color: '#7c4dff', detail: 'Recursive resolver queries root → TLD → authoritative DNS. Returns 93.184.216.34.' },
+    { icon: '🏠', label: 'Home Router',   color: '#ffab00', detail: 'NAT translates private IP → public IP. Forwards packet to ISP.' },
+    { icon: '🌐', label: 'ISP / BGP',     color: '#f43f5e', detail: 'BGP routing across ~4 AS hops. Each router makes next-hop decision from routing table.' },
+    { icon: '☁️', label: 'CDN Edge',      color: '#00e676', detail: 'CDN PoP closest to you responds. TLS handshake, HTTP/2 stream established.' },
+    { icon: '📄', label: 'Page Loads',    color: '#00e5ff', detail: 'HTML/CSS/JS delivered. Browser parses, renders. Total RTT: ~20–200ms.' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= hops.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+
+  return (
+    <InlineViz label="INTERNET REQUEST — BROWSER TO SERVER" accent="#2979ff">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>What happens when you press Enter?</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={replay}>↺</button>
+        </div>
+      </div>
+      {/* Hop timeline */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {hops.map((h, i) => (
+          <div key={i} style={{
+            display: 'flex', gap: 12, alignItems: 'flex-start',
+            opacity: step >= i ? 1 : 0.25, transition: 'opacity 0.5s',
+          }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+              background: step >= i ? `${h.color}20` : 'var(--bg-elevated)',
+              border: `1.5px solid ${step >= i ? h.color : 'var(--border-subtle)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1rem', transition: 'all 0.4s',
+              boxShadow: step === i ? `0 0 12px ${h.color}50` : 'none',
+            }}>{h.icon}</div>
+            <div style={{ flex: 1, paddingTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: step >= i ? h.color : 'var(--text-muted)', marginBottom: 2 }}>{h.label}</div>
+              {step >= i && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{h.detail}</div>}
+            </div>
+            {i < hops.length - 1 && (
+              <div style={{
+                position: 'absolute', left: 29, marginTop: 36,
+                width: 2, height: 6, background: step > i ? h.color : 'var(--border-subtle)',
+              }} />
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Network Layer Arch — TCP/IP vs OSI comparison
+// ────────────────────────────────────────────────────────────────
+function TcpIpVsOsi() {
+  const [hovered, setHovered] = useState(null);
+  const mapping = [
+    { osi: ['Application (7)', 'Presentation (6)', 'Session (5)'], tcp: 'Application', color: '#6366f1', proto: 'HTTP, FTP, DNS, SMTP, SSH' },
+    { osi: ['Transport (4)'], tcp: 'Transport', color: '#ec4899', proto: 'TCP, UDP' },
+    { osi: ['Network (3)'], tcp: 'Internet', color: '#f43f5e', proto: 'IP, ICMP, ARP' },
+    { osi: ['Data Link (2)', 'Physical (1)'], tcp: 'Network Access', color: '#f97316', proto: 'Ethernet, Wi-Fi, Drivers' },
+  ];
+  return (
+    <InlineViz label="TCP/IP MODEL vs OSI MODEL" accent="#6366f1">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: 8, alignItems: 'stretch' }}>
+        {/* OSI */}
+        <div>
+          <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: 6 }}>OSI MODEL (7 layers)</div>
+          {mapping.map((m, i) => m.osi.map((l, j) => (
+            <div key={`${i}-${j}`}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                padding: '5px 10px', marginBottom: 3, borderRadius: 5, cursor: 'default',
+                background: hovered === i ? `${m.color}20` : `${m.color}08`,
+                border: `1px solid ${hovered === i ? m.color : m.color + '30'}`,
+                fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                color: hovered === i ? m.color : 'var(--text-secondary)',
+                transition: 'all 0.2s', textAlign: 'center',
+              }}>{l}</div>
+          )))}
+        </div>
+        {/* Arrows */}
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', alignItems: 'center' }}>
+          {mapping.map((m, i) => (
+            <div key={i} style={{ color: m.color, fontSize: '0.875rem', opacity: 0.7 }}>↔</div>
+          ))}
+        </div>
+        {/* TCP/IP */}
+        <div>
+          <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: 6 }}>TCP/IP MODEL (4 layers)</div>
+          {mapping.map((m, i) => (
+            <div key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                padding: '5px 10px', marginBottom: 3, borderRadius: 5, cursor: 'default',
+                background: hovered === i ? `${m.color}20` : `${m.color}08`,
+                border: `1px solid ${hovered === i ? m.color : m.color + '30'}`,
+                fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                color: hovered === i ? m.color : 'var(--text-secondary)',
+                height: `${m.osi.length * 32}px`,
+                display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                transition: 'all 0.2s', textAlign: 'center',
+              }}>
+              <div style={{ fontWeight: 700 }}>{m.tcp}</div>
+              {hovered === i && <div style={{ fontSize: '0.5875rem', marginTop: 2, opacity: 0.8 }}>{m.proto}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginTop: 8, textAlign: 'center', fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+        Hover to see protocols at each layer
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// VLANs — why VLANs exist (without vs with)
+// ────────────────────────────────────────────────────────────────
+function VlanWhyItMatters() {
+  const [mode, setMode] = useState('without');
+  const isWithout = mode === 'without';
+  return (
+    <InlineViz label="VLAN — WITHOUT vs WITH" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {['without', 'with'].map(m => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m === 'without' ? 'rgba(255,82,82,0.15)' : 'rgba(124,77,255,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m === 'without' ? '#ff5252' : '#7c4dff') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m === 'without' ? '#ff5252' : '#7c4dff') : 'var(--text-muted)',
+          }}>{m === 'without' ? '✗ Without VLANs' : '✓ With VLANs'}</button>
+        ))}
+      </div>
+      <svg viewBox="0 0 420 160" style={{ width: '100%', maxHeight: 160, display: 'block' }}>
+        {/* Switch */}
+        <rect x="175" y="65" width="70" height="30" rx="4"
+          fill={isWithout ? 'rgba(255,82,82,0.1)' : 'rgba(124,77,255,0.1)'}
+          stroke={isWithout ? '#ff5252' : '#7c4dff'} strokeWidth="1.5" />
+        <text x="210" y="83" textAnchor="middle"
+          fill={isWithout ? '#ff5252' : '#7c4dff'}
+          fontFamily="monospace" fontSize="10" fontWeight="bold">SWITCH</text>
+
+        {/* Ports/devices */}
+        {[
+          { x: 40,  y: 40,  label: 'Eng-1',  vlan: 10, color: '#00e5ff' },
+          { x: 40,  y: 100, label: 'Eng-2',  vlan: 10, color: '#00e5ff' },
+          { x: 390, y: 40,  label: 'HR-1',   vlan: 20, color: '#00e676' },
+          { x: 390, y: 100, label: 'HR-2',   vlan: 20, color: '#00e676' },
+        ].map((d, i) => {
+          const fromLeft = i < 2;
+          const color = isWithout ? '#ff5252' : d.color;
+          return (
+            <g key={i}>
+              <line
+                x1={fromLeft ? 90 : 350} y1={d.y}
+                x2={fromLeft ? 175 : 245} y2={80}
+                stroke={color} strokeWidth="1.5" opacity={isWithout ? 0.4 : 0.8}
+                strokeDasharray={isWithout ? 'none' : fromLeft ? '4,2' : '4,2'}
+              />
+              <rect x={fromLeft ? 10 : 350} y={d.y - 12} width={80} height={24} rx="4"
+                fill={`${isWithout ? '#ff5252' : d.color}12`}
+                stroke={isWithout ? '#ff5252' : d.color} strokeWidth="1" opacity="0.9" />
+              <text x={fromLeft ? 50 : 390} y={d.y - 1} textAnchor="middle"
+                fill={isWithout ? '#ff5252' : d.color}
+                fontFamily="monospace" fontSize="9" fontWeight="bold">{d.label}</text>
+              {!isWithout && (
+                <text x={fromLeft ? 50 : 390} y={d.y + 9} textAnchor="middle"
+                  fill={d.color} fontFamily="monospace" fontSize="7">VLAN {d.vlan}</text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Broadcast flood arrows when without VLANs */}
+        {isWithout && ['⚡','⚡','⚡'].map((s, i) => (
+          <text key={i} x={140 + i * 50} y={50} textAnchor="middle"
+            fill="#ff5252" fontSize="14" opacity="0.7">⚡</text>
+        ))}
+
+        {/* VLAN separation line when with */}
+        {!isWithout && (
+          <line x1="210" y1="50" x2="210" y2="120"
+            stroke="#7c4dff" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />
+        )}
+      </svg>
+      <div style={{ textAlign: 'center', marginTop: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+        {isWithout
+          ? '⚠ All devices in one broadcast domain — HR traffic visible to Engineering, broadcasts flood everywhere'
+          : '✓ VLAN 10 (Engineering) and VLAN 20 (HR) are logically isolated — broadcasts stay within their VLAN'}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// VLANs — trunk link animation
+// ────────────────────────────────────────────────────────────────
+function VlanTrunkAnimation() {
+  const [step, setStep] = useState(0);
+  const [vlan, setVlan] = useState(10);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (isPaused || step >= 5) return;
+    const t = setTimeout(() => setStep(s => s + 1), 800);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+
+  function reset(v) { setVlan(v); setStep(0); setIsPaused(false); }
+
+  const color = vlan === 10 ? '#00e5ff' : '#00e676';
+  const label = vlan === 10 ? 'VLAN 10' : 'VLAN 20';
+
+  return (
+    <InlineViz label="802.1Q TRUNK — TAGGED FRAMES BETWEEN SWITCHES" accent={color}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+        {[10, 20].map(v => (
+          <button key={v} onClick={() => reset(v)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: vlan === v ? `${v === 10 ? '#00e5ff' : '#00e676'}20` : 'var(--bg-elevated)',
+            border: `1px solid ${vlan === v ? (v === 10 ? '#00e5ff' : '#00e676') : 'var(--border-subtle)'}`,
+            color: vlan === v ? (v === 10 ? '#00e5ff' : '#00e676') : 'var(--text-muted)',
+          }}>Send VLAN {v} frame</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => reset(vlan)}>↺</button>
+        </div>
+      </div>
+      <svg viewBox="0 0 420 130" style={{ width: '100%', maxHeight: 130, display: 'block' }}>
+        {/* SW1 */}
+        <rect x="10" y="45" width="80" height="40" rx="5"
+          fill={`${color}10`} stroke={color} strokeWidth="1.5" />
+        <text x="50" y="63" textAnchor="middle" fill={color} fontFamily="monospace" fontSize="11" fontWeight="bold">SW1</text>
+        <text x="50" y="77" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">Access port</text>
+
+        {/* SW2 */}
+        <rect x="330" y="45" width="80" height="40" rx="5"
+          fill={`${color}10`} stroke={color} strokeWidth="1.5" />
+        <text x="370" y="63" textAnchor="middle" fill={color} fontFamily="monospace" fontSize="11" fontWeight="bold">SW2</text>
+        <text x="370" y="77" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">Access port</text>
+
+        {/* Trunk link */}
+        <line x1="90" y1="65" x2="330" y2="65"
+          stroke={step >= 1 ? color : 'var(--border-subtle)'} strokeWidth="3"
+          style={{ transition: 'stroke 0.4s' }} />
+        <text x="210" y="55" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">Trunk (carries all VLANs)</text>
+
+        {/* Frame travelling */}
+        {step >= 1 && step < 5 && (
+          <g>
+            {/* Untagged frame leaving PC */}
+            {step === 1 && (
+              <rect x="95" y="58" width="40" height="14" rx="3"
+                fill={`${color}20`} stroke={color} strokeWidth="1" />
+            )}
+            {/* Tagged frame on trunk */}
+            {step >= 2 && step < 4 && (
+              <g>
+                <rect x={90 + (step - 2) * 80} y="56" width="60" height="18" rx="3"
+                  fill={`${color}20`} stroke={color} strokeWidth="1" />
+                <text x={90 + (step - 2) * 80 + 8} y="68"
+                  fill={color} fontFamily="monospace" fontSize="7" fontWeight="bold">
+                  {label} TAG
+                </text>
+              </g>
+            )}
+            {/* Frame at SW2 — tag stripped */}
+            {step >= 4 && (
+              <rect x="280" y="58" width="40" height="14" rx="3"
+                fill={`${color}20`} stroke={color} strokeWidth="1" />
+            )}
+          </g>
+        )}
+
+        {/* PC icons */}
+        <text x="50" y="115" textAnchor="middle" fill={color} fontSize="14">🖥</text>
+        <text x="50" y="128" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">{label}</text>
+        <text x="370" y="115" textAnchor="middle" fill={color} fontSize="14">🖥</text>
+        <text x="370" y="128" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">{label}</text>
+      </svg>
+      <div style={{ textAlign: 'center', marginTop: 6, fontSize: '0.8125rem', color: 'var(--text-secondary)', minHeight: 20 }}>
+        {step === 0 && `PC sends untagged ${label} frame to SW1 access port`}
+        {step === 1 && `SW1 recognises port belongs to ${label} — inserts 802.1Q tag`}
+        {step === 2 && `Tagged frame travels across trunk link (both VLANs share this wire)`}
+        {step === 3 && `SW2 reads the 802.1Q tag — knows this is ${label} traffic`}
+        {step === 4 && `SW2 strips tag before delivering to access port`}
+        {step >= 5 && `✓ Destination PC receives clean untagged frame — VLAN isolation preserved`}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// OSPF — adjacency state machine walkthrough
+// ────────────────────────────────────────────────────────────────
+function OspfAdjacencyWalkthrough() {
+  const [step, setStep] = useState(-1);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const states = [
+    { name: 'Down',         color: '#78909c', desc: 'No OSPF hellos received. Interface configured but no neighbour seen yet.' },
+    { name: 'Init',         color: '#ffab00', desc: 'Hello received from neighbour but our Router ID not yet in their hello. One-way contact.' },
+    { name: '2-Way',        color: '#ff6d00', desc: 'Our Router ID appears in neighbour\'s hello. Bidirectional communication confirmed. DR/BDR election happens here.' },
+    { name: 'ExStart',      color: '#f43f5e', desc: 'Master/slave relationship negotiated. Higher Router ID becomes master. DBD sequence numbers agreed.' },
+    { name: 'Exchange',     color: '#e040fb', desc: 'Database Description (DBD) packets exchanged — each router describes its LSDB summary.' },
+    { name: 'Loading',      color: '#7c4dff', desc: 'LSR/LSU/LSAck — routers request and receive LSAs they are missing to complete their LSDB.' },
+    { name: 'Full',         color: '#00e676', desc: 'LSDBs are synchronised. Adjacency complete. SPF runs, routes installed. Hellos maintain the adjacency.' },
+  ];
+
+  useEffect(() => {
+    if (isPaused || step >= states.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+
+  return (
+    <InlineViz label="OSPF — ADJACENCY STATE MACHINE" accent="#00e676">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={replay}>↺</button>
+      </div>
+      <div style={{ display: 'flex', gap: 0, alignItems: 'center', overflowX: 'auto', paddingBottom: 4 }}>
+        {states.map((s, i) => (
+          <React.Fragment key={i}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+              opacity: step >= i ? 1 : 0.25, transition: 'opacity 0.5s', minWidth: 56,
+            }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: '50%', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                background: step >= i ? `${s.color}20` : 'var(--bg-elevated)',
+                border: `2px solid ${step >= i ? s.color : 'var(--border-subtle)'}`,
+                fontFamily: 'var(--font-mono)', fontSize: '0.5rem', fontWeight: 700,
+                color: step >= i ? s.color : 'var(--text-muted)',
+                textAlign: 'center', lineHeight: 1.2, padding: 4,
+                boxShadow: step === i ? `0 0 14px ${s.color}50` : 'none',
+                transition: 'all 0.5s',
+              }}>{s.name}</div>
+            </div>
+            {i < states.length - 1 && (
+              <div style={{
+                width: 16, height: 2, flexShrink: 0,
+                background: step > i ? states[i].color : 'var(--border-subtle)',
+                transition: 'background 0.4s',
+              }} />
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+      {step >= 0 && (
+        <div style={{
+          marginTop: 12, padding: '10px 14px', borderRadius: 6,
+          background: `${states[step].color}10`,
+          border: `1px solid ${states[step].color}40`,
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6,
+          transition: 'all 0.3s',
+        }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: states[step].color }}>
+            {states[step].name}:
+          </span>{' '}{states[step].desc}
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// OSPF — SPF tree calculation visual
+// ────────────────────────────────────────────────────────────────
+function OspfSpfTree() {
+  const [step, setStep] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const routers = [
+    { id: 'R1', x: 60,  y: 80,  root: true,  color: '#00e676' },
+    { id: 'R2', x: 160, y: 40,  root: false, color: '#00e5ff' },
+    { id: 'R3', x: 160, y: 120, root: false, color: '#7c4dff' },
+    { id: 'R4', x: 260, y: 40,  root: false, color: '#ffab00' },
+    { id: 'R5', x: 260, y: 120, root: false, color: '#f43f5e' },
+  ];
+  const links = [
+    { a: 0, b: 1, cost: 10, atStep: 1 },
+    { a: 0, b: 2, cost: 20, atStep: 2 },
+    { a: 1, b: 3, cost: 10, atStep: 3 },
+    { a: 2, b: 4, cost: 10, atStep: 4 },
+    { a: 1, b: 4, cost: 30, atStep: 5 }, // longer path — not chosen
+  ];
+
+  useEffect(() => {
+    if (isPaused || step >= links.length) return;
+    const t = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+
+  return (
+    <InlineViz label="OSPF — SHORTEST PATH FIRST (DIJKSTRA)" accent="#00e676">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 320 160" style={{ width: 320, maxHeight: 160, flexShrink: 0 }}>
+          {links.map((l, i) => {
+            const a = routers[l.a], b = routers[l.b];
+            const chosen = l.atStep <= step;
+            const isAlt = i === 4; // the longer path
+            return (
+              <g key={i}>
+                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                  stroke={chosen ? (isAlt && step > 4 ? '#ff5252' : a.color) : 'var(--border-subtle)'}
+                  strokeWidth={chosen ? 2 : 1}
+                  strokeDasharray={isAlt ? '4,3' : 'none'}
+                  opacity={isAlt && step > 4 ? 0.5 : 1}
+                  style={{ transition: 'all 0.4s' }} />
+                {chosen && (
+                  <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 4}
+                    textAnchor="middle" fill={isAlt ? '#ff5252' : 'var(--text-muted)'}
+                    fontFamily="monospace" fontSize="9">
+                    {isAlt ? '×' : ''} cost {l.cost}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+          {routers.map((r, i) => (
+            <g key={i}>
+              <circle cx={r.x} cy={r.y} r={18}
+                fill={`${r.color}15`} stroke={r.color} strokeWidth={r.root ? 2.5 : 1.5} />
+              <text x={r.x} y={r.y + 4} textAnchor="middle"
+                fill={r.color} fontFamily="monospace" fontSize="11" fontWeight="bold">{r.id}</text>
+              {r.root && <text x={r.x} y={r.y + 16} textAnchor="middle" fill={r.color} fontFamily="monospace" fontSize="7">ROOT</text>}
+            </g>
+          ))}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+            {step === 0 && 'R1 is the SPF root. It knows about all LSAs in the LSDB.'}
+            {step === 1 && 'Shortest path to R2: cost 10 via direct link.'}
+            {step === 2 && 'Shortest path to R3: cost 20 via direct link.'}
+            {step === 3 && 'R4 reached via R2: total cost 10 + 10 = 20.'}
+            {step === 4 && 'R5 reached via R3: total cost 20 + 10 = 30.'}
+            {step >= 5 && '✗ Alternative R1→R2→R5 costs 10+30=40 — longer path discarded. Dijkstra always finds the lowest-cost tree.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Inline diagram registry
+// Each entry: { afterSection: 'heading text to inject AFTER', component }
+// ────────────────────────────────────────────────────────────────
+export const INLINE_DIAGRAMS = {
+  'osi-model': [
+    { afterSection: 'OSI Model', component: OsiLayerBreakdown },
+    { afterSection: 'How to Remember the Layers', component: OsiEncapsulationInline },
+  ],
+  'network-layer-arch': [
+    { afterSection: 'Network Layer Architecture', component: TcpIpVsOsi },
+    { afterSection: 'Encapsulation', component: OsiEncapsulationInline },
+  ],
+  'network-types': [
+    { afterSection: 'Network Types', component: NetworkScopeRings },
+  ],
+  'network-topologies': [
+    { afterSection: 'Network Topologies', component: TopologyAnimComparison },
+  ],
+  'network-devices': [
+    { afterSection: 'Types of Devices', component: DeviceExplorer },
+    { afterSection: 'How Devices Forward Traffic', component: DeviceForwardingAnim },
+  ],
+  'cables-transmission': [
+    { afterSection: 'Cables', component: CablesComparisonInline },
+  ],
+  'routing-fundamentals': [
+    { afterSection: 'Routing', component: RoutingTableWalkthrough },
+  ],
+  'how-internet-works': [
+    { afterSection: 'How The Internet Works', component: BrowserRequestJourney },
+  ],
+  'vlans': [
+    { afterSection: 'VLANs', component: VlanWhyItMatters },
+    { afterSection: '802.1Q Trunking', component: VlanTrunkAnimation },
+  ],
+  'vlan-roas': [
+    { afterSection: 'VLANs', component: VlanWhyItMatters },
+    { afterSection: '802.1Q Trunking', component: VlanTrunkAnimation },
+  ],
+  'vlan-svi': [
+    { afterSection: 'VLANs', component: VlanWhyItMatters },
+  ],
+  'ospf': [
+    { afterSection: 'OSPF', component: OspfAdjacencyWalkthrough },
+    { afterSection: 'Shortest Path First', component: OspfSpfTree },
+  ],
+};

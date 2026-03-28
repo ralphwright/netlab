@@ -5,7 +5,59 @@ import {
   ArrowLeft, BookOpen, Terminal, AlertTriangle, ExternalLink,
   Clock, ChevronRight, Layers, Code, Lightbulb
 } from 'lucide-react';
-import TheoryDiagram from './TheoryDiagram';
+import TheoryDiagram, { INLINE_DIAGRAMS } from './TheoryDiagram';
+
+// ── Inline diagram injector ────────────────────────────────────
+// Splits markdown on ## headings, renders Markdown sections with
+// inline diagram components injected after matching headings.
+function TheoryPageContent({ slug, theoryMd }) {
+  const inlines = INLINE_DIAGRAMS[slug] || [];
+
+  if (inlines.length === 0) {
+    return (
+      <>
+        <TheoryDiagram slug={slug} />
+        <Markdown text={theoryMd} />
+      </>
+    );
+  }
+
+  // Split markdown into sections on ## headings
+  const sections = [];
+  const lines = (theoryMd || '').split('\n');
+  let current = { heading: null, lines: [] };
+  for (const line of lines) {
+    if (line.startsWith('## ') || line.startsWith('# ')) {
+      if (current.lines.length > 0 || current.heading) {
+        sections.push({ ...current });
+      }
+      current = { heading: line.replace(/^#+\s*/, ''), lines: [line] };
+    } else {
+      current.lines.push(line);
+    }
+  }
+  if (current.lines.length > 0 || current.heading) sections.push(current);
+
+  // For each section, check if any inline diagram should follow it
+  const elements = [];
+  // Always render the top-level diagram first
+  elements.push(<TheoryDiagram key="top-diagram" slug={slug} />);
+
+  sections.forEach((section, i) => {
+    elements.push(<Markdown key={`section-${i}`} text={section.lines.join('\n')} />);
+    // Inject diagrams whose afterSection fuzzy-matches this section heading
+    inlines.forEach((inline, j) => {
+      const target = inline.afterSection.toLowerCase();
+      const heading = (section.heading || '').toLowerCase();
+      if (heading.includes(target) || target.includes(heading.split(' ')[0])) {
+        const Component = inline.component;
+        elements.push(<Component key={`inline-${i}-${j}`} />);
+      }
+    });
+  });
+
+  return <>{elements}</>;
+}
 
 // Simple markdown-to-JSX renderer
 function Markdown({ text }) {
@@ -297,10 +349,7 @@ export default function TheoryPage() {
       {/* Tab Content */}
       {activeTab === 'theory' && (
         <div className="fade-in">
-          <TheoryDiagram slug={content.slug} />
-          <div style={{ marginBottom: 'var(--space-xl)' }}>
-            <Markdown text={content.theory_md} />
-          </div>
+          <TheoryPageContent slug={content.slug} theoryMd={content.theory_md} />
         </div>
       )}
 
