@@ -257,7 +257,7 @@ export default function LabView() {
         <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-lg)' }}>
           This lab may have been removed or the URL is incorrect.
         </p>
-        <Link to="/" className="btn btn-ghost">← Back to Labs</Link>
+        <Link to="/labs" className="btn btn-ghost">← Back to Labs</Link>
       </div>
     );
   }
@@ -339,7 +339,7 @@ export default function LabView() {
       <LabNav />
       <div className="lab-header">
         <div className="lab-header-left">
-          <Link to="/" className="btn btn-ghost btn-sm">
+          <Link to="/labs" className="btn btn-ghost btn-sm">
             <ArrowLeft size={16} /> Labs
           </Link>
           <div style={{ minWidth: 0 }}>

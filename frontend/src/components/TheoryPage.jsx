@@ -285,7 +285,7 @@ export default function TheoryPage() {
     return (
       <div style={{ textAlign: 'center', padding: '80px 0' }}>
         <h2>Theory not found</h2>
-        <Link to="/theory" className="btn btn-ghost" style={{ marginTop: 'var(--space-lg)' }}>Back to Theory</Link>
+        <Link to="/" className="btn btn-ghost" style={{ marginTop: 'var(--space-lg)' }}>Back to Theory</Link>
       </div>
     );
   }
@@ -366,7 +366,7 @@ export default function TheoryPage() {
         display: 'flex', alignItems: 'center', gap: 'var(--space-md)',
         marginBottom: 'var(--space-xl)',
       }}>
-        <Link to="/theory" className="btn btn-ghost btn-sm">
+        <Link to="/" className="btn btn-ghost btn-sm">
           <ArrowLeft size={16} /> Theory
         </Link>
         <div style={{ flex: 1 }}>
