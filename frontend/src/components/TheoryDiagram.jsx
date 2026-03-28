@@ -6768,7 +6768,230 @@ function GreHeaderAnatomy() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// MPLS INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── MPLS Label Format — 4-byte header anatomy ─────────────
+function MplsLabelFormat() {
+  const [hovered, setHovered] = React.useState(null);
+  const fields = [
+    { name: 'Label',  bits: 20, color: '#00e5ff', desc: '20-bit label value (0–1,048,575). Labels 0–15 are reserved (0=IPv4 explicit null, 3=implicit null/PHP). Forwarding decision is based on this value alone — no longest-prefix lookup needed.' },
+    { name: 'EXP',    bits: 3,  color: '#ffab00', desc: '3-bit Traffic Class (originally "Experimental"). Used for QoS — maps to DSCP/CoS. Allows priority queuing within the MPLS network.' },
+    { name: 'S',      bits: 1,  color: '#00e676', desc: 'Bottom of Stack bit. Set to 1 on the innermost label in a label stack. MPLS supports label stacks (multiple labels stacked) for hierarchical forwarding — used in MPLS VPNs and TE tunnels.' },
+    { name: 'TTL',    bits: 8,  color: '#f43f5e', desc: '8-bit Time to Live. Decremented at each LSR hop. Prevents routing loops. Can be copied from IP TTL on ingress and written back on egress (or set to 255 to hide MPLS hop count).' },
+  ];
+  const total = 32;
+  return (
+    <InlineViz label="MPLS LABEL — 4 BYTES (32 bits), INSERTED BETWEEN L2 AND L3" accent="#00e5ff">
+      {/* Bit field bar */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: '0.5875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+          Ethernet Frame: [L2 Header] [<span style={{ color: '#00e5ff' }}>MPLS Label(s)</span>] [IP Header] [Payload] ← "Layer 2.5"
+        </div>
+        <div style={{ display: 'flex', height: 34, borderRadius: 5, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+          {fields.map((f, i) => (
+            <div key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                width: `${(f.bits / total) * 100}%`,
+                background: hovered === i ? `${f.color}40` : `${f.color}18`,
+                borderRight: i < fields.length - 1 ? '1px solid var(--bg-panel)' : 'none',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s',
+              }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700, color: f.color }}>{f.name}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--text-muted)' }}>{f.bits}b</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Field details */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {fields.map((f, i) => (
+          <div key={i}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              display: 'flex', gap: 10, alignItems: 'flex-start', padding: '5px 8px',
+              borderRadius: 4, cursor: 'default',
+              background: hovered === i ? `${f.color}10` : 'transparent',
+              border: `1px solid ${hovered === i ? f.color + '35' : 'transparent'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, minWidth: 80 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: f.color, flexShrink: 0 }}/>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem', color: f.color }}>{f.name}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--text-muted)' }}>({f.bits}b)</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{f.desc}</div>
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── MPLS Key Operations — push/swap/pop animation ─────────
+function MplsOperationsAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const nodes = [
+    { id: 'CE1',  label: 'CE1',       role: 'Customer Edge',     x: 30,  color: '#546e7a' },
+    { id: 'PE1',  label: 'PE1',       role: 'Ingress PE (PUSH)',  x: 110, color: '#00e5ff' },
+    { id: 'P1',   label: 'P1',        role: 'Core LSR (SWAP)',    x: 200, color: '#7c4dff' },
+    { id: 'P2',   label: 'P2',        role: 'Core LSR (SWAP)',    x: 290, color: '#7c4dff' },
+    { id: 'PE2',  label: 'PE2',       role: 'Egress PE (POP)',    x: 370, color: '#00e676' },
+    { id: 'CE2',  label: 'CE2',       role: 'Customer Edge',      x: 450, color: '#546e7a' },
+  ];
+  const steps = [
+    { desc: 'CE1 sends an IP packet to CE2 (10.0.2.0/24). The packet enters the MPLS network at PE1.',
+      pktX: 30, label: null, op: null },
+    { desc: 'PE1 (Ingress PE) performs a PUSH operation — it looks up the destination IP in its FIB, finds the LSP to PE2, and pushes label 200 onto the packet.',
+      pktX: 110, label: '200', op: 'PUSH', opColor: '#00e5ff' },
+    { desc: 'P1 (core LSR) receives the packet. It looks up label 200 in its LFIB and performs a SWAP — replaces label 200 with label 300 and forwards toward P2.',
+      pktX: 200, label: '300', op: 'SWAP', opColor: '#7c4dff' },
+    { desc: 'P2 (core LSR) swaps label 300 for label 400. No IP lookup is needed — just a simple label table lookup.',
+      pktX: 290, label: '400', op: 'SWAP', opColor: '#7c4dff' },
+    { desc: 'PE2 (Egress PE) performs a POP — removes the MPLS label. The original IP packet is revealed. PHP (Penultimate Hop Popping) may have already popped it at P2.',
+      pktX: 370, label: null, op: 'POP', opColor: '#00e676' },
+    { desc: '✓ PE2 performs a normal IP lookup and forwards the packet to CE2. The IP TTL is decremented once (or copied back from MPLS TTL) and delivered.',
+      pktX: 450, label: null, op: null },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= steps.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const cur = steps[step];
+  return (
+    <InlineViz label="MPLS KEY OPERATIONS — PUSH / SWAP / POP ACROSS LSP" accent="#7c4dff">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+      <svg viewBox="0 0 480 110" style={{ width: '100%', maxHeight: 110, display: 'block', marginBottom: 10 }}>
+        {/* Links */}
+        {nodes.slice(0, -1).map((n, i) => (
+          <line key={i}
+            x1={n.x + 22} y1={45}
+            x2={nodes[i+1].x - 22} y2={45}
+            stroke={step > i ? nodes[i+1].color : 'var(--border-subtle)'}
+            strokeWidth="1.5" style={{ transition: 'stroke 0.4s' }}/>
+        ))}
+        {/* Nodes */}
+        {nodes.map((n, i) => {
+          const active = cur.pktX === n.x;
+          return (
+            <g key={i}>
+              <rect x={n.x - 22} y={28} width={44} height={34} rx={4}
+                fill={active ? `${n.color}25` : `${n.color}08`}
+                stroke={n.color} strokeWidth={active ? 2 : 1}
+                style={{ transition: 'all 0.4s' }}/>
+              <text x={n.x} y={43} textAnchor="middle" fill={n.color}
+                fontFamily="monospace" fontSize="9" fontWeight="bold">{n.label}</text>
+              <text x={n.x} y={54} textAnchor="middle" fill="var(--text-muted)"
+                fontFamily="monospace" fontSize="7">{n.role.split(' ')[0]}</text>
+              {/* Operation badge */}
+              {active && cur.op && (
+                <g>
+                  <rect x={n.x - 18} y={66} width={36} height={14} rx={3}
+                    fill={`${cur.opColor}25`} stroke={cur.opColor} strokeWidth={1}/>
+                  <text x={n.x} y={76} textAnchor="middle" fill={cur.opColor}
+                    fontFamily="monospace" fontSize="8" fontWeight="bold">{cur.op}</text>
+                </g>
+              )}
+              <text x={n.x} y={95} textAnchor="middle" fill="var(--text-muted)"
+                fontFamily="monospace" fontSize="7">{n.role.split('(')[1]?.replace(')','') || ''}</text>
+            </g>
+          );
+        })}
+        {/* Packet dot */}
+        <circle cx={cur.pktX} cy={18} r={6}
+          fill={cur.label ? '#ffab00' : '#00e676'}
+          style={{ transition: 'cx 0.5s' }}/>
+        {cur.label && (
+          <text x={cur.pktX} y={13} textAnchor="middle" fill="#ffab00"
+            fontFamily="monospace" fontSize="7" fontWeight="bold">{cur.label}</text>
+        )}
+      </svg>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: 'rgba(124,77,255,0.08)', border: '1px solid rgba(124,77,255,0.25)',
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {cur.desc}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Why MPLS — use cases visual ───────────────────────────
+function MplsUseCases() {
+  const [active, setActive] = React.useState(null);
+  const cases = [
+    { id: 'speed',  icon: '⚡', title: 'Label Switching Speed',
+      color: '#ffab00',
+      desc: 'Traditional IP routing requires a longest-prefix lookup in a potentially large routing table at every hop. MPLS replaces this with a simple exact-match label lookup — historically faster and more scalable on high-speed core routers.',
+    },
+    { id: 'vpn',    icon: '🔒', title: 'L3VPN (RFC 4364)',
+      color: '#00e5ff',
+      desc: 'MPLS L3VPNs allow ISPs to provide private IP routing between customer sites over a shared MPLS backbone. Each customer VRF is kept isolated using two labels: outer transport label + inner VPN label. The foundation of enterprise MPLS WAN services.',
+    },
+    { id: 'te',     icon: '🛣️', title: 'Traffic Engineering',
+      color: '#7c4dff',
+      desc: 'MPLS-TE allows traffic to be steered along explicit paths that differ from the IGP shortest path. Used to avoid congestion, guarantee bandwidth, and implement fast-reroute (FRR) for sub-50ms failover on critical paths.',
+    },
+    { id: 'qos',    icon: '📊', title: 'QoS via EXP bits',
+      color: '#00e676',
+      desc: 'The 3-bit EXP (TC) field in the MPLS label carries QoS markings across the provider network. Core routers honour these bits for priority queuing without needing to inspect the inner IP DSCP — enabling end-to-end QoS across the MPLS backbone.',
+    },
+  ];
+  return (
+    <InlineViz label="WHY MPLS? — KEY USE CASES" accent="#ffab00">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {cases.map(c => (
+          <div key={c.id} onClick={() => setActive(active === c.id ? null : c.id)}
+            style={{
+              padding: '10px 12px', borderRadius: 6, cursor: 'pointer',
+              background: active === c.id ? `${c.color}15` : `${c.color}06`,
+              border: `1px solid ${active === c.id ? c.color : c.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: active === c.id ? 8 : 0 }}>
+              <span style={{ fontSize: '1.25rem' }}>{c.icon}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.75rem', color: c.color }}>{c.title}</span>
+            </div>
+            {active === c.id && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {c.desc}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {!active && (
+        <div style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
+          Click a card to learn about each MPLS use case
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── MPLS ──────────────────────────────────────────────────────
+  'mpls': [
+    { afterSection: 'Why MPLS?',               component: MplsUseCases },
+    { afterSection: 'MPLS Label Format (4 bytes)', component: MplsLabelFormat },
+    { afterSection: 'Key Operations',           component: MplsOperationsAnim },
+  ],
+  'mpls-label-switching': [
+    { afterSection: 'Why MPLS?',               component: MplsUseCases },
+    { afterSection: 'MPLS Label Format (4 bytes)', component: MplsLabelFormat },
+    { afterSection: 'Key Operations',           component: MplsOperationsAnim },
+  ],
   // ── Network Tunneling ─────────────────────────────────────────
   'tunneling': [
     { afterSection: 'Common Tunnel Types', component: TunnelTypesComparison },
