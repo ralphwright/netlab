@@ -6257,7 +6257,268 @@ function AsnRangeViz() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// BGP INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── eBGP vs iBGP — topology diagram ──────────────────────
+function EbgpVsIbgp() {
+  const [mode, setMode] = React.useState('ebgp');
+  const isEbgp = mode === 'ebgp';
+  return (
+    <InlineViz label="eBGP vs iBGP — SESSION TYPES AND KEY DIFFERENCES" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['ebgp','eBGP (between ASes)'],['ibgp','iBGP (within AS)']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m==='ebgp' ? 'rgba(0,229,255,0.15)' : 'rgba(124,77,255,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m==='ebgp' ? '#00e5ff' : '#7c4dff') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m==='ebgp' ? '#00e5ff' : '#7c4dff') : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 380 140" style={{ width: 360, maxHeight: 140, flexShrink: 0 }}>
+          {isEbgp ? (
+            <>
+              {/* AS 65001 */}
+              <rect x="5" y="20" width="155" height="100" rx="6"
+                fill="rgba(0,229,255,0.04)" stroke="rgba(0,229,255,0.3)" strokeWidth="1"/>
+              <text x="82" y="38" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">AS 65001</text>
+              <rect x="20" y="55" width="120" height="40" rx="4"
+                fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1.5"/>
+              <text x="80" y="72" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="10" fontWeight="bold">R1</text>
+              <text x="80" y="84" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">10.0.0.1</text>
+              {/* AS 65002 */}
+              <rect x="220" y="20" width="155" height="100" rx="6"
+                fill="rgba(0,230,118,0.04)" stroke="rgba(0,230,118,0.3)" strokeWidth="1"/>
+              <text x="297" y="38" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="9" fontWeight="bold">AS 65002</text>
+              <rect x="240" y="55" width="120" height="40" rx="4"
+                fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1.5"/>
+              <text x="300" y="72" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="10" fontWeight="bold">R2</text>
+              <text x="300" y="84" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">10.0.0.2</text>
+              {/* eBGP session */}
+              <line x1="140" y1="75" x2="240" y2="75" stroke="#f43f5e" strokeWidth="2.5"/>
+              <text x="190" y="65" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="9" fontWeight="bold">eBGP</text>
+              <text x="190" y="93" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">TTL=1 · must be adjacent</text>
+            </>
+          ) : (
+            <>
+              {/* Single AS */}
+              <rect x="5" y="10" width="370" height="125" rx="6"
+                fill="rgba(124,77,255,0.04)" stroke="rgba(124,77,255,0.3)" strokeWidth="1"/>
+              <text x="190" y="27" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="9" fontWeight="bold">AS 65001 — requires full iBGP mesh (or route reflector)</text>
+              {/* Three routers */}
+              {[{id:'R1',x:60,y:75},{id:'R2',x:190,y:45},{id:'R3',x:320,y:75}].map((r,i) => (
+                <g key={i}>
+                  <rect x={r.x-28} y={r.y-18} width={56} height={36} rx="4"
+                    fill="rgba(124,77,255,0.12)" stroke="#7c4dff" strokeWidth="1.5"/>
+                  <text x={r.x} y={r.y-2} textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="10" fontWeight="bold">{r.id}</text>
+                  <text x={r.x} y={r.y+10} textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Lo0: 1.1.1.{i+1}</text>
+                </g>
+              ))}
+              {/* iBGP sessions — full mesh */}
+              {[[60,75,190,45],[190,45,320,75],[60,75,320,75]].map(([x1,y1,x2,y2],i) => (
+                <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke="#7c4dff" strokeWidth="1.5" strokeDasharray="5,3"/>
+              ))}
+              <text x="190" y="115" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="8">
+                TTL=255 · next-hop unchanged · no AS_PATH prepend
+              </text>
+            </>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 130 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem' }}>
+            <thead>
+              <tr>
+                {['Feature','eBGP','iBGP'].map(h => (
+                  <th key={h} style={{ padding: '4px 8px', textAlign: 'left',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    color: 'var(--text-muted)', fontSize: '0.5875rem' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Between',   'Different ASes', 'Same AS'],
+                ['TTL',       '1 (adjacent)',   '255 (any hop)'],
+                ['Next-hop',  'Changes to self','Preserved'],
+                ['AS-PATH',   'Prepends own AS','No change'],
+                ['Full mesh', 'No',             'Required (or RR)'],
+              ].map(([feat, e, i], idx) => (
+                <tr key={idx}>
+                  <td style={{ padding: '4px 8px', color: 'var(--text-muted)' }}>{feat}</td>
+                  <td style={{ padding: '4px 8px', color: '#00e5ff' }}>{e}</td>
+                  <td style={{ padding: '4px 8px', color: '#7c4dff' }}>{i}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── BGP Path Selection — decision tree ────────────────────
+function BgpPathSelection() {
+  const [step, setStep] = React.useState(-1);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const attrs = [
+    { n: 1,  attr: 'Weight',           scope: 'Cisco-local', color: '#f43f5e', detail: 'Highest wins. Cisco-proprietary — not advertised to peers. Set per-router. Use to prefer paths on one specific router.' },
+    { n: 2,  attr: 'Local Preference', scope: 'AS-wide',     color: '#ff6d00', detail: 'Highest wins. Shared within the AS via iBGP. Use to prefer which exit point leaves your AS.' },
+    { n: 3,  attr: 'Locally Originated', scope: 'Local',     color: '#ffab00', detail: 'Routes originated by this router (network cmd or redistribute) preferred over learned routes.' },
+    { n: 4,  attr: 'AS-Path Length',   scope: 'Global',      color: '#00e676', detail: 'Shortest AS-PATH wins. Count of AS hops to destination. Prepending artificially inflates path length to influence inbound traffic.' },
+    { n: 5,  attr: 'Origin Code',      scope: 'Global',      color: '#00e5ff', detail: 'IGP (i) < EGP (e) < Incomplete (?). Rarely a tiebreaker in practice.' },
+    { n: 6,  attr: 'MED',              scope: 'Between ASes', color: '#2979ff', detail: 'Lowest wins. Sent to eBGP peers to suggest preferred entry point. Only compared between paths from the same AS.' },
+    { n: 7,  attr: 'eBGP over iBGP',  scope: 'Local',        color: '#7c4dff', detail: 'eBGP-learned routes preferred over iBGP-learned routes.' },
+    { n: 8,  attr: 'IGP Metric',       scope: 'Local',        color: '#e040fb', detail: 'Lowest IGP cost to the BGP next-hop wins. Influences which iBGP path is used inside the AS.' },
+    { n: 9,  attr: 'Oldest Route',     scope: 'Local',        color: '#78909c', detail: 'Prefer the oldest (most stable) eBGP route. Reduces route flap.' },
+    { n: 10, attr: 'Lowest Router ID', scope: 'Local',        color: '#546e7a', detail: 'Final tiebreaker. Lowest BGP Router ID (or originator ID) wins.' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= attrs.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 700);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  return (
+    <InlineViz label="BGP PATH SELECTION — 10-STEP DECISION PROCESS (highest/lowest wins at each step)" accent="#f43f5e">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={replay}>↺</button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {attrs.map((a, i) => {
+          const active  = step === i;
+          const past    = step > i;
+          const pending = step < i;
+          return (
+            <div key={i} style={{
+              display: 'grid', gridTemplateColumns: '24px 1fr 80px',
+              alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 5,
+              background: active ? `${a.color}18` : past ? `${a.color}06` : 'var(--bg-elevated)',
+              border: `1px solid ${active ? a.color : past ? a.color + '25' : 'var(--border-subtle)'}`,
+              opacity: pending ? 0.35 : 1, transition: 'all 0.4s',
+              boxShadow: active ? `0 0 10px ${a.color}30` : 'none',
+            }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800,
+                fontSize: '0.625rem', color: active ? a.color : 'var(--text-muted)',
+                textAlign: 'center' }}>{a.n}</div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                  fontSize: '0.75rem', color: active ? a.color : past ? a.color : 'var(--text-secondary)' }}>
+                  {a.attr}
+                </div>
+                {active && (
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)',
+                    lineHeight: 1.5, marginTop: 2 }}>{a.detail}</div>
+                )}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem',
+                color: a.color, background: `${a.color}15`, padding: '2px 5px',
+                borderRadius: 3, textAlign: 'center' }}>{a.scope}</div>
+            </div>
+          );
+        })}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── BGP Message Types — session lifecycle ─────────────────
+function BgpMessageTypes() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const msgs = [
+    { type: 'OPEN',         color: '#ffab00', dir: 'both',  detail: 'TCP connection established. Both peers send OPEN with: BGP version (4), AS number, Hold Time (default 180s), BGP Router ID, capabilities.' },
+    { type: 'KEEPALIVE',    color: '#00e5ff', dir: 'both',  detail: 'Sent every 60s (default). Confirms session is still alive. If no KEEPALIVE received within Hold Time (180s) the session is torn down.' },
+    { type: 'UPDATE',       color: '#00e676', dir: 'both',  detail: 'Advertises new prefixes (NLRI + path attributes) or withdraws previously announced prefixes. This is how routing information propagates.' },
+    { type: 'NOTIFICATION', color: '#ff5252', dir: 'error', detail: 'Sent when an error occurs — authentication failure, hold timer expired, bad AS number. Session is immediately closed after sending.' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= msgs.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="BGP MESSAGE TYPES — SESSION LIFECYCLE" accent="#ffab00">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 160" style={{ width: 260, maxHeight: 160, flexShrink: 0 }}>
+          {/* Peers */}
+          {[{label:'R1 (AS65001)', x:50},{label:'R2 (AS65002)', x:230}].map((p,i) => (
+            <g key={i}>
+              <rect x={p.x-45} y="10" width="90" height="28" rx="4"
+                fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+              <text x={p.x} y="26" textAnchor="middle" fill="#00e5ff"
+                fontFamily="monospace" fontSize="8" fontWeight="bold">{p.label}</text>
+              <line x1={p.x} y1="38" x2={p.x} y2="155"
+                stroke="rgba(0,229,255,0.15)" strokeWidth="1" strokeDasharray="3,3"/>
+            </g>
+          ))}
+          {/* Message arrows */}
+          {msgs.map((m, i) => {
+            if (step < i) return null;
+            const y = 50 + i * 26;
+            const isError = m.dir === 'error';
+            return (
+              <g key={i}>
+                {/* Forward */}
+                <line x1="50" y1={y} x2="230" y2={y}
+                  stroke={m.color} strokeWidth={step === i ? 2 : 1.5}
+                  strokeDasharray={isError ? '4,3' : 'none'}/>
+                <polygon points={`225,${y-4} 233,${y} 225,${y+4}`} fill={m.color}/>
+                {/* Return (for bidirectional) */}
+                {m.dir === 'both' && (
+                  <>
+                    <line x1="230" y1={y+6} x2="50" y2={y+6}
+                      stroke={m.color} strokeWidth={step === i ? 2 : 1.5} opacity="0.6"/>
+                    <polygon points={`55,${y+2} 47,${y+6} 55,${y+10}`} fill={m.color} opacity="0.6"/>
+                  </>
+                )}
+                <rect x="115" y={y-9} width="50" height="12" rx="2"
+                  fill="var(--bg-panel)"/>
+                <text x="140" y={y} textAnchor="middle" fill={m.color}
+                  fontFamily="monospace" fontSize="8" fontWeight="bold">{m.type}</text>
+              </g>
+            );
+          })}
+        </svg>
+        <div style={{ flex: 1, minWidth: 130 }}>
+          <div style={{ padding: '10px 12px', borderRadius: 6,
+            background: `${msgs[step].color}10`,
+            border: `1px solid ${msgs[step].color}40`, marginBottom: 10 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              color: msgs[step].color, marginBottom: 5 }}>{msgs[step].type}</div>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              {msgs[step].detail}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── BGP ───────────────────────────────────────────────────────
+  'bgp': [
+    { afterSection: 'eBGP vs iBGP',                    component: EbgpVsIbgp },
+    { afterSection: 'Path Selection (Decision Process)', component: BgpPathSelection },
+    { afterSection: 'BGP Message Types',               component: BgpMessageTypes },
+  ],
+  'bgp-peering': [
+    { afterSection: 'eBGP vs iBGP',                    component: EbgpVsIbgp },
+    { afterSection: 'Path Selection (Decision Process)', component: BgpPathSelection },
+    { afterSection: 'BGP Message Types',               component: BgpMessageTypes },
+  ],
   // ── Autonomous Systems ────────────────────────────────────────
   'autonomous-systems': [
     { afterSection: 'Internet Structure', component: InternetTierHierarchy },
