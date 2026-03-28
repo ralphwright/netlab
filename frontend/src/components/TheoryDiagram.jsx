@@ -5044,7 +5044,265 @@ function DnsResolutionAnim() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// NAT / PAT INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── NAT Terminology — packet label diagram ────────────────
+function NatTerminology() {
+  const [hovered, setHovered] = React.useState(null);
+  const terms = [
+    { id: 'il', label: 'Inside Local',  color: '#00e5ff', x: 55,  y: 75,  desc: 'Private IP of the internal host as seen from INSIDE the network. This is the host\'s actual configured IP (e.g. 10.0.1.10).', example: '10.0.1.10' },
+    { id: 'ig', label: 'Inside Global', color: '#00e676', x: 55,  y: 135, desc: 'Public IP that represents the internal host as seen from OUTSIDE. This is what the internet sees — usually the router\'s WAN IP.', example: '203.0.113.5' },
+    { id: 'og', label: 'Outside Global',color: '#ffab00', x: 345, y: 75,  desc: 'Real public IP of the external host (e.g. web server). This is the destination IP the internal client is trying to reach.', example: '8.8.8.8' },
+    { id: 'ol', label: 'Outside Local', color: '#f43f5e', x: 345, y: 135, desc: 'How the external host\'s IP appears from inside. Usually the same as Outside Global unless hairpin NAT or policy NAT is used.', example: '8.8.8.8' },
+  ];
+  return (
+    <InlineViz label="NAT TERMINOLOGY — FOUR ADDRESS TYPES" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 400 185" style={{ width: 380, maxHeight: 185, flexShrink: 0 }}>
+          {/* Inside zone */}
+          <rect x="5" y="10" width="150" height="170" rx="6"
+            fill="rgba(0,229,255,0.04)" stroke="rgba(0,229,255,0.25)" strokeWidth="1"/>
+          <text x="80" y="26" textAnchor="middle" fill="#00e5ff"
+            fontFamily="monospace" fontSize="9" fontWeight="bold">INSIDE</text>
+          {/* NAT router */}
+          <rect x="170" y="75" width="60" height="50" rx="5"
+            fill="rgba(255,171,0,0.12)" stroke="#ffab00" strokeWidth="2"/>
+          <text x="200" y="97" textAnchor="middle" fill="#ffab00"
+            fontFamily="monospace" fontSize="10" fontWeight="bold">NAT</text>
+          <text x="200" y="109" textAnchor="middle" fill="#ffab00"
+            fontFamily="monospace" fontSize="9">Router</text>
+          {/* Outside zone */}
+          <rect x="245" y="10" width="150" height="170" rx="6"
+            fill="rgba(255,171,0,0.04)" stroke="rgba(255,171,0,0.25)" strokeWidth="1"/>
+          <text x="320" y="26" textAnchor="middle" fill="#ffab00"
+            fontFamily="monospace" fontSize="9" fontWeight="bold">OUTSIDE (Internet)</text>
+          {/* Host boxes */}
+          {terms.map(t => (
+            <g key={t.id} onMouseEnter={() => setHovered(t.id)} onMouseLeave={() => setHovered(null)}
+              style={{ cursor: 'pointer' }}>
+              <rect x={t.x - 48} y={t.y - 18} width={96} height={36} rx={4}
+                fill={hovered === t.id ? `${t.color}22` : `${t.color}10`}
+                stroke={hovered === t.id ? t.color : `${t.color}40`}
+                strokeWidth={hovered === t.id ? 2 : 1}
+                style={{ transition: 'all 0.2s' }}/>
+              <text x={t.x} y={t.y - 4} textAnchor="middle" fill={t.color}
+                fontFamily="monospace" fontSize="8" fontWeight="bold">{t.label}</text>
+              <text x={t.x} y={t.y + 8} textAnchor="middle" fill={t.color}
+                fontFamily="monospace" fontSize="9">{t.example}</text>
+            </g>
+          ))}
+          {/* Arrows */}
+          <line x1="103" y1="90" x2="170" y2="100" stroke="#00e5ff" strokeWidth="1.5" strokeDasharray="4,2"/>
+          <line x1="103" y1="120" x2="170" y2="110" stroke="#00e676" strokeWidth="1.5" strokeDasharray="4,2"/>
+          <line x1="230" y1="100" x2="297" y2="90"  stroke="#ffab00" strokeWidth="1.5" strokeDasharray="4,2"/>
+          <line x1="230" y1="110" x2="297" y2="120" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="4,2"/>
+          {/* Translation label */}
+          <text x="200" y="148" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="7">IL↔IG translation</text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 130 }}>
+          {hovered ? (
+            (() => {
+              const t = terms.find(x => x.id === hovered);
+              return (
+                <div style={{ padding: '10px 12px', borderRadius: 6,
+                  background: `${t.color}10`, border: `1px solid ${t.color}40` }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                    color: t.color, marginBottom: 5 }}>{t.label}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
+                    color: t.color, marginBottom: 6, padding: '3px 8px',
+                    background: 'var(--bg-terminal)', borderRadius: 3 }}>{t.example}</div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                    {t.desc}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Hover each address box to understand what each NAT term means and where it appears.
+            </p>
+          )}
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── NAT Types — comparison animation ─────────────────────
+function NatTypesComparison() {
+  const [mode, setMode] = React.useState('static');
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const types = {
+    static: {
+      label: 'Static NAT',   color: '#00e5ff',
+      desc:  '1:1 permanent mapping. Same public IP always represents the same private host. Used for servers that must be reachable from internet.',
+      mapping: [
+        { priv: '10.0.1.100', pub: '203.0.113.100', permanent: true },
+      ],
+    },
+    dynamic: {
+      label: 'Dynamic NAT',  color: '#7c4dff',
+      desc:  'Pool of public IPs assigned on demand. First host to initiate gets the first available public IP. No port translation — each host needs its own public IP.',
+      mapping: [
+        { priv: '10.0.1.10',  pub: '203.0.113.10', permanent: false },
+        { priv: '10.0.1.11',  pub: '203.0.113.11', permanent: false },
+      ],
+    },
+    pat: {
+      label: 'PAT (Overload)', color: '#00e676',
+      desc:  'Many private hosts share ONE public IP using unique source port numbers. The most common type — how your home router works.',
+      mapping: [
+        { priv: '10.0.1.10:52341', pub: '203.0.113.1:1024', permanent: false },
+        { priv: '10.0.1.11:49201', pub: '203.0.113.1:1025', permanent: false },
+        { priv: '10.0.1.12:60001', pub: '203.0.113.1:1026', permanent: false },
+      ],
+    },
+  };
+  const t = types[mode];
+  useEffect(() => {
+    if (isPaused || step >= t.mapping.length) return;
+    const tm = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(tm);
+  }, [step, isPaused, mode]);
+  function reset(m) { setMode(m); setStep(0); setIsPaused(false); }
+  return (
+    <InlineViz label="NAT TYPES — STATIC vs DYNAMIC vs PAT" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {Object.entries(types).map(([k, v]) => (
+          <button key={k} onClick={() => reset(k)} style={{
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === k ? `${v.color}20` : 'var(--bg-elevated)',
+            border: `1px solid ${mode === k ? v.color : 'var(--border-subtle)'}`,
+            color: mode === k ? v.color : 'var(--text-muted)', transition: 'all 0.2s',
+          }}>{v.label}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => reset(mode)}>↺</button>
+        </div>
+      </div>
+      {/* Translation table */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginBottom: 5 }}>
+          TRANSLATION TABLE — show ip nat translations
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+          <thead>
+            <tr>
+              {['Inside Local', 'Inside Global', 'Type'].map(h => (
+                <th key={h} style={{ padding: '4px 10px', textAlign: 'left',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  color: 'var(--text-muted)', fontSize: '0.5875rem' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {t.mapping.map((m, i) => step > i && (
+              <tr key={i} style={{ background: `${t.color}08` }}>
+                <td style={{ padding: '5px 10px', color: '#00e5ff' }}>{m.priv}</td>
+                <td style={{ padding: '5px 10px', color: t.color, fontWeight: 700 }}>{m.pub}</td>
+                <td style={{ padding: '5px 10px', color: 'var(--text-muted)', fontSize: '0.625rem' }}>
+                  {t.label}
+                </td>
+              </tr>
+            ))}
+            {step === 0 && (
+              <tr><td colSpan={3} style={{ padding: '5px 10px', color: 'var(--text-muted)', fontStyle: 'italic' }}>(empty — waiting for traffic)</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: `${t.color}08`, border: `1px solid ${t.color}30`,
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {t.desc}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── PAT — port tracking animation ────────────────────────
+function PatPortTracking() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const flows = [
+    { client: '10.0.1.10', sport: 52341, dst: '8.8.8.8:53',    proto: 'UDP', natPort: 1024, color: '#00e5ff' },
+    { client: '10.0.1.11', sport: 49201, dst: '142.250.4.46:443', proto: 'TCP', natPort: 1025, color: '#00e676' },
+    { client: '10.0.1.10', sport: 60001, dst: '13.32.0.10:80',  proto: 'TCP', natPort: 1026, color: '#7c4dff' },
+    { client: '10.0.1.12', sport: 44444, dst: '8.8.8.8:53',    proto: 'UDP', natPort: 1027, color: '#ffab00' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= flows.length) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="PAT — HOW PORT NUMBERS TRACK SESSIONS (203.0.113.1 shared)" accent="#00e676">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+      {/* Live translation table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', marginBottom: 12 }}>
+        <thead>
+          <tr>
+            {['Proto','Inside Local','Inside Global','Outside'].map(h => (
+              <th key={h} style={{ padding: '4px 8px', textAlign: 'left',
+                borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.5875rem' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {flows.map((f, i) => step > i && (
+            <tr key={i}>
+              <td style={{ padding: '4px 8px', color: f.color }}>{f.proto}</td>
+              <td style={{ padding: '4px 8px', color: '#00e5ff' }}>{f.client}:{f.sport}</td>
+              <td style={{ padding: '4px 8px', color: f.color, fontWeight: 700 }}>203.0.113.1:{f.natPort}</td>
+              <td style={{ padding: '4px 8px', color: 'var(--text-muted)' }}>{f.dst}</td>
+            </tr>
+          ))}
+          {step === 0 && (
+            <tr><td colSpan={4} style={{ padding: '4px 8px', color: 'var(--text-muted)', fontStyle: 'italic' }}>(no active sessions)</td></tr>
+          )}
+        </tbody>
+      </table>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)',
+        fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {step === 0 && 'All four hosts share a single public IP: 203.0.113.1. Each session is tracked by source port.'}
+        {step === 1 && `10.0.1.10 connects to 8.8.8.8:53 (DNS). PAT assigns port 1024 on the public IP.`}
+        {step === 2 && `10.0.1.11 connects to 142.250.4.46:443 (HTTPS). PAT assigns port 1025 — different session, same public IP.`}
+        {step === 3 && `10.0.1.10 opens a second session to a different server. PAT assigns a new port 1026 — same private host, new translation entry.`}
+        {step >= 4 && `✓ 4 simultaneous sessions from 3 different hosts all share 203.0.113.1. Return traffic is de-multiplexed by destination port number.`}
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── NAT / PAT ─────────────────────────────────────────────────
+  'nat': [
+    { afterSection: 'NAT Terminology', component: NatTerminology },
+    { afterSection: 'NAT Types',       component: NatTypesComparison },
+  ],
+  'nat-configuration': [
+    { afterSection: 'NAT Terminology', component: NatTerminology },
+    { afterSection: 'NAT Types',       component: NatTypesComparison },
+  ],
+  'pat': [
+    { afterSection: 'How PAT Works',   component: PatPortTracking },
+    { afterSection: 'PAT vs NAT',      component: NatTypesComparison },
+  ],
+  'pat-overload': [
+    { afterSection: 'How PAT Works',   component: PatPortTracking },
+    { afterSection: 'PAT vs NAT',      component: NatTypesComparison },
+  ],
   // ── DNS ──────────────────────────────────────────────────────
   'dns': [
     { afterSection: 'DNS Hierarchy',      component: DnsHierarchyTree },
