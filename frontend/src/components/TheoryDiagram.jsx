@@ -3682,7 +3682,299 @@ function LsaFloodingAnim() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// SUBNETTING INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── IPv4 Address Structure — bit breakdown ─────────────────
+function SubnetBitBreakdown() {
+  const [cidr, setCidr] = React.useState(26);
+  const options = [24, 25, 26, 27, 28, 29, 30];
+  const hostBits = 32 - cidr;
+  const netBits  = cidr;
+  const subnets  = Math.pow(2, cidr - 24);
+  const hosts    = Math.pow(2, hostBits) - 2;
+  const block    = Math.pow(2, hostBits);
+  // Show last octet bits
+  const lastOctetNetBits = Math.max(0, cidr - 24);
+  const lastOctetHostBits = 8 - lastOctetNetBits;
+  const maskLastOctet = 256 - block;
+  return (
+    <InlineViz label="IPv4 ADDRESS STRUCTURE — NETWORK vs HOST BITS" accent="#f43f5e">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        {options.map(c => (
+          <button key={c} onClick={() => setCidr(c)} style={{
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: cidr === c ? 'rgba(244,63,94,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${cidr === c ? '#f43f5e' : 'var(--border-subtle)'}`,
+            color: cidr === c ? '#f43f5e' : 'var(--text-muted)',
+          }}>/{c}</button>
+        ))}
+      </div>
+      {/* 32-bit visual */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4, textAlign: 'center' }}>
+          32-BIT ADDRESS (showing last two octets)
+        </div>
+        <div style={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
+          {/* First 24 bits = 3 octets collapsed */}
+          <div style={{
+            padding: '5px 12px', borderRadius: 4, background: 'rgba(0,229,255,0.08)',
+            border: '1px solid rgba(0,229,255,0.3)', fontFamily: 'var(--font-mono)',
+            fontSize: '0.6875rem', color: '#00e5ff',
+          }}>192.168.1 (24 fixed bits)</div>
+          <div style={{ display: 'flex', gap: 1 }}>
+            {Array.from({length: 8}, (_, i) => {
+              const isNet = i < lastOctetNetBits;
+              return (
+                <div key={i} style={{
+                  width: 22, height: 32, borderRadius: 3, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  background: isNet ? 'rgba(244,63,94,0.2)' : 'rgba(255,171,0,0.15)',
+                  border: `1px solid ${isNet ? '#f43f5e' : '#ffab00'}`,
+                  fontFamily: 'var(--font-mono)', fontSize: '0.625rem', fontWeight: 700,
+                  color: isNet ? '#f43f5e' : '#ffab00',
+                  transition: 'all 0.3s',
+                }}>{isNet ? 'N' : 'H'}</div>
+              );
+            })}
+          </div>
+        </div>
+        {/* Legend */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.6875rem', color: '#f43f5e', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ width: 12, height: 12, background: 'rgba(244,63,94,0.2)', border: '1px solid #f43f5e', borderRadius: 2 }} />
+            Network ({netBits} bits)
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.6875rem', color: '#ffab00', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ width: 12, height: 12, background: 'rgba(255,171,0,0.15)', border: '1px solid #ffab00', borderRadius: 2 }} />
+            Host ({hostBits} bits)
+          </div>
+        </div>
+      </div>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        {[
+          { label: 'CIDR',       value: `/${cidr}`,        color: '#f43f5e' },
+          { label: 'Mask',       value: `255.255.255.${maskLastOctet}`, color: '#00e5ff' },
+          { label: 'Block size', value: block,              color: '#7c4dff' },
+          { label: 'Usable hosts', value: hosts,            color: '#00e676' },
+        ].map((s, i) => (
+          <div key={i} style={{ padding: '8px 10px', borderRadius: 6, background: `${s.color}10`, border: `1px solid ${s.color}30`, textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginBottom: 3 }}>{s.label}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.875rem', color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Subnetting Reference Table — interactive ───────────────
+function SubnetReferenceTable() {
+  const [selected, setSelected] = React.useState(null);
+  const rows = [
+    { cidr: 24, mask: '255.255.255.0',   subnets: 1,  hosts: 254, block: 256, example: '10.0.0.0/24' },
+    { cidr: 25, mask: '255.255.255.128', subnets: 2,  hosts: 126, block: 128, example: '10.0.0.0/25, 10.0.0.128/25' },
+    { cidr: 26, mask: '255.255.255.192', subnets: 4,  hosts: 62,  block: 64,  example: '10.0.0.0, .64, .128, .192' },
+    { cidr: 27, mask: '255.255.255.224', subnets: 8,  hosts: 30,  block: 32,  example: '10.0.0.0, .32, .64, .96…' },
+    { cidr: 28, mask: '255.255.255.240', subnets: 16, hosts: 14,  block: 16,  example: '10.0.0.0, .16, .32, .48…' },
+    { cidr: 29, mask: '255.255.255.248', subnets: 32, hosts: 6,   block: 8,   example: '10.0.0.0, .8, .16, .24…' },
+    { cidr: 30, mask: '255.255.255.252', subnets: 64, hosts: 2,   block: 4,   example: 'Point-to-point WAN links' },
+  ];
+  const colors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#f97316','#eab308'];
+  return (
+    <InlineViz label="CLASS C SUBNETTING REFERENCE — CLICK A ROW" accent="#7c4dff">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+          <thead>
+            <tr>
+              {['CIDR','Subnet Mask','Subnets','Hosts/Subnet','Block Size','Starts at'].map(h => (
+                <th key={h} style={{ padding: '5px 10px', textAlign: 'left', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.5875rem', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <React.Fragment key={r.cidr}>
+                <tr onClick={() => setSelected(selected === r.cidr ? null : r.cidr)}
+                  style={{ cursor: 'pointer', background: selected === r.cidr ? `${colors[i]}15` : 'transparent', transition: 'background 0.2s' }}>
+                  <td style={{ padding: '6px 10px', color: colors[i], fontWeight: 700 }}>/{r.cidr}</td>
+                  <td style={{ padding: '6px 10px', color: selected === r.cidr ? colors[i] : 'var(--text-primary)' }}>{r.mask}</td>
+                  <td style={{ padding: '6px 10px', color: 'var(--text-secondary)' }}>{r.subnets}</td>
+                  <td style={{ padding: '6px 10px', color: '#00e676', fontWeight: selected === r.cidr ? 700 : 400 }}>{r.hosts}</td>
+                  <td style={{ padding: '6px 10px', color: '#ffab00' }}>{r.block}</td>
+                  <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: '0.6rem' }}>{r.example}</td>
+                </tr>
+                {selected === r.cidr && (
+                  <tr style={{ background: `${colors[i]}08` }}>
+                    <td colSpan={6} style={{ padding: '8px 10px 10px 28px' }}>
+                      <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                        <span style={{ color: colors[i], fontWeight: 700 }}>/{r.cidr}</span> borrows <span style={{ color: colors[i] }}>{r.cidr - 24} bits</span> from the host portion.{' '}
+                        Block size = 256 − {256 - r.block} = <span style={{ color: '#ffab00' }}>{r.block}</span>.{' '}
+                        Subnets start at multiples of {r.block}: 0, {r.block}, {r.block*2}, {r.block*3}…{' '}
+                        Each subnet has <span style={{ color: '#00e676' }}>{r.hosts} usable hosts</span> (2^{32-r.cidr} − 2).
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── How to Subnet — animated step-by-step ─────────────────
+function SubnetStepByStep() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  // Example: subnet 192.168.1.0/24 for Engineering (50 hosts)
+  const steps2 = [
+    { label: 'Step 1: Count required hosts', detail: 'Engineering needs 50 hosts. We need 2^n − 2 ≥ 50, so n=6 host bits → 2^6 − 2 = 62 ✓', result: null },
+    { label: 'Step 2: Find the mask',        detail: '6 host bits → 32 − 6 = /26. Mask = 255.255.255.192 (last octet: 11000000)', result: '/26 → 255.255.255.192' },
+    { label: 'Step 3: Calculate block size', detail: 'Block size = 256 − 192 = 64. Subnets start at: .0, .64, .128, .192', result: 'Block = 64' },
+    { label: 'Step 4: Map the subnet',       detail: 'First /26 subnet: Network 192.168.1.0, First usable .1, Last usable .62, Broadcast .63', result: '192.168.1.0/26' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= steps2.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1400);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+
+  return (
+    <InlineViz label="HOW TO SUBNET — STEP BY STEP (50 hosts needed)" accent="#00e5ff">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {steps2.map((s, i) => (
+          <div key={i} style={{
+            padding: '10px 14px', borderRadius: 6,
+            background: step >= i ? 'rgba(0,229,255,0.08)' : 'var(--bg-elevated)',
+            border: `1px solid ${step >= i ? (step === i ? '#00e5ff' : 'rgba(0,229,255,0.3)') : 'var(--border-subtle)'}`,
+            opacity: step >= i ? 1 : 0.3,
+            transition: 'all 0.5s',
+            boxShadow: step === i ? '0 0 12px rgba(0,229,255,0.15)' : 'none',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: step >= i ? 5 : 0 }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                background: step > i ? '#00e676' : step === i ? '#00e5ff' : 'var(--border-default)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.625rem', fontWeight: 700, color: '#000',
+                transition: 'background 0.4s',
+              }}>{step > i ? '✓' : i + 1}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: step >= i ? '#00e5ff' : 'var(--text-muted)' }}>{s.label}</div>
+              {s.result && step > i && (
+                <div style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700, color: '#00e676' }}>{s.result}</div>
+              )}
+            </div>
+            {step >= i && (
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, paddingLeft: 32 }}>{s.detail}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── VLSM — visual block allocation ─────────────────────────
+function VlsmVisual() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const allocs = [
+    { label: 'Engineering /26', start: 0,   size: 64,  color: '#00e5ff', hosts: 62, cidr: '/26', net: '192.168.1.0' },
+    { label: 'Sales /27',       start: 64,  size: 32,  color: '#00e676', hosts: 30, cidr: '/27', net: '192.168.1.64' },
+    { label: 'Mgmt /28',        start: 96,  size: 16,  color: '#7c4dff', hosts: 14, cidr: '/28', net: '192.168.1.96' },
+    { label: 'WAN /30',         start: 112, size: 4,   color: '#ffab00', hosts: 2,  cidr: '/30', net: '192.168.1.112' },
+  ];
+  const totalUsed = allocs.slice(0, step).reduce((a, b) => a + b.size, 0);
+  const remaining = 256 - totalUsed;
+
+  useEffect(() => {
+    if (isPaused || step >= allocs.length) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+
+  return (
+    <InlineViz label="VLSM — VARIABLE-LENGTH SUBNET MASKING (192.168.1.0/24)" accent="#7c4dff">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 12 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+      {/* Address space bar */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+          192.168.1.0/24 — 256 addresses (254 usable)
+        </div>
+        <div style={{ display: 'flex', height: 32, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+          {allocs.map((a, i) => step > i && (
+            <div key={i} style={{
+              width: `${(a.size / 256) * 100}%`, background: `${a.color}40`,
+              borderRight: `2px solid ${a.color}`, display: 'flex',
+              alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s',
+              fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: a.color, fontWeight: 700,
+            }}>{a.cidr}</div>
+          ))}
+          <div style={{
+            flex: 1, background: 'var(--bg-elevated)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)',
+          }}>{remaining} free</div>
+        </div>
+        {/* Scale labels */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+          {['.0', '.64', '.128', '.192', '.255'].map(l => (
+            <div key={l} style={{ fontSize: '0.5rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{l}</div>
+          ))}
+        </div>
+      </div>
+      {/* Allocation list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {allocs.map((a, i) => (
+          <div key={i} style={{
+            display: 'grid', gridTemplateColumns: '140px 60px 80px 1fr',
+            alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 5,
+            background: step > i ? `${a.color}10` : 'var(--bg-elevated)',
+            border: `1px solid ${step > i ? a.color + '40' : 'var(--border-subtle)'}`,
+            opacity: step > i ? 1 : 0.35, transition: 'all 0.4s',
+          }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem', color: a.color }}>{a.net}{a.cidr}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: '#00e676' }}>{a.hosts} hosts</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: '#ffab00' }}>block/{a.size}</div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>{a.label}</div>
+          </div>
+        ))}
+        <div style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          .116–.255 ({remaining} addresses) — unallocated, available for future subnets
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Subnetting ───────────────────────────────────────────────
+  'subnetting': [
+    { afterSection: 'IPv4 Address Structure',          component: SubnetBitBreakdown },
+    { afterSection: 'Class C Subnetting Reference',    component: SubnetReferenceTable },
+    { afterSection: 'How to Subnet (Step-by-Step)',    component: SubnetStepByStep },
+    { afterSection: 'VLSM (Variable-Length Subnet Masking)', component: VlsmVisual },
+  ],
+  'ipv4-subnetting': [
+    { afterSection: 'IPv4 Address Structure',          component: SubnetBitBreakdown },
+    { afterSection: 'Class C Subnetting Reference',    component: SubnetReferenceTable },
+    { afterSection: 'How to Subnet (Step-by-Step)',    component: SubnetStepByStep },
+    { afterSection: 'VLSM (Variable-Length Subnet Masking)', component: VlsmVisual },
+  ],
   // ── OSI Model ──────────────────────────────────────────────
   'osi-model': [
     { afterSection: 'The Seven Layers',           component: OsiLayerBreakdown },
