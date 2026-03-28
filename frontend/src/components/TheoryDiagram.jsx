@@ -3689,10 +3689,15 @@ export const INLINE_DIAGRAMS = {
     { afterSection: 'Encapsulation and Decapsulation', component: OsiEncapsulationInline },
   ],
   // ── Network Layer Architecture ─────────────────────────────
-  // Fire after the Core layer description — all 3 tiers explained by then
+  // Two heading sets: migrate_netarch_redo (### Core Layer…)
+  // and migrate_foundations_content (### The Cisco Three-Tier…)
   'network-layer-arch': [
-    { afterSection: 'Core Layer (Top / Backbone)', component: ThreeTierModel },
-    { afterSection: 'Collapsed Core',              component: TwoTierModel },
+    // netarch_redo content headings
+    { afterSection: 'Core Layer (Top / Backbone)',       component: ThreeTierModel },
+    { afterSection: 'Collapsed Core',                    component: TwoTierModel },
+    // foundations_content headings (older content)
+    { afterSection: 'The Cisco Three-Tier Hierarchical Model', component: ThreeTierModel },
+    { afterSection: 'Two-Tier (Collapsed Core)',         component: TwoTierModel },
   ],
   // ── Network Types ───────────────────────────────────────────
   'network-types': [
