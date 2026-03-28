@@ -305,6 +305,517 @@ SHOW_OUTPUTS: dict[str, dict[str, str]] = {
 }
 
 
+
+# ════════════════════════════════════════════════════════════════
+# IOS ? HELP SYSTEM
+# ════════════════════════════════════════════════════════════════
+
+# Each leaf value is a one-line description string (matches real IOS phrasing).
+# A dict value means "this keyword has sub-keywords" — recurse into it.
+# The special key "_desc" on a dict node is the description for that keyword itself.
+
+_SHOW_IP_TREE = {
+    "access-lists": "IP access lists",
+    "bgp":          {"_desc": "BGP information",
+                     "summary": "Summary of BGP neighbor status",
+                     "neighbors": "Detailed BGP neighbor information"},
+    "dhcp":         {"_desc": "Show items in the DHCP database",
+                     "binding": "DHCP address bindings",
+                     "pool":    "DHCP pool statistics",
+                     "excluded-addresses": "Excluded addresses"},
+    "interface":    {"_desc": "IP interface status and configuration",
+                     "brief": "Brief summary of IP status and configuration"},
+    "nat":          {"_desc": "IP NAT information",
+                     "translations": "Translation entries",
+                     "statistics":   "Translation statistics"},
+    "ospf":         {"_desc": "OSPF information",
+                     "neighbor":     "Neighbor list",
+                     "database":     "OSPF link state database",
+                     "interface":    "OSPF interface information"},
+    "route":        {"_desc": "IP routing table",
+                     "summary": "Summary of all routes"},
+    "ssh":          "Information on SSH",
+}
+
+_SHOW_TREE = {
+    "access-lists":         "List access lists",
+    "arp":                  "ARP table",
+    "cdp":                  {"_desc": "CDP information",
+                             "neighbors": "CDP neighbor entries"},
+    "clock":                "Display the system clock",
+    "crypto":               {"_desc": "Encryption module",
+                             "isakmp": {"_desc": "ISAKMP information",
+                                        "sa": "IKE Security Associations"},
+                             "ipsec":  {"_desc": "IPsec information",
+                                        "sa": "IPsec Security Associations"},
+                             "key":    {"_desc": "Long term key operations",
+                                        "mypubkey": {"_desc": "Public keys",
+                                                     "rsa": "RSA public keys"}}},
+    "dot11":                {"_desc": "IEEE 802.11 commands",
+                             "associations": "Wireless client associations"},
+    "etherchannel":         {"_desc": "EtherChannel information",
+                             "summary": "One line summary per channel-group"},
+    "flash:":               "display information about flash: file system",
+    "hosts":                "Host name-to-address mapping table",
+    "interfaces":           {"_desc": "Interface status and configuration",
+                             "brief": "Brief summary of all interfaces",
+                             "GigabitEthernet0/0": "GigabitEthernet0/0 status",
+                             "GigabitEthernet0/1": "GigabitEthernet0/1 status",
+                             "Serial0/0/0":        "Serial0/0/0 status",
+                             "Tunnel0":            "Tunnel0 status",
+                             "vlan":               "Vlan interface information"},
+    "ip":                   {"_desc": "IP information", **_SHOW_IP_TREE},
+    "ipv6":                 {"_desc": "IPv6 information",
+                             "interface":  {"_desc": "IPv6 interface information",
+                                            "brief": "Brief summary"},
+                             "neighbors":  "IPv6 neighbor table",
+                             "route":      "IPv6 routing table"},
+    "logging":              "Show the contents of logging buffers",
+    "mpls":                 {"_desc": "MPLS information",
+                             "forwarding-table": "Show MPLS forwarding table",
+                             "ldp":              {"_desc": "MPLS LDP information",
+                                                  "neighbor": "LDP neighbor information"}},
+    "ntp":                  {"_desc": "Network time protocol",
+                             "status": "NTP status",
+                             "associations": "NTP associations"},
+    "processes":            "Active process statistics",
+    "protocols":            "Active network routing protocols",
+    "running-config":       "Current operating configuration",
+    "spanning-tree":        "Spanning tree topology",
+    "startup-config":       "Startup configuration",
+    "users":                "Display information about terminal lines",
+    "version":              "System hardware and software status",
+    "vlan":                 {"_desc": "VTP VLAN information",
+                             "brief": "VTP all VLAN status in brief"},
+    "vlans":                "Virtual LAN information",
+    "wlan":                 {"_desc": "WLAN information",
+                             "summary": "WLAN summary"},
+    "zone":                 {"_desc": "Zone information",
+                             "security": "Zone security information"},
+    "zone-pair":            {"_desc": "Zone pair information",
+                             "security": "Zone pair security information"},
+}
+
+_PRIV_TREE = {
+    "clear":            {"_desc": "Reset functions",
+                         "ip":    {"_desc": "IP functions",
+                                   "nat":       {"_desc": "NAT functions",
+                                                 "translations": "Clear NAT translation table"},
+                                   "ospf":      {"_desc": "OSPF functions",
+                                                 "process": "Reset OSPF process"},
+                                   "bgp":       {"_desc": "BGP functions",
+                                                 "*": "Clear BGP peer connection"}},
+                         "arp-cache":  "Delete all ARP table entries",
+                         "counters":   "Clear interface counters"},
+    "clock":            {"_desc": "Manage the system clock",
+                         "set": "Set the time and date"},
+    "configure":        {"_desc": "Enter configuration mode",
+                         "terminal": "Configure from the terminal"},
+    "copy":             {"_desc": "Copy from one file to another",
+                         "running-config": {"_desc": "Copy from current system configuration",
+                                            "startup-config": "Save running config to NVRAM",
+                                            "tftp:": "Copy to TFTP server"},
+                         "startup-config": {"_desc": "Copy from startup configuration",
+                                            "running-config": "Load startup config into running"},
+                         "tftp:": {"_desc": "Copy from TFTP",
+                                   "running-config": "Copy from TFTP to running config"}},
+    "debug":            {"_desc": "Debugging functions (may impact performance)",
+                         "ip":   {"_desc": "IP debugging",
+                                  "ospf": "OSPF debugging",
+                                  "bgp":  "BGP debugging",
+                                  "nat":  "NAT debugging"},
+                         "all":  "Enable all debugging (caution)"},
+    "disable":          "Turn off privileged commands",
+    "exit":             "Exit to user EXEC mode",
+    "no":               {"_desc": "Negate a command",
+                         "debug": "Disable debugging"},
+    "ping":             "Send echo messages",
+    "reload":           "Halt and perform a cold restart",
+    "show":             {"_desc": "Show running system information", **_SHOW_TREE},
+    "ssh":              "Open a secure shell client connection",
+    "telnet":           "Open a telnet connection",
+    "terminal":         {"_desc": "Set terminal line parameters",
+                         "length": "Set number of lines on a screen",
+                         "width":  "Set width of the terminal screen"},
+    "traceroute":       "Trace route to destination",
+    "undebug":          {"_desc": "Disable debugging functions",
+                         "all": "Disable all debugging"},
+    "write":            {"_desc": "Write running configuration to memory, network, or terminal",
+                         "memory":   "Write to NV memory",
+                         "terminal": "Write to terminal",
+                         "erase":    "Erase NV memory"},
+}
+
+_CONFIG_TREE = {
+    "access-list":          "Add an access list entry",
+    "banner":               {"_desc": "Define a login banner",
+                             "motd": "Set Message of the Day banner"},
+    "boot":                 {"_desc": "Boot commands",
+                             "system": "Boot system file"},
+    "clock":                {"_desc": "Configure time-of-day clock",
+                             "timezone": "Configure time zone"},
+    "crypto":               {"_desc": "Encryption module",
+                             "isakmp":  {"_desc": "ISAKMP configuration",
+                                         "policy": "ISAKMP policy configuration"},
+                             "ipsec":   {"_desc": "IPsec configuration",
+                                         "transform-set": "IPsec transform set"},
+                             "key":     {"_desc": "Long term key operations",
+                                         "generate": {"_desc": "Generate a key",
+                                                      "rsa": "Generate RSA key pair"}},
+                             "dynamic-map": "Specify a dynamic crypto map template",
+                             "map":     "Enter a crypto map"},
+    "do":                   "To run exec commands in config mode",
+    "dot11":                {"_desc": "IEEE 802.11 commands",
+                             "ssid": "Configure an SSID"},
+    "enable":               {"_desc": "Modify enable password parameters",
+                             "secret": "Assign the privileged level secret"},
+    "end":                  "Exit from configure mode",
+    "exit":                 "Exit from configure mode",
+    "hostname":             "Set system's network name",
+    "interface":            {"_desc": "Select an interface to configure",
+                             "GigabitEthernet": "GigabitEthernet IEEE 802.3",
+                             "FastEthernet":    "FastEthernet IEEE 802.3",
+                             "Serial":          "Serial",
+                             "Loopback":        "Loopback interface",
+                             "Port-channel":    "Ethernet Channel of interfaces",
+                             "Tunnel":          "Tunnel interface",
+                             "Vlan":            "Catalyst VLANs"},
+    "ip":                   {"_desc": "Global IP configuration commands",
+                             "access-list":  {"_desc": "Named access list",
+                                              "extended": "Extended access list",
+                                              "standard": "Standard access list"},
+                             "dhcp":         {"_desc": "Configure DHCP server",
+                                              "excluded-address": "Prevent server from assigning these addresses",
+                                              "pool":             "Configure DHCP address pool"},
+                             "domain-name":  "Define the default domain name",
+                             "host":         "Add an entry to the IP hostname table",
+                             "name-server":  "Specify address of name server to use",
+                             "nat":          {"_desc": "NAT configuration commands",
+                                              "inside":  {"_desc": "Inside address translation",
+                                                          "source": "Source address translation"}},
+                             "route":        "Establish static routes",
+                             "routing":      "Enable IP routing",
+                             "ssh":          {"_desc": "Configure SSH",
+                                              "version": "Specify protocol version to be supported"}},
+    "ipv6":                 {"_desc": "Global IPv6 configuration commands",
+                             "unicast-routing": "Enable IPv6 unicast routing"},
+    "line":                 {"_desc": "Configure a terminal line",
+                             "console": "Primary terminal line",
+                             "vty":     "Virtual terminal"},
+    "logging":              "Modify message logging facilities",
+    "mpls":                 {"_desc": "MPLS configuration",
+                             "ip": "Enable MPLS forwarding"},
+    "no":                   "Negate a command or set its defaults",
+    "ntp":                  {"_desc": "Configure NTP",
+                             "server": "Configure an NTP server"},
+    "radius":               {"_desc": "RADIUS server configuration",
+                             "server": "Configure a RADIUS server"},
+    "router":               {"_desc": "Enable a routing process",
+                             "bgp":   "Border Gateway Protocol (BGP)",
+                             "eigrp": "Enhanced Interior Gateway Routing Protocol (EIGRP)",
+                             "ospf":  "Open Shortest Path First (OSPF)",
+                             "rip":   "Routing Information Protocol (RIP)"},
+    "service":              {"_desc": "Modify use of network based services",
+                             "password-encryption": "Encrypt system passwords",
+                             "timestamps":          "Timestamp debug/log messages"},
+    "snmp-server":          "Modify SNMP parameters",
+    "spanning-tree":        {"_desc": "Spanning Tree Subsystem",
+                             "mode":           {"_desc": "Spanning tree operating mode",
+                                                "pvst":    "Per-VLAN spanning tree mode",
+                                                "rapid-pvst": "Per-VLAN rapid spanning tree"},
+                             "portfast":       {"_desc": "Spanning tree portfast options",
+                                                "default": "Enable portfast by default on all access ports"},
+                             "vlan":           "VLAN Switch Spanning Tree"},
+    "username":             "Establish User Name Authentication",
+    "vlan":                 "VLAN commands",
+    "wlan":                 "Wireless LAN configuration",
+    "zone":                 {"_desc": "Zone configuration",
+                             "security": "Security zone"},
+    "zone-pair":            {"_desc": "Zone pair configuration",
+                             "security": "Security zone pair"},
+}
+
+_CONFIG_IF_TREE = {
+    "channel-group":        "Etherchannel/port bundling function",
+    "description":          "Interface specific description",
+    "do":                   "To run exec commands in config mode",
+    "duplex":               {"_desc": "Configure duplex operation",
+                             "auto":  "Auto duplex",
+                             "full":  "Force full duplex",
+                             "half":  "Force half-duplex"},
+    "encapsulation":        {"_desc": "Set encapsulation type for an interface",
+                             "dot1q": "IEEE 802.1Q Virtual LAN"},
+    "end":                  "Exit from configure mode",
+    "exit":                 "Exit from current mode",
+    "ip":                   {"_desc": "Interface Internet Protocol config commands",
+                             "access-group": "Specify access control for packets",
+                             "address":      "Set the IP address of an interface",
+                             "helper-address": "Specify a destination address for UDP broadcasts",
+                             "nat":          {"_desc": "NAT interface commands",
+                                              "inside":  "NAT inside interface",
+                                              "outside": "NAT outside interface"},
+                             "ospf":         {"_desc": "OSPF interface commands",
+                                              "cost":      "Interface cost",
+                                              "priority":  "Router priority",
+                                              "area":      "Enable OSPF on this interface"}},
+    "ipv6":                 {"_desc": "IPv6 interface subcommands",
+                             "address":  "Configure IPv6 address on interface",
+                             "ospf":     "IPv6 OSPF interface parameters"},
+    "mpls":                 {"_desc": "MPLS interface commands",
+                             "ip": "Enable MPLS on this interface"},
+    "no":                   "Negate a command or set its defaults",
+    "shutdown":             "Shutdown the selected interface",
+    "no shutdown":          "Enable the selected interface",
+    "spanning-tree":        {"_desc": "Spanning Tree Subsystem",
+                             "bpduguard": {"_desc": "Don't accept BPDUs on this interface",
+                                           "enable": "Enable BPDU guard for this interface"},
+                             "portfast":  "Portfast options for the interface"},
+    "speed":                {"_desc": "Configure speed operation",
+                             "auto": "Enable AUTO speed configuration",
+                             "10":   "Force 10 Mbps operation",
+                             "100":  "Force 100 Mbps operation",
+                             "1000": "Force 1000 Mbps operation"},
+    "switchport":           {"_desc": "Set switching mode characteristics",
+                             "access":  {"_desc": "Set access mode characteristics of the interface",
+                                         "vlan": "Set VLAN when interface is in access mode"},
+                             "mode":    {"_desc": "Set trunking mode of the interface",
+                                         "access": "Set trunking mode to ACCESS unconditionally",
+                                         "trunk":  "Set trunking mode to TRUNK unconditionally",
+                                         "dynamic": {"_desc": "Set trunking mode to dynamically negotiate",
+                                                     "auto":    "Set mode to dynamically negotiate",
+                                                     "desirable": "Set mode to dynamically negotiate"}},
+                             "nonegotiate":        "Device will not engage in negotiation protocol on this interface",
+                             "trunk":   {"_desc": "Set trunking characteristics of the interface",
+                                         "allowed": {"_desc": "Set allowed VLAN characteristics",
+                                                     "vlan": "Set allowed VLANs on the trunk link"},
+                                         "encapsulation": "Set encapsulation type for trunk",
+                                         "native": {"_desc": "Set trunking native characteristics",
+                                                    "vlan": "Set native VLAN when interface is in trunking mode"}}},
+    "tunnel":               {"_desc": "Protocol-over-Protocol tunneling",
+                             "destination": "Set the destination of the tunnel",
+                             "mode":        {"_desc": "Tunnel encapsulation method",
+                                             "gre":  {"_desc": "Generic Route Encapsulation Protocol",
+                                                      "ip": "GRE over IP"}},
+                             "source":      "Set the source of the tunnel"},
+    "zone-member":          {"_desc": "Zone membership for the interface",
+                             "security": "Zone security membership"},
+}
+
+_CONFIG_ROUTER_TREE = {
+    "area":          {"_desc": "OSPF area parameters",
+                      "authentication":  "Enable authentication",
+                      "stub":            "Settings for configuring the area as a stub"},
+    "auto-summary":  "Enable automatic network number summarization",
+    "default-information": {"_desc": "Control distribution of default information",
+                            "originate": "Distribute a default route"},
+    "do":            "To run exec commands in config mode",
+    "end":           "Exit from configure mode",
+    "exit":          "Exit from routing protocol configuration mode",
+    "neighbor":      "Specify a neighbor router",
+    "network":       "Enable routing on an IP network",
+    "no":            "Negate a command or set its defaults",
+    "passive-interface": "Suppress routing updates on an interface",
+    "redistribute":  "Redistribute information from another routing protocol",
+    "remote-as":     "Specify the remote AS number",
+    "router-id":     "Router-id for this OSPF process",
+    "timers":        "Adjust routing timers",
+    "update-source": "Source of routing updates",
+}
+
+_CONFIG_VLAN_TREE = {
+    "do":    "To run exec commands in config mode",
+    "end":   "Exit from configure mode",
+    "exit":  "Exit from current mode",
+    "name":  "Ascii name of the VLAN",
+    "no":    "Negate a command or set its defaults",
+    "state": {"_desc": "Operational state of the VLAN",
+              "active":   "VLAN active state",
+              "suspend":  "VLAN suspend state"},
+}
+
+_CONFIG_LINE_TREE = {
+    "access-class":     "Filter connections based on an IP access list",
+    "do":               "To run exec commands in config mode",
+    "end":              "Exit from configure mode",
+    "exec-timeout":     "Set the EXEC timeout",
+    "exit":             "Exit from current mode",
+    "login":            {"_desc": "Enable password checking",
+                         "local": "Local password checking"},
+    "logging":          {"_desc": "Modify message logging facilities",
+                         "synchronous": "Synchronize unsolicited messages"},
+    "no":               "Negate a command or set its defaults",
+    "password":         "Set a password",
+    "transport":        {"_desc": "Define transport protocols for line",
+                         "input":  {"_desc": "Define which protocols to use when connecting to the terminal server",
+                                    "ssh":    "TCP/IP SSH protocol",
+                                    "telnet": "TCP/IP Telnet protocol",
+                                    "all":    "All protocols",
+                                    "none":   "No protocols"}},
+}
+
+_CONFIG_DHCP_TREE = {
+    "default-router":   "Default routers",
+    "dns-server":       "DNS servers",
+    "do":               "To run exec commands in config mode",
+    "domain-name":      "Domain name",
+    "end":              "Exit from configure mode",
+    "exit":             "Exit from current mode",
+    "lease":            {"_desc": "Address lease time",
+                         "infinite": "Infinite lease time"},
+    "network":          "Network number and mask",
+    "no":               "Negate a command or set its defaults",
+}
+
+_CONFIG_ACL_TREE = {
+    "deny":   "Specify packets to reject",
+    "do":     "To run exec commands in config mode",
+    "end":    "Exit from configure mode",
+    "exit":   "Exit from current mode",
+    "no":     "Negate a command or set its defaults",
+    "permit": "Specify packets to forward",
+    "remark": "Access list entry comment",
+}
+
+_HELP_TREES = {
+    "user":           {"enable": "Turn on privileged commands",
+                       "exit":   "Exit to lower level",
+                       "ping":   "Send echo messages",
+                       "show":   _SHOW_TREE,
+                       "?":      "Help"},
+    "privileged":     _PRIV_TREE,
+    "config":         _CONFIG_TREE,
+    "config-if":      _CONFIG_IF_TREE,
+    "config-router":  _CONFIG_ROUTER_TREE,
+    "config-vlan":    _CONFIG_VLAN_TREE,
+    "config-line":    _CONFIG_LINE_TREE,
+    "config-dhcp":    _CONFIG_DHCP_TREE,
+    "config-acl":     _CONFIG_ACL_TREE,
+    "config-zone":    {"do": "To run exec commands in config mode",
+                       "end": "Exit from configure mode",
+                       "exit": "Exit from current mode",
+                       "no":  "Negate a command",
+                       "service-policy": {"_desc": "Configure zone-pair service policy",
+                                          "type": {"_desc": "Policy type",
+                                                   "inspect": "Inspect policy"}}},
+}
+
+
+def _format_help(items: dict, prefix: str = "") -> str:
+    """Format a dict of {keyword: desc_or_subtree} like real IOS help output."""
+    lines = []
+    col_width = max((len(k) for k in items if k != "_desc"), default=10) + 2
+    for kw, val in sorted(items.items()):
+        if kw == "_desc":
+            continue
+        if isinstance(val, dict):
+            desc = val.get("_desc", kw)
+        else:
+            desc = val
+        lines.append(f"  {kw:<{col_width}}{desc}")
+    lines.append("  <cr>")
+    return "\n".join(lines)
+
+
+def _resolve_help(tokens: list[str], tree: dict) -> str:
+    """
+    Walk token list into the tree and return formatted help for whatever
+    level the user has reached.
+    """
+    node = tree
+    for i, tok in enumerate(tokens):
+        if not isinstance(node, dict):
+            return "  % No help available."
+        tl = tok.lower()
+        # Exact match
+        if tl in node:
+            child = node[tl]
+            if isinstance(child, dict):
+                node = child
+            else:
+                # leaf — next token would be <cr>
+                return "  <cr>"
+        else:
+            # Prefix match — collect all matching keys
+            matches = {k: v for k, v in node.items()
+                       if k != "_desc" and k.startswith(tl)}
+            if not matches:
+                return f"  % Unrecognized command '{tok}'. Type ? for help."
+            if len(matches) == 1:
+                k = list(matches.keys())[0]
+                child = matches[k]
+                if isinstance(child, dict):
+                    node = child
+                else:
+                    return "  <cr>"
+            else:
+                return _format_help(matches)
+    return _format_help({k: v for k, v in node.items() if k != "_desc"})
+
+
+def _help_output(raw_input: str, mode: str) -> str:
+    """
+    Produce IOS-style ? help output for the given raw input and mode.
+
+    raw_input is whatever the user typed, including the trailing ? (or just ?)
+    mode is the current IOS mode string (e.g. "privileged", "config-if")
+    """
+    tree = _HELP_TREES.get(mode, _HELP_TREES.get("privileged", {}))
+
+    stripped = raw_input.strip()
+
+    # Case 1 — bare "?"
+    if stripped == "?":
+        return _format_help({k: v for k, v in tree.items() if k != "_desc"})
+
+    # Case 2 — "command ?" (trailing space before ?) or "command?"
+    # Detect which case
+    has_space_before_q = re.search(r"\s\?$", stripped)
+    if has_space_before_q:
+        # Subcommand help — everything before the "?"
+        prefix_part = stripped[:-1].rstrip()
+    else:
+        # Prefix completion — everything before the trailing "?"
+        prefix_part = stripped[:-1].rstrip()
+
+    if not prefix_part:
+        return _format_help({k: v for k, v in tree.items() if k != "_desc"})
+
+    tokens = prefix_part.split()
+
+    # If no space before ?, we want prefix matches on the last token
+    if not has_space_before_q and tokens:
+        last = tokens[-1].lower()
+        parent_tokens = tokens[:-1]
+        # Walk to the parent node
+        node = tree
+        for tok in parent_tokens:
+            if not isinstance(node, dict):
+                break
+            tl = tok.lower()
+            if tl in node:
+                child = node[tl]
+                node = child if isinstance(child, dict) else {}
+            else:
+                matches = {k: v for k, v in node.items()
+                           if k != "_desc" and k.startswith(tl)}
+                if len(matches) == 1:
+                    k = list(matches.keys())[0]
+                    child = matches[k]
+                    node = child if isinstance(child, dict) else {}
+                else:
+                    node = matches
+        if isinstance(node, dict):
+            prefix_matches = {k: v for k, v in node.items()
+                              if k != "_desc" and k.startswith(last)}
+            if prefix_matches:
+                return _format_help(prefix_matches)
+            return f"  % Unrecognized command '\'{last}\'\'. Type ? for help."
+        return "  <cr>"
+
+    # Space before ? — show subcommands for whatever we have so far
+    return _resolve_help(tokens, tree)
+
+
 def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple[str, str]:
     """Return (output_text, new_mode)."""
     # Strip 'do ' prefix — allows exec commands from any config mode
@@ -314,14 +825,20 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
     if do_prefix:
         raw = do_prefix.group(1).strip()
 
+    cmd_orig = raw  # preserve case for ? help
     cmd = raw.lower()
+
+    key = mode_key or device_name  # fallback for direct calls
+    current_mode = DEVICE_MODES.get(key, "privileged")
 
     # Quiz mode — just echo the answer back, no IOS simulation
     if device_name == "QUIZ":
         return (f"  → {command.strip()}", "quiz")
 
-    key = mode_key or device_name  # fallback for direct calls
-    current_mode = DEVICE_MODES.get(key, "privileged")
+    # ── ? HELP — handle before any other processing ─────────────
+    help_raw = raw if is_do else cmd_orig
+    if help_raw.strip().endswith("?") or help_raw.strip() == "?":
+        return (_help_output(help_raw.strip(), current_mode), current_mode)
 
     # ── Universal commands — always allowed regardless of mode ──
     if cmd in ("end", "exit") and current_mode.startswith("config"):
