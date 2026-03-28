@@ -45,11 +45,11 @@ function TheoryPageContent({ slug, theoryMd }) {
 
   sections.forEach((section, i) => {
     elements.push(<Markdown key={`section-${i}`} text={section.lines.join('\n')} />);
-    // Inject diagrams whose afterSection fuzzy-matches this section heading
+    // Inject diagrams whose afterSection exactly matches this section heading
     inlines.forEach((inline, j) => {
-      const target = inline.afterSection.toLowerCase();
-      const heading = (section.heading || '').toLowerCase();
-      if (heading.includes(target) || target.includes(heading.split(' ')[0])) {
+      const target = inline.afterSection.toLowerCase().trim();
+      const heading = (section.heading || '').toLowerCase().trim();
+      if (heading === target) {
         const Component = inline.component;
         elements.push(<Component key={`inline-${i}-${j}`} />);
       }

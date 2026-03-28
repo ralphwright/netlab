@@ -2817,47 +2817,941 @@ function OspfSpfTree() {
 // Inline diagram registry
 // Each entry: { afterSection: 'heading text to inject AFTER', component }
 // ────────────────────────────────────────────────────────────────
+
+// ────────────────────────────────────────────────────────────────
+// Cisco Three-Tier Hierarchical Model
+// ────────────────────────────────────────────────────────────────
+function ThreeTierModel() {
+  const [hovered, setHovered] = React.useState(null);
+  const tiers = [
+    {
+      name: 'Core Layer',
+      color: '#f43f5e',
+      devices: ['Core Switch A', 'Core Switch B'],
+      icon: '⬡',
+      purpose: 'High-speed backbone — forwards packets as fast as possible. No policy, no filtering. Redundant high-capacity switches (e.g. Catalyst 9500). Connects distribution blocks.',
+      keywords: ['High speed', 'Redundancy', 'No policy enforcement', 'L3 switching'],
+    },
+    {
+      name: 'Distribution Layer',
+      color: '#7c4dff',
+      devices: ['Dist-SW1', 'Dist-SW2'],
+      icon: '⬡',
+      purpose: 'Policy boundary — routing between VLANs, QoS marking, ACL enforcement, summarisation of routes toward core. Aggregates access layer uplinks.',
+      keywords: ['Inter-VLAN routing', 'ACLs & QoS', 'Route summarisation', 'Redundant uplinks'],
+    },
+    {
+      name: 'Access Layer',
+      color: '#00e5ff',
+      devices: ['Acc-SW1', 'Acc-SW2', 'Acc-SW3', 'Acc-SW4'],
+      icon: '⊞',
+      purpose: 'End-device connectivity — where PCs, IP phones, APs and printers plug in. Port security, VLAN assignment, PoE, STP PortFast/BPDU Guard all configured here.',
+      keywords: ['End-device ports', 'VLAN assignment', 'PortFast / BPDU Guard', 'PoE'],
+    },
+  ];
+  return (
+    <InlineViz label="CISCO THREE-TIER HIERARCHICAL MODEL" accent="#7c4dff">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {tiers.map((tier, ti) => (
+          <div key={ti}>
+            {/* Tier row */}
+            <div
+              onMouseEnter={() => setHovered(ti)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 16, padding: '12px 16px',
+                background: hovered === ti ? `${tier.color}12` : `${tier.color}06`,
+                border: `1px solid ${hovered === ti ? tier.color : tier.color + '25'}`,
+                borderRadius: ti === 0 ? '6px 6px 0 0' : ti === tiers.length-1 ? '0 0 6px 6px' : 0,
+                cursor: 'default', transition: 'all 0.2s',
+                borderBottom: ti < tiers.length - 1 ? `1px solid ${tier.color}20` : undefined,
+              }}>
+              {/* Label */}
+              <div style={{ width: 130, flexShrink: 0 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: tier.color }}>{tier.name}</div>
+                <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                  {tier.keywords.slice(0,2).map((k,i) => (
+                    <span key={i} style={{ fontSize: '0.5rem', fontFamily: 'var(--font-mono)', color: tier.color, background: `${tier.color}15`, padding: '1px 5px', borderRadius: 3 }}>{k}</span>
+                  ))}
+                </div>
+              </div>
+              {/* Devices */}
+              <div style={{ display: 'flex', gap: 8, flex: 1, justifyContent: 'center' }}>
+                {tier.devices.map((d, di) => (
+                  <div key={di} style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  }}>
+                    <div style={{
+                      width: 44, height: 36, borderRadius: 6, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      background: `${tier.color}15`, border: `1.5px solid ${tier.color}`,
+                      fontFamily: 'var(--font-mono)', fontSize: '0.875rem', color: tier.color,
+                      fontWeight: 700,
+                    }}>{tier.icon}</div>
+                    <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center' }}>{d}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Description on hover */}
+              <div style={{ flex: 2, fontSize: '0.6875rem', color: 'var(--text-secondary)', lineHeight: 1.5, opacity: hovered === ti ? 1 : 0, transition: 'opacity 0.2s', minWidth: 0 }}>
+                {tier.purpose}
+              </div>
+            </div>
+            {/* Uplink lines between tiers */}
+            {ti < tiers.length - 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 40, padding: '3px 0', background: 'transparent' }}>
+                {[0,1].map(i => (
+                  <div key={i} style={{ width: 2, height: 12, background: `${tiers[ti].color}50` }} />
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, fontSize: '0.6875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+        Hover a tier to see its role · Traffic flows access → distribution → core → distribution → access
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Two-Tier (Collapsed Core) Model
+// ────────────────────────────────────────────────────────────────
+function TwoTierModel() {
+  return (
+    <InlineViz label="TWO-TIER (COLLAPSED CORE) vs THREE-TIER" accent="#ffab00">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Three-tier mini */}
+        <div>
+          <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: '#7c4dff', marginBottom: 8 }}>THREE-TIER</div>
+          {['Core','Distribution','Access'].map((l, i) => {
+            const colors = ['#f43f5e','#7c4dff','#00e5ff'];
+            return (
+              <div key={i} style={{
+                padding: '6px 10px', marginBottom: 3, textAlign: 'center',
+                background: `${colors[i]}10`, border: `1px solid ${colors[i]}40`,
+                borderRadius: 5, fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                color: colors[i], fontWeight: 600,
+              }}>{l}</div>
+            );
+          })}
+          <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', marginTop: 6 }}>
+            3 separate physical layers. Best for large campus (&gt;500 users). Supports modular growth.
+          </div>
+        </div>
+        {/* Two-tier mini */}
+        <div>
+          <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: '#ffab00', marginBottom: 8 }}>TWO-TIER (COLLAPSED CORE)</div>
+          {['Distribution/Core (merged)','Access'].map((l, i) => {
+            const colors = ['#ffab00','#00e5ff'];
+            return (
+              <div key={i} style={{
+                padding: '6px 10px', marginBottom: 3, textAlign: 'center',
+                background: `${colors[i]}10`, border: `1px solid ${colors[i]}40`,
+                borderRadius: 5, fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                color: colors[i], fontWeight: 600,
+              }}>{l}</div>
+            );
+          })}
+          <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', marginTop: 6 }}>
+            Core + Distribution collapsed into one layer. Fewer devices, lower cost. Ideal for small/medium sites (&lt;500 users).
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Hub — broadcast flood animation
+// ────────────────────────────────────────────────────────────────
+function HubFloodAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  useEffect(() => {
+    if (isPaused || step >= 3) return;
+    const t = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const ports = [
+    { label: 'PC-A', sub: 'Source', x: 40,  y: 80,  isSource: true  },
+    { label: 'PC-B', sub: 'Port 2', x: 270, y: 30,  isSource: false },
+    { label: 'PC-C', sub: 'Port 3', x: 270, y: 80,  isSource: false },
+    { label: 'PC-D', sub: 'Port 4', x: 270, y: 130, isSource: false },
+  ];
+  return (
+    <InlineViz label="HUB — EVERY FRAME FLOODED TO ALL PORTS (L1)" accent="#78909c">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 320 160" style={{ width: 300, maxHeight: 160, flexShrink: 0 }}>
+          {/* Hub */}
+          <rect x="120" y="60" width="70" height="40" rx="5"
+            fill="rgba(120,144,156,0.12)" stroke="#78909c" strokeWidth="1.5"/>
+          <text x="155" y="78" textAnchor="middle" fill="#78909c" fontFamily="monospace" fontSize="11" fontWeight="bold">HUB</text>
+          <text x="155" y="91" textAnchor="middle" fill="#546e7a" fontFamily="monospace" fontSize="8">Layer 1 only</text>
+          {/* Links + packets */}
+          {ports.map((p, i) => {
+            const active = p.isSource ? step >= 1 : step >= 2;
+            const color = p.isSource ? '#ffab00' : '#ff5252';
+            const x2 = p.isSource ? 120 : 190;
+            return (
+              <g key={i}>
+                <line x1={p.isSource ? 80 : 270} y1={p.y}
+                  x2={x2} y2={80}
+                  stroke={active ? color : 'var(--border-subtle)'}
+                  strokeWidth={active ? 2 : 1}
+                  style={{ transition: 'stroke 0.4s' }}/>
+                {active && step >= 2 && !p.isSource && (
+                  <circle cx={p.isSource ? 80 : 270} cy={p.y} r="5" fill={color} opacity="0.8">
+                    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1s" repeatCount="indefinite"/>
+                  </circle>
+                )}
+                <rect x={p.isSource ? 5 : 275} y={p.y - 12} width={65} height={24} rx="4"
+                  fill={active ? `${color}12` : 'var(--bg-elevated)'}
+                  stroke={active ? color : 'var(--border-subtle)'} strokeWidth="1"
+                  style={{ transition: 'all 0.4s' }}/>
+                <text x={p.isSource ? 37 : 307} y={p.y - 2} textAnchor="middle"
+                  fill={active ? color : 'var(--text-muted)'}
+                  fontFamily="monospace" fontSize="9" fontWeight="bold">{p.label}</text>
+                <text x={p.isSource ? 37 : 307} y={p.y + 8} textAnchor="middle"
+                  fill="var(--text-muted)" fontFamily="monospace" fontSize="7">{p.sub}</text>
+              </g>
+            );
+          })}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+            {step === 0 && 'Hub has no intelligence — it cannot read MAC addresses.'}
+            {step === 1 && 'PC-A transmits a frame onto the hub.'}
+            {step === 2 && '⚠ Hub repeats the signal out ALL ports simultaneously. PC-B, C, D all receive the frame.'}
+            {step >= 3 && '⚠ Only the intended recipient keeps it; others discard — but bandwidth is wasted and collisions are possible.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Switch — MAC table learning animation
+// ────────────────────────────────────────────────────────────────
+function SwitchMacLearning() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const events = [
+    { text: 'PC-A sends a frame. Switch has empty MAC table — floods to all ports except source.', mac: null },
+    { text: 'Switch learns: aa:bb:01 is on Port 1. MAC table updated.', mac: { addr: 'aa:bb:01', port: 'Gi0/1' } },
+    { text: 'PC-B replies. Switch learns aa:bb:02 → Port 2.', mac: { addr: 'aa:bb:02', port: 'Gi0/2' } },
+    { text: 'PC-A sends again to PC-B. Switch looks up aa:bb:02 → forwards only to Port 2. ✓ Unicast forwarding.', mac: null },
+  ];
+  const macTable = [
+    { addr: 'aa:bb:01', port: 'Gi0/1', visible: step >= 1 },
+    { addr: 'aa:bb:02', port: 'Gi0/2', visible: step >= 2 },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= events.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="SWITCH — MAC ADDRESS TABLE LEARNING (L2)" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Left: diagram */}
+        <div>
+          <svg viewBox="0 0 240 140" style={{ width: '100%', maxHeight: 140 }}>
+            <rect x="85" y="55" width="70" height="30" rx="4"
+              fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1.5"/>
+            <text x="120" y="70" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="10" fontWeight="bold">SWITCH</text>
+            <text x="120" y="80" textAnchor="middle" fill="#546e7a" fontFamily="monospace" fontSize="7">MAC table</text>
+            {[
+              { x: 30, y: 70, label: 'PC-A', port: 'Gi0/1', color: '#ffab00', active: step >= 0 },
+              { x: 210, y: 40, label: 'PC-B', port: 'Gi0/2', color: '#00e676', active: step >= 1 },
+              { x: 210, y: 100, label: 'PC-C', port: 'Gi0/3', color: '#7c4dff', active: step === 0 },
+            ].map((p, i) => (
+              <g key={i}>
+                <line x1={i === 0 ? 68 : 155} y1={p.y} x2={i === 0 ? 85 : 155} y2={70}
+                  stroke={p.active ? p.color : 'var(--border-subtle)'}
+                  strokeWidth={p.active ? 2 : 1} style={{ transition: 'stroke 0.4s' }}/>
+                <rect x={i === 0 ? 5 : 175} y={p.y - 10} width={55} height={20} rx="3"
+                  fill={p.active ? `${p.color}12` : 'var(--bg-elevated)'}
+                  stroke={p.active ? p.color : 'var(--border-subtle)'} strokeWidth="1"/>
+                <text x={i === 0 ? 32 : 202} y={p.y + 4} textAnchor="middle"
+                  fill={p.active ? p.color : 'var(--text-muted)'}
+                  fontFamily="monospace" fontSize="9" fontWeight="bold">{p.label}</text>
+              </g>
+            ))}
+          </svg>
+        </div>
+        {/* Right: MAC table + explanation */}
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: 6 }}>MAC ADDRESS TABLE</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', marginBottom: 10 }}>
+            <thead>
+              <tr>
+                {['MAC Address','Port'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', color: 'var(--text-muted)', padding: '2px 6px', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.5875rem' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {macTable.map((r, i) => r.visible && (
+                <tr key={i}>
+                  <td style={{ padding: '3px 6px', color: '#00e5ff' }}>{r.addr}</td>
+                  <td style={{ padding: '3px 6px', color: '#ffab00' }}>{r.port}</td>
+                </tr>
+              ))}
+              {macTable.every(r => !r.visible) && (
+                <tr><td colSpan={2} style={{ padding: '3px 6px', color: 'var(--text-muted)', fontStyle: 'italic' }}>(empty)</td></tr>
+              )}
+            </tbody>
+          </table>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 8 }}>
+            {events[step]?.text}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Router — packet forwarding across subnets
+// ────────────────────────────────────────────────────────────────
+function RouterForwardingAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  useEffect(() => {
+    if (isPaused || step >= 5) return;
+    const t = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="ROUTER — PACKET FORWARDING ACROSS SUBNETS (L3)" accent="#2979ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 380 120" style={{ width: 360, maxHeight: 120, flexShrink: 0 }}>
+          {/* Subnet A */}
+          <rect x="5" y="30" width="80" height="60" rx="5"
+            fill="rgba(0,229,255,0.06)" stroke="rgba(0,229,255,0.3)" strokeWidth="1"/>
+          <text x="45" y="47" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8">10.0.1.0/24</text>
+          <rect x="15" y="55" width="60" height="24" rx="3" fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+          <text x="45" y="65" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-A</text>
+          <text x="45" y="74" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">10.0.1.10</text>
+          {/* Arrow A→R */}
+          <line x1="85" y1="67" x2="150" y2="67"
+            stroke={step >= 1 ? '#00e5ff' : 'var(--border-subtle)'}
+            strokeWidth="2" style={{ transition: 'stroke 0.4s' }}/>
+          {step >= 1 && step < 3 && (
+            <circle cx={110 + (step-1)*20} cy={67} r="6" fill="#00e5ff" opacity="0.9"/>
+          )}
+          {/* Router */}
+          <circle cx="185" cy="67" r="28"
+            fill={step >= 2 ? 'rgba(41,121,255,0.15)' : 'rgba(41,121,255,0.06)'}
+            stroke="#2979ff" strokeWidth="1.5" style={{ transition: 'all 0.4s' }}/>
+          <text x="185" y="63" textAnchor="middle" fill="#2979ff" fontFamily="monospace" fontSize="10" fontWeight="bold">R1</text>
+          <text x="185" y="74" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">TTL--</text>
+          {step >= 2 && (
+            <text x="185" y="85" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">Routing...</text>
+          )}
+          {/* Arrow R→B */}
+          <line x1="213" y1="67" x2="280" y2="67"
+            stroke={step >= 3 ? '#00e676' : 'var(--border-subtle)'}
+            strokeWidth="2" style={{ transition: 'stroke 0.4s' }}/>
+          {step >= 3 && step < 5 && (
+            <circle cx={230 + (step-3)*30} cy={67} r="6" fill="#00e676" opacity="0.9"/>
+          )}
+          {/* Subnet B */}
+          <rect x="290" y="30" width="80" height="60" rx="5"
+            fill="rgba(0,230,118,0.06)" stroke="rgba(0,230,118,0.3)" strokeWidth="1"/>
+          <text x="330" y="47" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8">10.0.2.0/24</text>
+          <rect x="300" y="55" width="60" height="24" rx="3" fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1"/>
+          <text x="330" y="65" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-B</text>
+          <text x="330" y="74" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">10.0.2.20</text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+            {step === 0 && 'Two subnets on different IP networks — a switch cannot bridge them.'}
+            {step === 1 && 'PC-A sends packet to its default gateway (R1 Gi0/0: 10.0.1.1).'}
+            {step === 2 && 'Router receives packet. Looks up 10.0.2.20 in routing table. Decrements TTL.'}
+            {step === 3 && 'Match found: 10.0.2.0/24 via Gi0/1. Router forwards packet.'}
+            {step === 4 && 'Packet arrives on the 10.0.2.0/24 subnet.'}
+            {step >= 5 && '✓ PC-B receives packet. Router enabled communication between two different subnets.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Firewall — zone-based permit/deny
+// ────────────────────────────────────────────────────────────────
+function FirewallZoneAnim() {
+  const [selected, setSelected] = React.useState(0);
+  const scenarios = [
+    { label: 'Permit outbound',  from: 'INSIDE', to: 'OUTSIDE', result: 'permit', color: '#00e676', desc: 'Established session from inside → outside. Stateful table created. Reply traffic auto-permitted.' },
+    { label: 'Block inbound',    from: 'OUTSIDE', to: 'INSIDE', result: 'deny',   color: '#ff5252', desc: 'Unsolicited packet from outside. No matching session in state table. Firewall drops silently.' },
+    { label: 'DMZ server',       from: 'OUTSIDE', to: 'DMZ',    result: 'permit', color: '#ffab00', desc: 'HTTP/443 to DMZ web server. Explicit rule permits. DMZ cannot initiate to INSIDE.' },
+  ];
+  const s = scenarios[selected];
+  return (
+    <InlineViz label="FIREWALL — ZONE-BASED STATEFUL INSPECTION (L3–L7)" accent="#ff6d00">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        {scenarios.map((sc, i) => (
+          <button key={i} onClick={() => setSelected(i)} style={{
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: selected === i ? `${sc.color}20` : 'var(--bg-elevated)',
+            border: `1px solid ${selected === i ? sc.color : 'var(--border-subtle)'}`,
+            color: selected === i ? sc.color : 'var(--text-muted)',
+            transition: 'all 0.2s',
+          }}>{sc.label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 340 120" style={{ width: 320, maxHeight: 120, flexShrink: 0 }}>
+          {/* Zones */}
+          {[
+            { label: 'OUTSIDE', x: 5,   color: '#ff5252' },
+            { label: 'DMZ',     x: 125, color: '#ffab00' },
+            { label: 'INSIDE',  x: 245, color: '#00e676' },
+          ].map((z, i) => (
+            <g key={i}>
+              <rect x={z.x} y="20" width="85" height="80" rx="5"
+                fill={`${z.color}08`} stroke={`${z.color}30`} strokeWidth="1"/>
+              <text x={z.x+42} y="36" textAnchor="middle" fill={z.color}
+                fontFamily="monospace" fontSize="9" fontWeight="bold">{z.label}</text>
+              <rect x={z.x+17} y="50" width="50" height="30" rx="3"
+                fill={`${z.color}15`} stroke={z.color} strokeWidth="1"/>
+              <text x={z.x+42} y="69" textAnchor="middle" fill={z.color}
+                fontFamily="monospace" fontSize="8">
+                {i === 0 ? 'Internet' : i === 1 ? 'Web Server' : 'Corp Host'}
+              </text>
+            </g>
+          ))}
+          {/* Firewall boxes between zones */}
+          {[95, 215].map((x, i) => (
+            <g key={i}>
+              <rect x={x} y="45" width="24" height="30" rx="3"
+                fill="rgba(255,109,0,0.2)" stroke="#ff6d00" strokeWidth="1.5"/>
+              <text x={x+12} y="58" textAnchor="middle" fill="#ff6d00"
+                fontFamily="monospace" fontSize="7" fontWeight="bold">FW</text>
+              <text x={x+12} y="68" textAnchor="middle" fill="#ff6d00"
+                fontFamily="monospace" fontSize="7">🔥</text>
+            </g>
+          ))}
+          {/* Animated arrow */}
+          {(() => {
+            const fromX = s.from === 'OUTSIDE' ? 90 : s.from === 'DMZ' ? 210 : 335;
+            const toX   = s.to === 'INSIDE'  ? 335 : s.to === 'DMZ'    ? 210 : 90;
+            const dir   = fromX < toX ? 1 : -1;
+            return (
+              <g>
+                <line x1={fromX} y1={65} x2={toX} y2={65}
+                  stroke={s.color} strokeWidth="2" strokeDasharray="6,3"
+                  markerEnd="url(#arrow)"/>
+                <text x={(fromX+toX)/2} y={55} textAnchor="middle"
+                  fill={s.color} fontFamily="monospace" fontSize="9" fontWeight="bold">
+                  {s.result === 'permit' ? '✓ PERMIT' : '✗ DENY'}
+                </text>
+              </g>
+            );
+          })()}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{s.desc}</div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Access Point — client association
+// ────────────────────────────────────────────────────────────────
+function ApAssociationAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const steps2 = [
+    'AP broadcasts beacon frames — announces SSID "CorpWiFi" every 100ms.',
+    'Client sends Probe Request for CorpWiFi.',
+    'AP sends Probe Response with capabilities (channel, security, data rates).',
+    'Client sends Authentication Request. AP responds with Authentication Response.',
+    'Client sends Association Request (chosen rates, SSID). AP assigns AID.',
+    '✓ Client associated. AP bridges client onto VLAN 10 (wired LAN). Client gets IP via DHCP.',
+  ];
+  useEffect(() => {
+    if (isPaused || step >= steps2.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="ACCESS POINT — 802.11 CLIENT ASSOCIATION (L1–L2)" accent="#00e676">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 130" style={{ width: 260, maxHeight: 130, flexShrink: 0 }}>
+          {/* AP */}
+          <rect x="95" y="20" width="90" height="40" rx="5"
+            fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1.5"/>
+          <text x="140" y="37" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="10" fontWeight="bold">AP1</text>
+          <text x="140" y="49" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">CorpWiFi · Ch6</text>
+          {/* Radio waves from AP */}
+          {[18,28,38].map((r,i) => (
+            <circle key={i} cx="140" cy="40" r={r}
+              fill="none" stroke="#00e676" strokeWidth="0.8"
+              opacity={step >= 1 ? 0.3 + i*0.1 : 0.1}
+              style={{ transition: 'opacity 0.4s' }}/>
+          ))}
+          {/* Client */}
+          <rect x="10" y="85" width="65" height="30" rx="4"
+            fill={step >= 2 ? 'rgba(0,230,118,0.12)' : 'var(--bg-elevated)'}
+            stroke={step >= 2 ? '#00e676' : 'var(--border-subtle)'} strokeWidth="1"
+            style={{ transition: 'all 0.4s' }}/>
+          <text x="42" y="99" textAnchor="middle" fill={step >= 2 ? '#00e676' : 'var(--text-muted)'}
+            fontFamily="monospace" fontSize="9" fontWeight="bold">Laptop</text>
+          <text x="42" y="109" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="7">{step >= 5 ? '10.0.10.55/24' : 'searching...'}</text>
+          {/* Connection line */}
+          {step >= 4 && (
+            <line x1="75" y1="100" x2="115" y2="60"
+              stroke="#00e676" strokeWidth="2" strokeDasharray="4,2"/>
+          )}
+          {/* Uplink to switch */}
+          <rect x="200" y="60" width="70" height="30" rx="4"
+            fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+          <text x="235" y="75" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">SW1</text>
+          <text x="235" y="85" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">VLAN 10</text>
+          <line x1="185" y1="40" x2="200" y2="75"
+            stroke={step >= 5 ? '#00e5ff' : 'rgba(0,229,255,0.2)'}
+            strokeWidth="2" style={{ transition: 'stroke 0.5s' }}/>
+          {/* Step labels */}
+          {step >= 1 && step < 5 && (
+            <text x="140" y="120" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="8">
+              {['','Probe','Auth req','Auth resp','Assoc'][Math.min(step,4)]}
+            </text>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+            {steps2[step]}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// VLAN Database — switch VLAN table visualiser
+// ────────────────────────────────────────────────────────────────
+function VlanDatabaseViz() {
+  const [selected, setSelected] = React.useState(null);
+  const vlans = [
+    { id: 1,   name: 'default',     ports: ['Gi0/1','Gi0/2','Gi0/3','Gi0/4'], color: '#78909c', note: 'All ports start here. Cannot delete VLAN 1.' },
+    { id: 10,  name: 'Engineering', ports: ['Gi0/5','Gi0/6','Gi0/7'],          color: '#00e5ff', note: 'Engineering dept. Subnet 10.0.10.0/24.' },
+    { id: 20,  name: 'Sales',       ports: ['Gi0/8','Gi0/9'],                  color: '#00e676', note: 'Sales dept. Subnet 10.0.20.0/24.' },
+    { id: 30,  name: 'Management',  ports: ['Gi0/10'],                         color: '#ffab00', note: 'OOB management. Subnet 10.0.99.0/24.' },
+    { id: 40,  name: 'Voice',       ports: ['Gi0/5','Gi0/6','Gi0/7'],          color: '#e040fb', note: 'IP phones. Auxiliary VLAN on same ports as Eng.' },
+    { id: 100, name: 'Trunk',       ports: ['Gi0/24 (trunk)'],                 color: '#f43f5e', note: 'Trunk port carries all VLANs to distribution switch.' },
+  ];
+  return (
+    <InlineViz label="VLAN DATABASE — show vlan brief" accent="#7c4dff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {/* Table */}
+        <div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem' }}>
+            <thead>
+              <tr>
+                {['VLAN','Name','Status','Ports'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '3px 8px', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.5875rem' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {vlans.map((v) => (
+                <tr key={v.id}
+                  onClick={() => setSelected(selected === v.id ? null : v.id)}
+                  style={{
+                    cursor: 'pointer',
+                    background: selected === v.id ? `${v.color}15` : 'transparent',
+                    transition: 'background 0.2s',
+                  }}>
+                  <td style={{ padding: '4px 8px', color: v.color, fontWeight: 700 }}>{v.id}</td>
+                  <td style={{ padding: '4px 8px', color: selected === v.id ? v.color : 'var(--text-primary)' }}>{v.name}</td>
+                  <td style={{ padding: '4px 8px', color: '#00e676' }}>active</td>
+                  <td style={{ padding: '4px 8px', color: 'var(--text-muted)', fontSize: '0.5875rem' }}>{v.ports.slice(0,2).join(', ')}{v.ports.length > 2 ? '…' : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* Detail panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          {selected ? (
+            (() => {
+              const v = vlans.find(x => x.id === selected);
+              return (
+                <div style={{ padding: '12px 14px', borderRadius: 6, background: `${v.color}10`, border: `1px solid ${v.color}40` }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: v.color, marginBottom: 6 }}>VLAN {v.id} — {v.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>{v.note}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)' }}>
+                    Ports: {v.ports.join(', ')}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
+              Click a row to see VLAN details
+            </div>
+          )}
+          <div style={{ marginTop: 10, fontSize: '0.625rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            Stored in flash:/vlan.dat · Synchronised via VTP (if enabled)
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Inter-VLAN Routing — Router-on-a-Stick animation
+// ────────────────────────────────────────────────────────────────
+function InterVlanRoutingAnim() {
+  const [step, setStep] = React.useState(0);
+  const [mode, setMode] = React.useState('roas'); // roas | svi
+  const [isPaused, setIsPaused] = React.useState(false);
+  useEffect(() => {
+    if (isPaused || step >= 7) return;
+    const t = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function reset(m) { setMode(m); setStep(0); setIsPaused(false); }
+  const isRoas = mode === 'roas';
+  return (
+    <InlineViz label="INTER-VLAN ROUTING — ROUTER-ON-A-STICK vs L3 SWITCH SVI" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        {[['roas','Router-on-a-Stick'],['svi','L3 Switch SVI']].map(([m, label]) => (
+          <button key={m} onClick={() => reset(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? 'rgba(124,77,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? '#7c4dff' : 'var(--border-subtle)'}`,
+            color: mode === m ? '#7c4dff' : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => reset(mode)}>↺</button>
+        </div>
+      </div>
+      <svg viewBox="0 0 420 140" style={{ width: '100%', maxHeight: 140, display: 'block' }}>
+        {/* PC-A VLAN 10 */}
+        <rect x="5" y="20" width="65" height="30" rx="4"
+          fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+        <text x="37" y="32" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-A</text>
+        <text x="37" y="42" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">VLAN 10</text>
+        {/* PC-B VLAN 20 */}
+        <rect x="5" y="90" width="65" height="30" rx="4"
+          fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1"/>
+        <text x="37" y="102" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-B</text>
+        <text x="37" y="112" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="7">VLAN 20</text>
+        {/* Switch */}
+        <rect x="100" y="55" width="70" height="30" rx="4"
+          fill="rgba(124,77,255,0.1)" stroke="#7c4dff" strokeWidth="1.5"/>
+        <text x="135" y="70" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="9" fontWeight="bold">SW1</text>
+        <text x="135" y="80" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">{isRoas ? 'L2 Switch' : 'L3 Switch'}</text>
+        {/* Links PC→SW */}
+        <line x1="70" y1="35" x2="100" y2="70" stroke={step>=1 ? '#00e5ff':'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+        <line x1="70" y1="105" x2="100" y2="70" stroke={step>=5 ? '#00e676':'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+        {isRoas ? (
+          <>
+            {/* Router */}
+            <circle cx="290" cy="70" r="28"
+              fill={step>=2&&step<=5 ? 'rgba(255,171,0,0.15)' : 'rgba(255,171,0,0.06)'}
+              stroke="#ffab00" strokeWidth="1.5" style={{transition:'all 0.4s'}}/>
+            <text x="290" y="66" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="9" fontWeight="bold">R1</text>
+            <text x="290" y="77" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Gi0/0.10+.20</text>
+            {/* Trunk SW→R */}
+            <line x1="170" y1="70" x2="262" y2="70"
+              stroke={step>=1 ? '#7c4dff':'var(--border-subtle)'} strokeWidth="2.5" style={{transition:'stroke 0.4s'}}/>
+            <text x="216" y="62" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="7">Trunk</text>
+            {/* Packet dot */}
+            {step>=1 && step<=4 && (
+              <circle cx={135+step*35} cy={70} r="7"
+                fill={step<=2?'#00e5ff':'#00e676'} opacity="0.9"/>
+            )}
+          </>
+        ) : (
+          <>
+            {/* SVI inside switch */}
+            <rect x="185" y="50" width="80" height="40" rx="4"
+              fill={step>=2 ? 'rgba(0,230,118,0.15)' : 'rgba(0,230,118,0.06)'}
+              stroke="#00e676" strokeWidth="1.5" style={{transition:'all 0.4s'}}/>
+            <text x="225" y="64" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">SVI</text>
+            <text x="225" y="74" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Vlan10+Vlan20</text>
+            <text x="225" y="83" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">Wire-speed</text>
+            {/* Routing inside switch */}
+            <line x1="170" y1="70" x2="185" y2="70"
+              stroke={step>=1 ? '#7c4dff':'var(--border-subtle)'} strokeWidth="2" style={{transition:'stroke 0.4s'}}/>
+            {step>=1 && step<=5 && (
+              <circle cx={145+step*15} cy={70} r="7"
+                fill={step<=2?'#00e5ff':'#00e676'} opacity="0.9"/>
+            )}
+          </>
+        )}
+      </svg>
+      <div style={{ textAlign: 'center', marginTop: 6, fontSize: '0.8125rem', color: 'var(--text-secondary)', minHeight: 20 }}>
+        {step===0 && 'PC-A (VLAN 10) needs to reach PC-B (VLAN 20). Different subnets — needs L3 routing.'}
+        {step===1 && 'PC-A sends packet to default gateway. Frame tagged VLAN 10 on trunk.'}
+        {step===2 && (isRoas ? 'Router receives on sub-interface Gi0/0.10. Strips VLAN 10 tag.' : 'L3 Switch routes internally between SVI Vlan10 and SVI Vlan20. No external hop.')}
+        {step===3 && (isRoas ? 'Router routes: dest is 10.0.20.0/24 → out Gi0/0.20. Tags frame VLAN 20.' : 'Packet switched at wire speed inside the ASIC.')}
+        {step===4 && 'Tagged frame returned to switch on trunk. Switch sees VLAN 20 tag.'}
+        {step===5 && 'Switch delivers frame to PC-B access port (VLAN 20). Tag stripped.'}
+        {step>=6 && '✓ PC-B receives packet. Inter-VLAN routing complete.'}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// OSPF DR/BDR Election animation
+// ────────────────────────────────────────────────────────────────
+function DrBdrElectionAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  useEffect(() => {
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const routers = [
+    { id: 'R1', rid: '4.4.4.4', pri: 1, x: 210, y: 70,  role: step>=3 ? 'DR'  : '?', color: step>=3 ? '#00e676' : '#ffab00' },
+    { id: 'R2', rid: '3.3.3.3', pri: 1, x: 140, y: 40,  role: step>=3 ? 'BDR' : '?', color: step>=3 ? '#7c4dff' : '#ffab00' },
+    { id: 'R3', rid: '2.2.2.2', pri: 1, x: 70,  y: 70,  role: step>=3 ? 'DRother' : '?', color: step>=3 ? '#78909c' : '#ffab00' },
+    { id: 'R4', rid: '1.1.1.1', pri: 0, x: 140, y: 110, role: step>=2 ? 'Excluded' : '?', color: step>=2 ? '#ff5252' : '#ffab00' },
+  ];
+  return (
+    <InlineViz label="OSPF — DR/BDR ELECTION ON MULTI-ACCESS NETWORK" accent="#00e676">
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 150" style={{ width: 260, maxHeight: 150, flexShrink: 0 }}>
+          {/* Ethernet segment */}
+          <rect x="50" y="65" width="180" height="10" rx="3"
+            fill="rgba(255,171,0,0.1)" stroke="#ffab00" strokeWidth="1"
+            opacity={step>=1?1:0.2} style={{transition:'opacity 0.4s'}}/>
+          <text x="140" y="88" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">Ethernet segment 192.168.1.0/24</text>
+          {routers.map((r, i) => (
+            <g key={i}>
+              <line x1={r.x} y1={r.y > 70 ? r.y : r.y + 18} x2={r.x} y2={70}
+                stroke={step>=1 ? r.color : 'var(--border-subtle)'}
+                strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+              <circle cx={r.x} cy={r.y} r={16}
+                fill={`${r.color}18`} stroke={r.color}
+                strokeWidth={r.role==='DR'||r.role==='BDR' ? 2.5 : 1.5}
+                style={{transition:'all 0.4s'}}/>
+              <text x={r.x} y={r.y-2} textAnchor="middle" fill={r.color}
+                fontFamily="monospace" fontSize="9" fontWeight="bold">{r.id}</text>
+              <text x={r.x} y={r.y+8} textAnchor="middle" fill={r.color}
+                fontFamily="monospace" fontSize="6">{r.rid}</text>
+              {step>=3 && (
+                <text x={r.x} y={r.y+22} textAnchor="middle" fill={r.color}
+                  fontFamily="monospace" fontSize="8" fontWeight="bold">{r.role}</text>
+              )}
+              {step>=2 && r.pri===0 && (
+                <text x={r.x} y={r.y-20} textAnchor="middle" fill="#ff5252"
+                  fontFamily="monospace" fontSize="8">pri=0</text>
+              )}
+            </g>
+          ))}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+            {step===0 && 'Four routers on the same Ethernet segment. All discover each other via Hello packets.'}
+            {step===1 && 'Hellos exchanged. Each router shares its Router ID and priority.'}
+            {step===2 && 'R4 has priority 0 — excluded from DR/BDR election. Priority 0 means "never become DR".'}
+            {step===3 && 'DR elected: R1 (highest Router ID 4.4.4.4). BDR: R2 (3.3.3.3). R3 is DROther.'}
+            {step>=4 && '✓ DROther routers form Full adjacency only with DR and BDR — not with each other. Reduces LSA flooding from O(n²) to O(n).'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// OSPF LSA flooding animation
+// ────────────────────────────────────────────────────────────────
+function LsaFloodingAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const nodes = [
+    { id: 'R1', x: 140, y: 40, color: '#00e676', root: true },
+    { id: 'R2', x: 60,  y: 90, color: '#00e5ff' },
+    { id: 'R3', x: 220, y: 90, color: '#7c4dff' },
+    { id: 'R4', x: 60,  y: 150, color: '#ffab00' },
+    { id: 'R5', x: 220, y: 150, color: '#f43f5e' },
+  ];
+  const links = [
+    { a: 0, b: 1, step: 1 }, { a: 0, b: 2, step: 1 },
+    { a: 1, b: 3, step: 2 }, { a: 2, b: 4, step: 2 },
+    { a: 1, b: 2, step: 3 }, { a: 3, b: 4, step: 3 },
+  ];
+  const reached = new Set(links.filter(l => l.step <= step).flatMap(l => [l.a, l.b]));
+  if (step >= 1) reached.add(0);
+  useEffect(() => {
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep(s => s + 1), 900);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="OSPF — LSA FLOODING (TYPE 1 ROUTER LSA)" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 190" style={{ width: 260, maxHeight: 190, flexShrink: 0 }}>
+          {links.map((l, i) => {
+            const a = nodes[l.a], b = nodes[l.b];
+            const active = l.step <= step;
+            return (
+              <g key={i}>
+                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                  stroke={active ? a.color : 'var(--border-subtle)'}
+                  strokeWidth={active ? 2 : 1}
+                  style={{ transition: 'stroke 0.4s' }}/>
+                {active && step === l.step && (
+                  <circle r="6" fill={a.color} opacity="0.8">
+                    <animateMotion dur="0.5s" repeatCount="1"
+                      path={`M${a.x},${a.y} L${b.x},${b.y}`}/>
+                  </circle>
+                )}
+              </g>
+            );
+          })}
+          {nodes.map((n, i) => (
+            <g key={i}>
+              <circle cx={n.x} cy={n.y} r={n.root ? 20 : 16}
+                fill={reached.has(i) ? `${n.color}20` : 'var(--bg-elevated)'}
+                stroke={reached.has(i) ? n.color : 'var(--border-subtle)'}
+                strokeWidth={n.root ? 2.5 : 1.5}
+                style={{ transition: 'all 0.4s' }}/>
+              <text x={n.x} y={n.y+4} textAnchor="middle"
+                fill={reached.has(i) ? n.color : 'var(--text-muted)'}
+                fontFamily="monospace" fontSize="10" fontWeight="bold">{n.id}</text>
+              {reached.has(i) && step>=2 && (
+                <text x={n.x} y={n.y+26} textAnchor="middle"
+                  fill={n.color} fontFamily="monospace" fontSize="7">LSA rcvd ✓</text>
+              )}
+            </g>
+          ))}
+          {step>=1 && (
+            <text x="140" y="185" textAnchor="middle" fill="#00e676"
+              fontFamily="monospace" fontSize="8">LSA originated by R1</text>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+            {step===0 && 'R1 detects a link-state change (interface comes up). Generates a Router LSA.'}
+            {step===1 && 'R1 floods Type 1 LSA to all OSPF neighbours (R2, R3).'}
+            {step===2 && 'R2 and R3 install LSA in their LSDB, then re-flood to their neighbours (R4, R5).'}
+            {step===3 && 'LSA propagates across all remaining links. Each router sends LSAck to confirm receipt.'}
+            {step>=4 && '✓ All routers have identical LSDBs. Each runs SPF independently to find shortest paths.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── OSI Model ──────────────────────────────────────────────
   'osi-model': [
     { afterSection: 'OSI Model', component: OsiLayerBreakdown },
+    { afterSection: 'The OSI Model', component: OsiLayerBreakdown },
     { afterSection: 'How to Remember the Layers', component: OsiEncapsulationInline },
   ],
+  // ── Network Layer Architecture ──────────────────────────────
   'network-layer-arch': [
-    { afterSection: 'Network Layer Architecture', component: TcpIpVsOsi },
-    { afterSection: 'Encapsulation', component: OsiEncapsulationInline },
+    { afterSection: 'The TCP/IP Model', component: TcpIpVsOsi },
+    { afterSection: 'IP Addressing and Encapsulation', component: OsiEncapsulationInline },
+    { afterSection: 'The Cisco Three-Tier Hierarchical Model', component: ThreeTierModel },
+    { afterSection: 'Two-Tier (Collapsed Core)', component: TwoTierModel },
   ],
+  // ── Network Types ───────────────────────────────────────────
   'network-types': [
     { afterSection: 'Network Types', component: NetworkScopeRings },
+    { afterSection: 'Network Type Comparison', component: NetworkScopeRings },
   ],
+  // ── Network Topologies ──────────────────────────────────────
   'network-topologies': [
     { afterSection: 'Network Topologies', component: TopologyAnimComparison },
+    { afterSection: 'Topology and Failure Impact', component: TopologyAnimComparison },
   ],
+  // ── Network Devices ─────────────────────────────────────────
   'network-devices': [
-    { afterSection: 'Types of Devices', component: DeviceExplorer },
-    { afterSection: 'How Devices Forward Traffic', component: DeviceForwardingAnim },
+    { afterSection: 'Hub — Layer 1', component: HubFloodAnim },
+    { afterSection: 'Switch — Layer 2', component: SwitchMacLearning },
+    { afterSection: 'Router — Layer 3', component: RouterForwardingAnim },
+    { afterSection: 'Firewall — Layer 3–7', component: FirewallZoneAnim },
+    { afterSection: 'Wireless Access Point (AP) — Layer 2', component: ApAssociationAnim },
+    { afterSection: 'Device Layer Summary', component: DeviceExplorer },
   ],
+  // ── Cables ──────────────────────────────────────────────────
   'cables-transmission': [
-    { afterSection: 'Cables', component: CablesComparisonInline },
+    { afterSection: 'Cables and Transmission Media', component: CablesComparisonInline },
+    { afterSection: 'Cable Selection Guide', component: CablesComparisonInline },
   ],
+  // ── Routing ─────────────────────────────────────────────────
   'routing-fundamentals': [
-    { afterSection: 'Routing', component: RoutingTableWalkthrough },
+    { afterSection: 'The Routing Table', component: RoutingTableWalkthrough },
+    { afterSection: 'Longest Prefix Match', component: RoutingTableWalkthrough },
   ],
+  // ── How Internet Works ──────────────────────────────────────
   'how-internet-works': [
     { afterSection: 'How The Internet Works', component: BrowserRequestJourney },
+    { afterSection: 'End-to-End Summary', component: BrowserRequestJourney },
   ],
+  // ── VLANs ───────────────────────────────────────────────────
   'vlans': [
-    { afterSection: 'VLANs', component: VlanWhyItMatters },
-    { afterSection: '802.1Q Trunking', component: VlanTrunkAnimation },
+    { afterSection: 'Why VLANs Exist', component: VlanWhyItMatters },
+    { afterSection: 'VLAN Database', component: VlanDatabaseViz },
+    { afterSection: 'Trunk Ports', component: VlanTrunkAnimation },
+    { afterSection: 'Inter-VLAN Routing', component: InterVlanRoutingAnim },
   ],
   'vlan-roas': [
-    { afterSection: 'VLANs', component: VlanWhyItMatters },
-    { afterSection: '802.1Q Trunking', component: VlanTrunkAnimation },
+    { afterSection: 'Why VLANs Exist', component: VlanWhyItMatters },
+    { afterSection: 'VLAN Database', component: VlanDatabaseViz },
+    { afterSection: 'Trunk Ports', component: VlanTrunkAnimation },
+    { afterSection: 'Inter-VLAN Routing', component: InterVlanRoutingAnim },
   ],
   'vlan-svi': [
-    { afterSection: 'VLANs', component: VlanWhyItMatters },
+    { afterSection: 'Why VLANs Exist', component: VlanWhyItMatters },
+    { afterSection: 'VLAN Database', component: VlanDatabaseViz },
   ],
+  // ── OSPF ────────────────────────────────────────────────────
   'ospf': [
-    { afterSection: 'OSPF', component: OspfAdjacencyWalkthrough },
-    { afterSection: 'Shortest Path First', component: OspfSpfTree },
+    { afterSection: 'Neighbor States', component: OspfAdjacencyWalkthrough },
+    { afterSection: 'DR/BDR Election', component: DrBdrElectionAnim },
+    { afterSection: 'LSA Types', component: LsaFloodingAnim },
+    { afterSection: 'Cost Calculation', component: OspfSpfTree },
   ],
 };
