@@ -7852,7 +7852,393 @@ function RrmChannelPlanning() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// WIRELESS SECURITY INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Wi-Fi Security Evolution — timeline ───────────────────
+function WifiSecurityEvolution() {
+  const [selected, setSelected] = React.useState(null);
+  const standards = [
+    {
+      name: 'WEP',  year: '1997', color: '#ff5252', status: 'Broken',
+      cipher: 'RC4 (40-bit key)', auth: 'Shared key / Open',
+      broken: '2001 — RC4 implementation flaws, IV reuse, weak key scheduling. Any WEP network crackable in minutes with aircrack-ng.',
+      desc: 'Wired Equivalent Privacy. First wireless security standard. Intended to provide same security as wired LAN — failed catastrophically.',
+    },
+    {
+      name: 'WPA',  year: '2003', color: '#ff6d00', status: 'Deprecated',
+      cipher: 'TKIP (RC4 with per-packet keys)', auth: 'PSK / 802.1X',
+      broken: '2008 — TKIP cracked via Beck-Tews attack. Still uses RC4. Deprecated by IEEE in 2012.',
+      desc: 'Wi-Fi Protected Access. Emergency fix after WEP collapse. Introduced TKIP as a software upgrade to existing WEP hardware.',
+    },
+    {
+      name: 'WPA2', year: '2004', color: '#ffab00', status: 'Current (legacy)',
+      cipher: 'AES-CCMP (128-bit)', auth: 'PSK / 802.1X (EAP)',
+      broken: 'KRACK (2017) — Key Reinstallation Attack allows nonce reuse. PMKID attack enables offline PSK brute force. Still widely used.',
+      desc: 'Mandatory AES encryption. CCMP replaced TKIP. Strong when properly configured with complex PSK or 802.1X.',
+    },
+    {
+      name: 'WPA3', year: '2018', color: '#00e676', status: 'Current (recommended)',
+      cipher: 'AES-GCMP-256 (WPA3-Enterprise)', auth: 'SAE (PSK) / 802.1X',
+      broken: 'Dragonblood (2019) — timing/cache side-channels in SAE. Patched. No known practical breaks on updated implementations.',
+      desc: 'SAE (Simultaneous Authentication of Equals) replaces PSK — resistant to offline dictionary attacks. Forward secrecy. PMF mandatory.',
+    },
+  ];
+  return (
+    <InlineViz label="WI-FI SECURITY EVOLUTION — WEP → WPA → WPA2 → WPA3" accent="#00e676">
+      <div style={{ display: 'flex', gap: 0, marginBottom: 14, overflowX: 'auto' }}>
+        {standards.map((s, i) => (
+          <React.Fragment key={i}>
+            <div onClick={() => setSelected(selected === i ? null : i)}
+              style={{
+                flex: 1, minWidth: 80, padding: '10px 8px', cursor: 'pointer',
+                background: selected === i ? `${s.color}18` : `${s.color}08`,
+                border: `1px solid ${selected === i ? s.color : s.color + '30'}`,
+                borderRadius: i === 0 ? '6px 0 0 6px' : i === standards.length-1 ? '0 6px 6px 0' : 0,
+                borderLeft: i > 0 ? 'none' : undefined,
+                textAlign: 'center', transition: 'all 0.2s',
+              }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800,
+                fontSize: '1rem', color: s.color, marginBottom: 2 }}>{s.name}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+                color: 'var(--text-muted)', marginBottom: 4 }}>{s.year}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                fontWeight: 700, color: s.color, background: `${s.color}15`,
+                padding: '2px 6px', borderRadius: 3 }}>{s.status}</div>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+      {selected !== null && (
+        <div style={{ padding: '10px 14px', borderRadius: 6,
+          background: `${standards[selected].color}08`,
+          border: `1px solid ${standards[selected].color}35` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 }}>
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                color: 'var(--text-muted)', marginBottom: 2 }}>CIPHER</div>
+              <div style={{ fontSize: '0.75rem', color: standards[selected].color,
+                fontFamily: 'var(--font-mono)' }}>{standards[selected].cipher}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                color: 'var(--text-muted)', marginBottom: 2 }}>AUTHENTICATION</div>
+              <div style={{ fontSize: '0.75rem', color: standards[selected].color,
+                fontFamily: 'var(--font-mono)' }}>{standards[selected].auth}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)',
+            lineHeight: 1.6, marginBottom: 6 }}>{standards[selected].desc}</div>
+          <div style={{ padding: '6px 10px', borderRadius: 4,
+            background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.2)',
+            fontSize: '0.75rem', color: '#ff8a80', lineHeight: 1.5 }}>
+            ⚠ {standards[selected].broken}
+          </div>
+        </div>
+      )}
+      {selected === null && (
+        <div style={{ textAlign: 'center', fontSize: '0.8125rem',
+          color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          Click any standard to see cipher, auth method, and known vulnerabilities
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── Authentication Modes — PSK vs 802.1X ──────────────────
+function WifiAuthModes() {
+  const [mode, setMode] = React.useState('psk');
+  const isPsk = mode === 'psk';
+  return (
+    <InlineViz label="AUTHENTICATION MODES — PSK vs 802.1X (Enterprise)" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['psk','WPA2/3-Personal (PSK)'],['8021x','WPA2/3-Enterprise (802.1X)']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m==='psk' ? 'rgba(255,171,0,0.15)' : 'rgba(0,229,255,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m==='psk' ? '#ffab00' : '#00e5ff') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m==='psk' ? '#ffab00' : '#00e5ff') : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div>
+          <svg viewBox="0 0 200 140" style={{ width: '100%', maxHeight: 140, display: 'block' }}>
+            {isPsk ? (
+              <>
+                {/* Client */}
+                <rect x="10" y="50" width="60" height="30" rx="4"
+                  fill="rgba(255,171,0,0.1)" stroke="#ffab00" strokeWidth="1.5"/>
+                <text x="40" y="63" textAnchor="middle" fill="#ffab00"
+                  fontFamily="monospace" fontSize="9" fontWeight="bold">Client</text>
+                <text x="40" y="73" textAnchor="middle" fill="var(--text-muted)"
+                  fontFamily="monospace" fontSize="7">PSK known</text>
+                {/* AP */}
+                <rect x="130" y="50" width="60" height="30" rx="4"
+                  fill="rgba(255,171,0,0.1)" stroke="#ffab00" strokeWidth="1.5"/>
+                <text x="160" y="63" textAnchor="middle" fill="#ffab00"
+                  fontFamily="monospace" fontSize="9" fontWeight="bold">AP</text>
+                <text x="160" y="73" textAnchor="middle" fill="var(--text-muted)"
+                  fontFamily="monospace" fontSize="7">PSK known</text>
+                {/* 4-way handshake */}
+                <line x1="70" y1="58" x2="130" y2="58" stroke="#ffab00" strokeWidth="1.5"/>
+                <line x1="130" y1="65" x2="70" y2="65" stroke="#ffab00" strokeWidth="1.5" strokeDasharray="3,2"/>
+                <line x1="70" y1="72" x2="130" y2="72" stroke="#ffab00" strokeWidth="1.5"/>
+                <line x1="130" y1="79" x2="70" y2="79" stroke="#ffab00" strokeWidth="1.5" strokeDasharray="3,2"/>
+                <text x="100" y="100" textAnchor="middle" fill="#ffab00"
+                  fontFamily="monospace" fontSize="8">4-Way Handshake</text>
+                <text x="100" y="112" textAnchor="middle" fill="var(--text-muted)"
+                  fontFamily="monospace" fontSize="7">(derives session keys)</text>
+                <text x="100" y="130" textAnchor="middle" fill="#ffab00"
+                  fontFamily="monospace" fontSize="8">No RADIUS needed</text>
+              </>
+            ) : (
+              <>
+                {/* Client */}
+                <rect x="5" y="55" width="50" height="25" rx="3"
+                  fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+                <text x="30" y="70" textAnchor="middle" fill="#00e5ff"
+                  fontFamily="monospace" fontSize="8" fontWeight="bold">Client</text>
+                {/* AP/Authenticator */}
+                <rect x="75" y="45" width="50" height="44" rx="3"
+                  fill="rgba(124,77,255,0.1)" stroke="#7c4dff" strokeWidth="1"/>
+                <text x="100" y="62" textAnchor="middle" fill="#7c4dff"
+                  fontFamily="monospace" fontSize="8" fontWeight="bold">AP</text>
+                <text x="100" y="72" textAnchor="middle" fill="#7c4dff"
+                  fontFamily="monospace" fontSize="7">Authenticator</text>
+                <text x="100" y="83" textAnchor="middle" fill="var(--text-muted)"
+                  fontFamily="monospace" fontSize="6">passes EAP</text>
+                {/* RADIUS */}
+                <rect x="145" y="55" width="50" height="25" rx="3"
+                  fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1"/>
+                <text x="170" y="66" textAnchor="middle" fill="#00e676"
+                  fontFamily="monospace" fontSize="7" fontWeight="bold">RADIUS</text>
+                <text x="170" y="74" textAnchor="middle" fill="var(--text-muted)"
+                  fontFamily="monospace" fontSize="6">Auth Server</text>
+                {/* Arrows */}
+                <line x1="55" y1="67" x2="75" y2="67" stroke="#00e5ff" strokeWidth="1.5"/>
+                <text x="65" y="62" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="6">EAP</text>
+                <line x1="125" y1="67" x2="145" y2="67" stroke="#7c4dff" strokeWidth="1.5"/>
+                <text x="135" y="62" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="6">RADIUS</text>
+                <text x="100" y="115" textAnchor="middle" fill="#00e5ff"
+                  fontFamily="monospace" fontSize="7">Per-user credentials</text>
+                <text x="100" y="127" textAnchor="middle" fill="#00e5ff"
+                  fontFamily="monospace" fontSize="7">Central auth + audit log</text>
+              </>
+            )}
+          </svg>
+        </div>
+        <div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(isPsk ? [
+              ['✓', 'Simple — one password for all users', '#00e676'],
+              ['✓', 'No RADIUS server needed', '#00e676'],
+              ['✓', 'Works on any AP/client', '#00e676'],
+              ['✗', 'Shared secret — if one device is compromised, rotate all', '#ff5252'],
+              ['✗', 'No per-user identity or audit trail', '#ff5252'],
+              ['✗', 'Offline dictionary attack possible (PMKID)', '#ff5252'],
+            ] : [
+              ['✓', 'Per-user credentials (username + password or cert)', '#00e676'],
+              ['✓', 'Central revocation — disable one user without PSK change', '#00e676'],
+              ['✓', 'Full audit log — who connected, when, from where', '#00e676'],
+              ['✓', 'Dynamic per-session encryption keys', '#00e676'],
+              ['✗', 'Requires RADIUS server (FreeRADIUS, Cisco ISE, NPS)', '#ff5252'],
+              ['✗', 'More complex to configure and troubleshoot', '#ff5252'],
+            ]).map(([sym, text, color], i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>
+                <span style={{ color, fontWeight: 700, flexShrink: 0 }}>{sym}</span>
+                <span>{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── 802.1X Components — triangle animation ────────────────
+function Dot1xComponents() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const steps = [
+    { desc: 'Client (Supplicant) connects to AP. AP blocks all traffic except EAP auth frames.', highlight: 'sup' },
+    { desc: 'AP (Authenticator) receives EAP-Start. Forwards EAP-Request/Identity to client.', highlight: 'auth' },
+    { desc: 'Client responds with EAP-Response/Identity (username). AP forwards to RADIUS server.', highlight: 'sup' },
+    { desc: 'RADIUS (Auth Server) validates credentials using chosen EAP method (PEAP, EAP-TLS, etc).', highlight: 'aaa' },
+    { desc: 'RADIUS sends Access-Accept with session key material (MSK). AP derives PTK for client.', highlight: 'aaa' },
+    { desc: '✓ Port opened. Client gets full network access. RADIUS logs the session.', highlight: 'all' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= steps.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const cur = steps[step];
+  const isHighlighted = (id) => cur.highlight === id || cur.highlight === 'all';
+  return (
+    <InlineViz label="802.1X — THREE COMPONENTS (Supplicant / Authenticator / Auth Server)" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 280 160" style={{ width: 260, maxHeight: 160, flexShrink: 0 }}>
+          {/* Lines */}
+          <line x1="65" y1="80" x2="135" y2="80"
+            stroke={isHighlighted('auth') ? '#7c4dff' : 'var(--border-subtle)'}
+            strokeWidth="2" style={{ transition: 'stroke 0.4s' }}/>
+          <line x1="165" y1="80" x2="215" y2="80"
+            stroke={isHighlighted('aaa') ? '#00e676' : 'var(--border-subtle)'}
+            strokeWidth="2" style={{ transition: 'stroke 0.4s' }}/>
+          <text x="100" y="72" textAnchor="middle" fill="#7c4dff"
+            fontFamily="monospace" fontSize="7">EAP over LAN</text>
+          <text x="190" y="72" textAnchor="middle" fill="#00e676"
+            fontFamily="monospace" fontSize="7">RADIUS (UDP 1812)</text>
+          {/* Supplicant */}
+          <rect x="5" y="60" width="60" height="40" rx="4"
+            fill={isHighlighted('sup') ? 'rgba(0,229,255,0.2)' : 'rgba(0,229,255,0.06)'}
+            stroke="#00e5ff" strokeWidth={isHighlighted('sup') ? 2 : 1}
+            style={{ transition: 'all 0.4s' }}/>
+          <text x="35" y="76" textAnchor="middle" fill="#00e5ff"
+            fontFamily="monospace" fontSize="9" fontWeight="bold">CLIENT</text>
+          <text x="35" y="88" textAnchor="middle" fill="#00e5ff"
+            fontFamily="monospace" fontSize="7">Supplicant</text>
+          <text x="35" y="98" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="6">(802.1X software)</text>
+          {/* Authenticator */}
+          <rect x="135" y="55" width="60" height="50" rx="4"
+            fill={isHighlighted('auth') ? 'rgba(124,77,255,0.2)' : 'rgba(124,77,255,0.06)'}
+            stroke="#7c4dff" strokeWidth={isHighlighted('auth') ? 2 : 1}
+            style={{ transition: 'all 0.4s' }}/>
+          <text x="165" y="73" textAnchor="middle" fill="#7c4dff"
+            fontFamily="monospace" fontSize="9" fontWeight="bold">AP / SW</text>
+          <text x="165" y="85" textAnchor="middle" fill="#7c4dff"
+            fontFamily="monospace" fontSize="7">Authenticator</text>
+          <text x="165" y="97" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="6">blocks port</text>
+          <text x="165" y="107" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="6">until auth OK</text>
+          {/* Auth Server */}
+          <rect x="215" y="60" width="60" height="40" rx="4"
+            fill={isHighlighted('aaa') ? 'rgba(0,230,118,0.2)' : 'rgba(0,230,118,0.06)'}
+            stroke="#00e676" strokeWidth={isHighlighted('aaa') ? 2 : 1}
+            style={{ transition: 'all 0.4s' }}/>
+          <text x="245" y="76" textAnchor="middle" fill="#00e676"
+            fontFamily="monospace" fontSize="9" fontWeight="bold">RADIUS</text>
+          <text x="245" y="88" textAnchor="middle" fill="#00e676"
+            fontFamily="monospace" fontSize="7">Auth Server</text>
+          <text x="245" y="98" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="6">(ISE, NPS)</text>
+          {/* Blocked port indicator */}
+          {step < 5 && (
+            <text x="100" y="115" textAnchor="middle" fill="#ff5252"
+              fontFamily="monospace" fontSize="8">⛔ Port blocked</text>
+          )}
+          {step >= 5 && (
+            <text x="100" y="115" textAnchor="middle" fill="#00e676"
+              fontFamily="monospace" fontSize="8">✓ Port open</text>
+          )}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ padding: '8px 12px', borderRadius: 6,
+            background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.2)',
+            fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+            {cur.desc}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Wireless Threats — clickable cards ────────────────────
+function WirelessThreats() {
+  const [selected, setSelected] = React.useState(null);
+  const threats = [
+    {
+      name: 'Evil Twin AP', icon: '👿', color: '#ff5252',
+      desc: 'Attacker sets up a rogue AP with the same SSID as a legitimate network. Clients connect to the attacker\'s AP instead of the real one. Attacker can intercept all traffic (MitM).',
+      mitigation: 'Use 802.1X (clients verify server certificate). WPA3-SAE. Rogue AP detection on WLC.',
+    },
+    {
+      name: 'Deauthentication Attack', icon: '🚫', color: '#ff6d00',
+      desc: 'Attacker sends forged 802.11 deauthentication frames (management frames are unauthenticated in WPA2). Clients are forced to disconnect, enabling denial of service or forcing re-association to evil twin.',
+      mitigation: '802.11w PMF (Protected Management Frames) — mandatory in WPA3. Makes deauth frames cryptographically signed.',
+    },
+    {
+      name: 'KRACK', icon: '🔑', color: '#ffab00',
+      desc: 'Key Reinstallation Attack (2017). Exploits the WPA2 4-way handshake by replaying handshake messages, causing clients to reinstall an already-used session key and resetting nonces.',
+      mitigation: 'Patch OS and drivers (all major vendors patched within weeks of disclosure). Use WPA3 SAE which is immune.',
+    },
+    {
+      name: 'PMKID Attack', icon: '🔓', color: '#e040fb',
+      desc: 'Attacker captures a single EAPOL frame containing the PMKID (derived from PSK). Allows offline brute-force of the WPA2-Personal passphrase without needing a full handshake capture.',
+      mitigation: 'Use long, complex passphrases (20+ chars). WPA3 SAE makes offline attacks computationally infeasible.',
+    },
+    {
+      name: 'Rogue AP', icon: '📡', color: '#7c4dff',
+      desc: 'Unauthorised AP plugged into corporate network by an employee or attacker. Bypasses wired security controls. Provides wireless access to the internal network without IT knowledge.',
+      mitigation: 'WLC rogue AP detection. 802.1X on wired ports (NAC). Network scanning for unexpected DHCP leases.',
+    },
+    {
+      name: 'Eavesdropping', icon: '👂', color: '#78909c',
+      desc: 'Passive capture of wireless frames. WEP is trivially decryptable. WPA2-Personal with known PSK can be decrypted offline if the 4-way handshake is captured.',
+      mitigation: 'WPA2/WPA3 with strong PSK or 802.1X. WPA3 provides forward secrecy — past sessions safe even if PSK later compromised.',
+    },
+  ];
+  return (
+    <InlineViz label="WIRELESS THREATS — CLICK TO EXPAND" accent="#ff5252">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+        {threats.map((t, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${t.color}18` : `${t.color}08`,
+              border: `1px solid ${selected === i ? t.color : t.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ fontSize: '1.25rem', marginBottom: 3 }}>{t.icon}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.6875rem', color: t.color }}>{t.name}</div>
+          </div>
+        ))}
+      </div>
+      {selected !== null && (
+        <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 6,
+          background: `${threats[selected].color}08`,
+          border: `1px solid ${threats[selected].color}35` }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)',
+            lineHeight: 1.6, marginBottom: 8 }}>{threats[selected].desc}</div>
+          <div style={{ padding: '6px 10px', borderRadius: 4,
+            background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.2)',
+            fontSize: '0.75rem', color: '#00e676', lineHeight: 1.5 }}>
+            ✓ Mitigation: {threats[selected].mitigation}
+          </div>
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Wireless Security ─────────────────────────────────────────
+  'wireless-security': [
+    { afterSection: 'Evolution of Wi-Fi Security', component: WifiSecurityEvolution },
+    { afterSection: 'Authentication Modes',         component: WifiAuthModes },
+    { afterSection: '802.1X Components',            component: Dot1xComponents },
+    { afterSection: 'Wireless Threats',             component: WirelessThreats },
+  ],
+  'wireless-security-config': [
+    { afterSection: 'Evolution of Wi-Fi Security', component: WifiSecurityEvolution },
+    { afterSection: 'Authentication Modes',         component: WifiAuthModes },
+    { afterSection: '802.1X Components',            component: Dot1xComponents },
+    { afterSection: 'Wireless Threats',             component: WirelessThreats },
+  ],
   // ── Wireless Controllers ──────────────────────────────────────
   'wireless-controller': [
     { afterSection: 'WLC Functions',      component: WlcSplitMac },
