@@ -5551,7 +5551,207 @@ function AclDirectionViz() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// SSH INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── SSH vs Telnet — plaintext vs encrypted ────────────────
+function SshVsTelnet() {
+  const [mode, setMode] = React.useState('telnet');
+  const isTelnet = mode === 'telnet';
+  const telnetCapture = [
+    { bytes: 'ff fd 18 ff fd 20 ff fd 23', decoded: 'Telnet option negotiation (plaintext)' },
+    { bytes: '75 73 65 72 6e 61 6d 65 3a', decoded: '"username:" — visible to anyone on the wire' },
+    { bytes: '61 64 6d 69 6e',             decoded: '"admin" — username in plaintext ⚠' },
+    { bytes: '70 61 73 73 77 6f 72 64 3a', decoded: '"password:" — visible to anyone on the wire' },
+    { bytes: '53 75 70 65 72 53 65 63 72', decoded: '"SuperSecr…" — password in plaintext ⚠' },
+  ];
+  const sshCapture = [
+    { bytes: 'SS H-2.0-OpenSSH_8.9p1',   decoded: 'Version banner — only non-encrypted part' },
+    { bytes: '00 00 05 dc 06 14 …',       decoded: 'Key Exchange Init (DH parameters)' },
+    { bytes: 'c3 9a f2 08 b1 7d 45 …',   decoded: 'Encrypted payload — unreadable without key' },
+    { bytes: 'a4 f9 12 88 3c e0 71 …',   decoded: 'Encrypted payload — credentials hidden' },
+    { bytes: '8b 2d 9f 04 17 cc 5a …',   decoded: 'Encrypted payload — all commands hidden' },
+  ];
+  const capture = isTelnet ? telnetCapture : sshCapture;
+  return (
+    <InlineViz label="SSH vs TELNET — WHAT AN ATTACKER SEES ON THE WIRE" accent={isTelnet ? '#ff5252' : '#00e676'}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['telnet','Telnet (TCP 23)'],['ssh','SSH (TCP 22)']].map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === m ? (m==='telnet' ? 'rgba(255,82,82,0.15)' : 'rgba(0,230,118,0.15)') : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? (m==='telnet' ? '#ff5252' : '#00e676') : 'var(--border-subtle)'}`,
+            color: mode === m ? (m==='telnet' ? '#ff5252' : '#00e676') : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      {/* Simulated packet capture */}
+      <div style={{ background: 'var(--bg-terminal)', border: '1px solid var(--border-subtle)',
+        borderRadius: 6, padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem' }}>
+        <div style={{ color: 'var(--text-muted)', marginBottom: 8, fontSize: '0.5875rem' }}>
+          Wireshark capture — {isTelnet ? 'TCP stream follow' : 'SSH session'}
+        </div>
+        {capture.map((row, i) => (
+          <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 6, alignItems: 'flex-start' }}>
+            <div style={{ color: '#546e7a', width: 180, flexShrink: 0, letterSpacing: '0.05em' }}>
+              {row.bytes}
+            </div>
+            <div style={{ color: isTelnet && row.decoded.includes('⚠') ? '#ff5252' : (isTelnet ? '#ffab00' : '#00e676'),
+              flex: 1, fontSize: '0.625rem' }}>
+              {row.decoded}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 5,
+        background: isTelnet ? 'rgba(255,82,82,0.08)' : 'rgba(0,230,118,0.08)',
+        border: `1px solid ${isTelnet ? 'rgba(255,82,82,0.25)' : 'rgba(0,230,118,0.25)'}`,
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {isTelnet
+          ? '⚠ Telnet sends everything in plaintext. Any attacker with access to the network path can capture credentials with a simple packet sniffer. Never use Telnet for device management.'
+          : '✓ SSH encrypts the entire session after the key exchange. An attacker can see the connection metadata but cannot read any commands, credentials, or output.'}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── SSH Handshake — animated 4-phase sequence ─────────────
+function SshHandshakeAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const phases = [
+    {
+      name: 'TCP Connection',
+      color: '#78909c',
+      desc: 'Client opens TCP connection to server port 22. Three-way handshake completes.',
+      client: 'SYN →',
+      server: '← SYN-ACK',
+    },
+    {
+      name: 'Version Exchange',
+      color: '#ffab00',
+      desc: 'Both sides announce their SSH version. Only plaintext exchanged so far.',
+      client: 'SSH-2.0-OpenSSH_8.9 →',
+      server: '← SSH-2.0-Cisco-2.0',
+    },
+    {
+      name: 'Key Exchange (DH)',
+      color: '#7c4dff',
+      desc: 'Diffie-Hellman key exchange. Both sides generate a shared secret without ever sending it — an attacker cannot derive it from the exchanged values.',
+      client: 'KexInit + DH public key →',
+      server: '← DH public key + host key + signature',
+    },
+    {
+      name: 'Server Auth',
+      color: '#f43f5e',
+      desc: 'Client verifies the server\'s host key against known_hosts. First connection asks "trust this key?" — subsequent connections auto-verify.',
+      client: 'Verify host key fingerprint',
+      server: null,
+    },
+    {
+      name: 'User Auth',
+      color: '#00e5ff',
+      desc: 'User credentials sent — encrypted inside the secure channel. Can be password or public key. All transmitted bytes are ciphertext at this point.',
+      client: '→ username + password (encrypted)',
+      server: '← success/failure (encrypted)',
+    },
+    {
+      name: 'Encrypted Session',
+      color: '#00e676',
+      desc: '✓ Secure channel established. All commands and output are encrypted with AES. Session continues until logout or timeout.',
+      client: '→ commands (encrypted)',
+      server: '← output (encrypted)',
+    },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= phases.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="SSH HANDSHAKE — 4 PHASES TO SECURE CHANNEL" accent="#00e676">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+      {/* Phase progress */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16, overflowX: 'auto' }}>
+        {phases.map((p, i) => (
+          <React.Fragment key={i}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              opacity: step >= i ? 1 : 0.25, transition: 'opacity 0.5s', minWidth: 60,
+            }}>
+              <div style={{
+                width: 44, height: 36, borderRadius: 5, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                background: step >= i ? `${p.color}20` : 'var(--bg-elevated)',
+                border: `1.5px solid ${step >= i ? p.color : 'var(--border-subtle)'}`,
+                fontFamily: 'var(--font-mono)', fontSize: '0.45rem', fontWeight: 700,
+                color: step >= i ? p.color : 'var(--text-muted)', textAlign: 'center', padding: 2,
+                boxShadow: step === i ? `0 0 12px ${p.color}40` : 'none',
+                transition: 'all 0.4s', lineHeight: 1.3,
+              }}>{p.name}</div>
+            </div>
+            {i < phases.length - 1 && (
+              <div style={{ width: 12, height: 2, alignSelf: 'center', flexShrink: 0, marginBottom: 10,
+                background: step > i ? phases[i].color : 'var(--border-subtle)',
+                transition: 'background 0.4s' }}/>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+      {/* Current phase detail */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+        {/* Client */}
+        <div style={{ padding: '8px 10px', borderRadius: 5, background: 'rgba(0,229,255,0.08)',
+          border: '1px solid rgba(0,229,255,0.25)', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem',
+            color: '#00e5ff', marginBottom: 4 }}>CLIENT</div>
+          {phases[step].client && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+              color: phases[step].color }}>{phases[step].client}</div>
+          )}
+        </div>
+        {/* Arrow */}
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem',
+          color: phases[step].color, textAlign: 'center' }}>⇌</div>
+        {/* Server */}
+        <div style={{ padding: '8px 10px', borderRadius: 5, background: 'rgba(0,230,118,0.08)',
+          border: '1px solid rgba(0,230,118,0.25)', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem',
+            color: '#00e676', marginBottom: 4 }}>ROUTER / SERVER</div>
+          {phases[step].server && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+              color: phases[step].color }}>{phases[step].server}</div>
+          )}
+        </div>
+      </div>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: `${phases[step].color}10`,
+        border: `1px solid ${phases[step].color}30`,
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+          color: phases[step].color }}>{phases[step].name}: </span>
+        {phases[step].desc}
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── SSH ───────────────────────────────────────────────────────
+  'ssh': [
+    { afterSection: 'SSH vs Telnet', component: SshVsTelnet },
+    { afterSection: 'How SSH Works', component: SshHandshakeAnim },
+  ],
+  'ssh-secure-mgmt': [
+    { afterSection: 'SSH vs Telnet', component: SshVsTelnet },
+    { afterSection: 'How SSH Works', component: SshHandshakeAnim },
+  ],
   // ── ACLs ─────────────────────────────────────────────────────
   'acls': [
     { afterSection: 'ACL Types',        component: AclTypesComparison },
