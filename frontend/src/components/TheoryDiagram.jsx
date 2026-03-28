@@ -10776,6 +10776,180 @@ function EndToEndProtocolSummary() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// NETWORK LAYER ARCHITECTURE — ADDITIONAL DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── TCP vs UDP — side-by-side comparison ─────────────────
+function TcpVsUdp() {
+  const [selected, setSelected] = React.useState(null);
+  const comparison = [
+    { attr: 'Connection',    tcp: 'Connection-oriented (3-way handshake)', udp: 'Connectionless — no handshake' },
+    { attr: 'Reliability',   tcp: 'Guaranteed delivery — ACKs + retransmit', udp: 'Best-effort — no retransmission' },
+    { attr: 'Ordering',      tcp: 'Sequence numbers ensure correct order', udp: 'No ordering — datagrams may arrive out of order' },
+    { attr: 'Flow control',  tcp: 'Sliding window — receiver throttles sender', udp: 'None — sender sends at full rate' },
+    { attr: 'Header size',   tcp: '20–60 bytes', udp: '8 bytes (fixed)' },
+    { attr: 'Speed',         tcp: 'Slower — overhead of reliability', udp: 'Faster — minimal overhead' },
+    { attr: 'Use cases',     tcp: 'HTTP/S, SSH, FTP, SMTP, database, file transfer', udp: 'DNS, DHCP, VoIP, video streaming, SNMP, TFTP' },
+  ];
+  const protocols = {
+    tcp: ['HTTP (80)', 'HTTPS (443)', 'SSH (22)', 'Telnet (23)', 'FTP (20/21)', 'SMTP (25)', 'IMAP (143)'],
+    udp: ['DNS (53)', 'DHCP (67/68)', 'SNMP (161)', 'TFTP (69)', 'NTP (123)', 'RIP (520)', 'syslog (514)'],
+  };
+  return (
+    <InlineViz label="TCP vs UDP — TRANSPORT LAYER PROTOCOLS" accent="#ec4899">
+      <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: 0 }}>
+        {/* Header */}
+        <div style={{ padding: '6px 10px', borderBottom: '2px solid var(--border-subtle)' }}/>
+        {[['TCP','#00e5ff','Reliable, ordered, connection-oriented'],
+          ['UDP','#ffab00','Fast, connectionless, best-effort']].map(([proto, color, sub]) => (
+          <div key={proto} style={{ padding: '8px 12px', textAlign: 'center',
+            borderBottom: '2px solid var(--border-subtle)',
+            background: `${color}08` }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800,
+              fontSize: '1rem', color }}>{proto}</div>
+            <div style={{ fontSize: '0.5875rem', color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>
+          </div>
+        ))}
+        {/* Rows */}
+        {comparison.map((r, i) => (
+          <React.Fragment key={i}>
+            <div onClick={() => setSelected(selected === i ? null : i)}
+              style={{ padding: '7px 10px', fontFamily: 'var(--font-mono)',
+                fontWeight: 600, fontSize: '0.6875rem', color: 'var(--text-muted)',
+                borderBottom: '1px solid var(--border-subtle)',
+                background: selected === i ? 'rgba(255,255,255,0.03)' : 'transparent',
+                cursor: 'pointer', whiteSpace: 'nowrap' }}>{r.attr}</div>
+            {[r.tcp, r.udp].map((val, j) => {
+              const color = j === 0 ? '#00e5ff' : '#ffab00';
+              return (
+                <div key={j} onClick={() => setSelected(selected === i ? null : i)}
+                  style={{ padding: '7px 12px', fontSize: '0.75rem',
+                    color: selected === i ? color : 'var(--text-secondary)',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    background: selected === i ? `${color}08` : 'transparent',
+                    cursor: 'pointer', transition: 'all 0.2s', lineHeight: 1.4 }}>{val}</div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+      {/* Common protocols */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+        {[['TCP','#00e5ff',protocols.tcp],['UDP','#ffab00',protocols.udp]].map(([proto, color, list]) => (
+          <div key={proto} style={{ padding: '8px 10px', borderRadius: 5,
+            background: `${color}06`, border: `1px solid ${color}25` }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.6875rem', color, marginBottom: 5 }}>Common {proto} Protocols</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {list.map(p => (
+                <span key={p} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+                  color, background: `${color}15`, padding: '1px 6px',
+                  borderRadius: 3, border: `1px solid ${color}30` }}>{p}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Spine-Leaf — data centre architecture ─────────────────
+function SpineLeafDiagram() {
+  const [hovered, setHovered] = React.useState(null);
+  const spines  = [{id:'Sp1',x:120,y:25},{id:'Sp2',x:270,y:25}];
+  const leaves  = [{id:'Lf1',x:40,y:120},{id:'Lf2',x:120,y:120},{id:'Lf3',x:200,y:120},{id:'Lf4',x:280,y:120},{id:'Lf5',x:360,y:120}];
+  const servers = leaves.map(l => ([{x:l.x-18,y:185},{x:l.x+18,y:185}]));
+  const features = [
+    { label:'Every leaf connects to every spine', color:'#00e5ff', detail:'Any server can reach any other server in exactly 2 hops (leaf→spine→leaf). Consistent, predictable east-west latency.' },
+    { label:'Spines never connect to each other', color:'#7c4dff', detail:'Unlike traditional core switches, spines don\'t peer with each other. Traffic always goes leaf→spine→leaf.' },
+    { label:'Scale horizontally', color:'#00e676', detail:'Add a new leaf switch and connect it to all spines — zero downtime, immediate capacity. Same for adding a spine.' },
+    { label:'ECMP load balancing', color:'#ffab00', detail:'Multiple equal-cost paths to every destination. Traffic is hashed across all spine links simultaneously.' },
+  ];
+  return (
+    <InlineViz label="SPINE-LEAF ARCHITECTURE — DATA CENTRE FABRIC" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 400 215" style={{ width: 380, maxHeight: 215, flexShrink: 0 }}>
+          {/* Spine-to-leaf links */}
+          {spines.map(sp => leaves.map(lf => (
+            <line key={`${sp.id}-${lf.id}`}
+              x1={sp.x} y1={sp.y + 14} x2={lf.x} y2={lf.y - 14}
+              stroke={hovered === 'links' ? '#00e5ff' : 'rgba(0,229,255,0.25)'}
+              strokeWidth={hovered === 'links' ? 1.5 : 1}
+              style={{ transition: 'all 0.2s' }}/>
+          )))}
+          {/* Spines */}
+          {spines.map((sp, i) => (
+            <g key={i}>
+              <rect x={sp.x-40} y={sp.y} width={80} height={28} rx={5}
+                fill="rgba(124,77,255,0.15)" stroke="#7c4dff" strokeWidth="2"/>
+              <text x={sp.x} y={sp.y+17} textAnchor="middle"
+                fill="#7c4dff" fontFamily="monospace" fontSize="10" fontWeight="bold">{sp.id}</text>
+            </g>
+          ))}
+          <text x="195" y="18" textAnchor="middle" fill="#7c4dff"
+            fontFamily="monospace" fontSize="8" fontWeight="bold">SPINE LAYER</text>
+          {/* Leaves */}
+          {leaves.map((lf, i) => (
+            <g key={i}>
+              <rect x={lf.x-28} y={lf.y-14} width={56} height={28} rx={4}
+                fill="rgba(0,229,255,0.12)" stroke="#00e5ff" strokeWidth="1.5"/>
+              <text x={lf.x} y={lf.y+4} textAnchor="middle"
+                fill="#00e5ff" fontFamily="monospace" fontSize="9" fontWeight="bold">{lf.id}</text>
+              {/* Servers */}
+              {servers[i].map((s, j) => (
+                <g key={j}>
+                  <line x1={lf.x} y1={lf.y+14} x2={s.x} y2={s.y-5}
+                    stroke="rgba(0,230,118,0.3)" strokeWidth="1"/>
+                  <rect x={s.x-12} y={s.y-5} width={24} height={16} rx={3}
+                    fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="0.8"/>
+                  <text x={s.x} y={s.y+6} textAnchor="middle"
+                    fill="#00e676" fontFamily="monospace" fontSize="7">SRV</text>
+                </g>
+              ))}
+            </g>
+          ))}
+          <text x="195" y="112" textAnchor="middle" fill="#00e5ff"
+            fontFamily="monospace" fontSize="8" fontWeight="bold">LEAF LAYER</text>
+          <text x="195" y="210" textAnchor="middle" fill="#00e676"
+            fontFamily="monospace" fontSize="8">SERVERS</text>
+          {/* 2-hop arrow */}
+          <text x="195" y="165" textAnchor="middle" fill="var(--text-muted)"
+            fontFamily="monospace" fontSize="7">← always 2 hops server→server →</text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 140 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {features.map((f, i) => (
+              <div key={i}
+                onMouseEnter={() => setHovered(i === 0 ? 'links' : null)}
+                onMouseLeave={() => setHovered(null)}
+                style={{ padding: '7px 10px', borderRadius: 5,
+                  background: `${f.color}08`, border: `1px solid ${f.color}30`,
+                  cursor: 'default' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                  fontSize: '0.6875rem', color: f.color, marginBottom: 3 }}>✓ {f.label}</div>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)',
+                  lineHeight: 1.5 }}>{f.detail}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 8, padding: '6px 8px', borderRadius: 4,
+            background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+            fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)',
+            lineHeight: 1.6 }}>
+            vs Three-Tier:<br/>
+            Spine = Core (no policy)<br/>
+            Leaf = Access + Distribution<br/>
+            Designed for east-west traffic
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Remote Access VPN ─────────────────────────────────────────
   'remote-access': [
@@ -11024,12 +11198,17 @@ export const INLINE_DIAGRAMS = {
   // Two heading sets: migrate_netarch_redo (### Core Layer…)
   // and migrate_foundations_content (### The Cisco Three-Tier…)
   'network-layer-arch': [
-    // netarch_redo content headings
-    { afterSection: 'Core Layer (Top / Backbone)',       component: ThreeTierModel },
-    { afterSection: 'Collapsed Core',                    component: TwoTierModel },
-    // foundations_content headings (older content)
+    // ── netarch_redo headings (newer — 3-tier focus) ──────────
+    { afterSection: 'Core Layer (Top / Backbone)',             component: ThreeTierModel },
+    { afterSection: 'Collapsed Core',                          component: TwoTierModel },
+    // ── foundations_content headings (older — TCP/IP focus) ──
+    { afterSection: 'The TCP/IP Model',                        component: TcpIpVsOsi },
+    { afterSection: 'TCP vs UDP',                              component: TcpVsUdp },
+    { afterSection: 'IP Addressing and Encapsulation',         component: OsiEncapsulationInline },
     { afterSection: 'The Cisco Three-Tier Hierarchical Model', component: ThreeTierModel },
-    { afterSection: 'Two-Tier (Collapsed Core)',         component: TwoTierModel },
+    { afterSection: 'Two-Tier (Collapsed Core)',               component: TwoTierModel },
+    { afterSection: 'Spine-Leaf (Data Centre)',                component: SpineLeafDiagram },
+    { afterSection: 'Protocol Stack Example: HTTP Request',    component: EndToEndProtocolSummary },
   ],
   // ── Network Types ───────────────────────────────────────────
   'network-types': [
