@@ -4828,7 +4828,234 @@ function DhcpTroubleshoot() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// DNS INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── DNS Hierarchy — interactive tree ──────────────────────
+function DnsHierarchyTree() {
+  const [active, setActive] = React.useState(null);
+  const nodes = [
+    { id: 'root', label: '. (Root)',       x: 200, y: 20,  color: '#f43f5e', desc: '13 root server clusters worldwide (a-m.root-servers.net). Managed by ICANN. Knows where every TLD\'s nameservers are.' },
+    { id: 'com',  label: '.com',           x: 80,  y: 75,  color: '#ffab00', desc: 'TLD nameserver for .com. Managed by Verisign. Delegates to authoritative nameservers for each domain.' },
+    { id: 'org',  label: '.org',           x: 200, y: 75,  color: '#ffab00', desc: 'TLD nameserver for .org. Managed by the Public Interest Registry.' },
+    { id: 'net',  label: '.net',           x: 320, y: 75,  color: '#ffab00', desc: 'TLD nameserver for .net. Also managed by Verisign.' },
+    { id: 'ex',   label: 'example.com',   x: 40,  y: 135, color: '#00e5ff', desc: 'Authoritative nameserver for example.com. Holds the actual DNS records (A, CNAME, MX, etc.) for this domain.' },
+    { id: 'gc',   label: 'google.com',    x: 120, y: 135, color: '#00e5ff', desc: 'Authoritative nameserver for google.com. Managed by Google. Contains A records for www, mail, etc.' },
+    { id: 'wp',   label: 'wikipedia.org', x: 200, y: 135, color: '#7c4dff', desc: 'Authoritative nameserver for wikipedia.org. The final answer for any wikipedia.org query.' },
+    { id: 'cf',   label: 'cloudflare.net',x: 320, y: 135, color: '#7c4dff', desc: 'Authoritative nameserver for cloudflare.net — also operates public resolvers 1.1.1.1 and 1.0.0.1.' },
+  ];
+  const edges = [
+    ['root','com'],['root','org'],['root','net'],
+    ['com','ex'],['com','gc'],['org','wp'],['net','cf'],
+  ];
+  return (
+    <InlineViz label="DNS HIERARCHY — ROOT → TLD → AUTHORITATIVE" accent="#f43f5e">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 400 165" style={{ width: 380, maxHeight: 165, flexShrink: 0 }}>
+          {edges.map(([a, b], i) => {
+            const na = nodes.find(n => n.id === a);
+            const nb = nodes.find(n => n.id === b);
+            return (
+              <line key={i} x1={na.x} y1={na.y + 12} x2={nb.x} y2={nb.y - 12}
+                stroke={active === a || active === b ? na.color : 'var(--border-subtle)'}
+                strokeWidth={active === a || active === b ? 2 : 1}
+                style={{ transition: 'all 0.2s' }}/>
+            );
+          })}
+          {nodes.map(n => (
+            <g key={n.id} onClick={() => setActive(active === n.id ? null : n.id)}
+              style={{ cursor: 'pointer' }}>
+              <rect x={n.x - 38} y={n.y - 12} width={76} height={24} rx={4}
+                fill={active === n.id ? `${n.color}25` : `${n.color}10`}
+                stroke={active === n.id ? n.color : `${n.color}40`}
+                strokeWidth={active === n.id ? 2 : 1}
+                style={{ transition: 'all 0.2s' }}/>
+              <text x={n.x} y={n.y + 4} textAnchor="middle"
+                fill={active === n.id ? n.color : 'var(--text-secondary)'}
+                fontFamily="monospace" fontSize="9" fontWeight={active === n.id ? 'bold' : 'normal'}
+                style={{ transition: 'fill 0.2s' }}>{n.label}</text>
+            </g>
+          ))}
+          {/* Level labels */}
+          <text x="395" y="25" textAnchor="end" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Root</text>
+          <text x="395" y="80" textAnchor="end" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">TLD</text>
+          <text x="395" y="140" textAnchor="end" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Authoritative</text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 130 }}>
+          {active ? (
+            <div style={{ padding: '10px 12px', borderRadius: 6,
+              background: `${nodes.find(n=>n.id===active).color}10`,
+              border: `1px solid ${nodes.find(n=>n.id===active).color}40` }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem',
+                color: nodes.find(n=>n.id===active).color, marginBottom: 6 }}>
+                {nodes.find(n=>n.id===active).label}
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {nodes.find(n=>n.id===active).desc}
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Click any node to learn about that level of the DNS hierarchy.
+            </p>
+          )}
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── DNS Record Types — clickable cards ────────────────────
+function DnsRecordTypes() {
+  const [selected, setSelected] = React.useState(null);
+  const records = [
+    { type: 'A',     color: '#00e5ff', desc: 'Maps hostname → IPv4 address', example: 'www.example.com → 93.184.216.34',    use: 'Most common record. Every web server needs one.' },
+    { type: 'AAAA',  color: '#2979ff', desc: 'Maps hostname → IPv6 address', example: 'www → 2606:2800:220:1:248:1893:25c8:1946', use: 'IPv6 equivalent of A record. "Quad-A".' },
+    { type: 'CNAME', color: '#7c4dff', desc: 'Alias to another hostname',    example: 'mail.example.com → mailserver.example.com', use: 'Points one name to another. Cannot be used at zone apex.' },
+    { type: 'MX',    color: '#e040fb', desc: 'Mail server for domain',       example: 'example.com → mail.example.com (pri 10)', use: 'Required for email delivery. Lower priority number = higher preference.' },
+    { type: 'PTR',   color: '#ffab00', desc: 'Reverse lookup (IP → name)',   example: '34.216.184.93.in-addr.arpa → www.example.com', use: 'Used for reverse DNS lookups. Required for email anti-spam (rDNS).' },
+    { type: 'NS',    color: '#f43f5e', desc: 'Authoritative nameserver',     example: 'example.com → ns1.example.com', use: 'Delegates a zone to a nameserver. Needed for domain delegation.' },
+    { type: 'TXT',   color: '#00e676', desc: 'Free-text / SPF / DKIM',      example: 'example.com → "v=spf1 include:… ~all"', use: 'SPF, DKIM, DMARC email auth. Also domain verification tokens.' },
+    { type: 'SOA',   color: '#78909c', desc: 'Zone authority / serial',      example: 'Serial: 2024010101, Refresh: 3600', use: 'First record in every zone. Controls zone transfers and caching.' },
+  ];
+  return (
+    <InlineViz label="DNS RECORD TYPES — CLICK TO EXPAND" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+        {records.map((r, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${r.color}18` : `${r.color}08`,
+              border: `1px solid ${selected === i ? r.color : r.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.875rem',
+              color: r.color, marginBottom: 3 }}>{r.type}</div>
+            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{r.desc}</div>
+          </div>
+        ))}
+      </div>
+      {selected !== null && (
+        <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 6,
+          background: `${records[selected].color}10`,
+          border: `1px solid ${records[selected].color}40` }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: records[selected].color, marginBottom: 4 }}>
+            {records[selected].type} Record
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-muted)', marginBottom: 6, padding: '4px 8px', background: 'var(--bg-terminal)', borderRadius: 4 }}>
+            {records[selected].example}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            {records[selected].use}
+          </div>
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── DNS Resolution — recursive query animation ────────────
+function DnsResolutionAnim() {
+  const [step, setStep] = React.useState(-1);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const hops = [
+    { from: 'Client',     to: 'Resolver',     q: 'www.example.com?',   a: null,               color: '#ffab00', detail: 'Client asks its configured DNS resolver (e.g. 8.8.8.8 or ISP DNS). Checks resolver cache first.' },
+    { from: 'Resolver',   to: 'Root',         q: 'www.example.com?',   a: null,               color: '#f43f5e', detail: 'Cache miss. Resolver queries a root server — "who handles .com?"' },
+    { from: 'Root',       to: 'Resolver',     q: null,                 a: 'Ask .com TLD',    color: '#f43f5e', detail: 'Root server responds with the .com TLD nameserver addresses.' },
+    { from: 'Resolver',   to: '.com TLD',     q: 'www.example.com?',   a: null,               color: '#7c4dff', detail: 'Resolver asks the .com TLD — "who is authoritative for example.com?"' },
+    { from: '.com TLD',   to: 'Resolver',     q: null,                 a: 'Ask ns1.example', color: '#7c4dff', detail: 'TLD responds with the authoritative nameservers for example.com.' },
+    { from: 'Resolver',   to: 'Auth NS',      q: 'www.example.com?',   a: null,               color: '#00e5ff', detail: 'Resolver asks the authoritative nameserver for the final answer.' },
+    { from: 'Auth NS',    to: 'Resolver',     q: null,                 a: '93.184.216.34',   color: '#00e5ff', detail: 'Auth NS returns the A record. Resolver caches it per TTL.' },
+    { from: 'Resolver',   to: 'Client',       q: null,                 a: '93.184.216.34',   color: '#00e676', detail: '✓ Client receives the IP. Browser connects to 93.184.216.34:443.' },
+  ];
+  useEffect(() => {
+    const t = setTimeout(() => setStep(0), 400);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    if (isPaused || step < 0 || step >= hops.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  const actors = ['Client', 'Resolver', 'Root', '.com TLD', 'Auth NS'];
+  const colors  = { Client: '#00e5ff', Resolver: '#ffab00', Root: '#f43f5e', '.com TLD': '#7c4dff', 'Auth NS': '#00e676' };
+  const xPos = { Client: 30, Resolver: 110, Root: 190, '.com TLD': 270, 'Auth NS': 355 };
+  return (
+    <InlineViz label="DNS RESOLUTION — RECURSIVE QUERY WALKTHROUGH" accent="#ffab00">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 8 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={replay}>↺</button>
+      </div>
+      <svg viewBox="0 0 400 205" style={{ width: '100%', maxHeight: 205, display: 'block' }}>
+        {/* Actor headers */}
+        {actors.map(a => (
+          <g key={a}>
+            <rect x={xPos[a]-32} y="2" width={64} height={22} rx={4}
+              fill={`${colors[a]}18`} stroke={`${colors[a]}50`} strokeWidth={1}/>
+            <text x={xPos[a]} y="16" textAnchor="middle" fill={colors[a]}
+              fontFamily="monospace" fontSize={a==='.com TLD'?'7':'8'} fontWeight="bold">{a}</text>
+            {/* Lifeline */}
+            <line x1={xPos[a]} y1="24" x2={xPos[a]} y2="205"
+              stroke={`${colors[a]}20`} strokeWidth="1" strokeDasharray="3,3"/>
+          </g>
+        ))}
+        {/* Query/response arrows */}
+        {hops.map((h, i) => {
+          if (step < i) return null;
+          const y = 34 + i * 21;
+          const x1 = xPos[h.from], x2 = xPos[h.to];
+          const isRight = x2 > x1;
+          const label = h.q || h.a;
+          const isAnswer = !!h.a;
+          return (
+            <g key={i}>
+              <line x1={x1} y1={y} x2={x2} y2={y}
+                stroke={h.color} strokeWidth="1.5"
+                strokeDasharray={isAnswer ? '4,2' : 'none'}/>
+              <polygon
+                points={isRight
+                  ? `${x2-6},${y-4} ${x2},${y} ${x2-6},${y+4}`
+                  : `${x2+6},${y-4} ${x2},${y} ${x2+6},${y+4}`}
+                fill={h.color}/>
+              <rect x={(x1+x2)/2-30} y={y-9} width={60} height={11} rx={2}
+                fill="var(--bg-panel)"/>
+              <text x={(x1+x2)/2} y={y} textAnchor="middle"
+                fill={h.color} fontFamily="monospace" fontSize="7"
+                fontStyle={isAnswer ? 'italic' : 'normal'}>{label}</text>
+            </g>
+          );
+        })}
+      </svg>
+      {step >= 0 && (
+        <div style={{ marginTop: 6, padding: '7px 12px', borderRadius: 5,
+          background: `${hops[Math.min(step, hops.length-1)].color}10`,
+          border: `1px solid ${hops[Math.min(step, hops.length-1)].color}30`,
+          fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+            color: hops[Math.min(step, hops.length-1)].color }}>
+            Step {step + 1}: </span>
+          {hops[Math.min(step, hops.length-1)].detail}
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── DNS ──────────────────────────────────────────────────────
+  'dns': [
+    { afterSection: 'DNS Hierarchy',      component: DnsHierarchyTree },
+    { afterSection: 'Record Types',       component: DnsRecordTypes },
+    { afterSection: 'Resolution Process', component: DnsResolutionAnim },
+  ],
+  'dns-resolution': [
+    { afterSection: 'DNS Hierarchy',      component: DnsHierarchyTree },
+    { afterSection: 'Record Types',       component: DnsRecordTypes },
+    { afterSection: 'Resolution Process', component: DnsResolutionAnim },
+  ],
   // ── DHCP ─────────────────────────────────────────────────────
   'dhcp': [
     { afterSection: 'What Is DHCP?',    component: DhcpDoraDetailed },
