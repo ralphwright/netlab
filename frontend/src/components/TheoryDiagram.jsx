@@ -6507,7 +6507,197 @@ function BgpMessageTypes() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// NETWORK TUNNELING INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Tunnel Types — comparison ─────────────────────────────
+function TunnelTypesComparison() {
+  const [selected, setSelected] = React.useState('gre');
+  const types = {
+    gre: {
+      label: 'GRE',
+      color: '#00e5ff',
+      overhead: '24 bytes',
+      encrypts: false,
+      multicast: true,
+      routing: true,
+      desc: 'Generic Routing Encapsulation. Simple point-to-point tunnel — wraps any L3 protocol in an IP header. No encryption. Commonly used to carry routing protocols (OSPF/EIGRP) or multicast over an internet path.',
+      use: 'Run OSPF over internet, connect non-contiguous private networks, carry multicast',
+      header: ['Outer IP (20B)', 'GRE (4B)', 'Inner IP', 'Payload'],
+      colors: ['#00e5ff','#7c4dff','#ffab00','#546e7a'],
+    },
+    ipsec: {
+      label: 'IPsec (ESP)',
+      color: '#00e676',
+      overhead: '50–70 bytes',
+      encrypts: true,
+      multicast: false,
+      routing: false,
+      desc: 'Encrypts and authenticates IP packets using ESP (Encapsulating Security Payload). Provides confidentiality, integrity, and authentication. Cannot carry multicast or routing protocols natively.',
+      use: 'Secure site-to-site VPN, encrypt sensitive data in transit',
+      header: ['Outer IP (20B)', 'ESP (8B)', 'Encrypted Payload', 'ESP Trailer+Auth'],
+      colors: ['#00e676','#f43f5e','#546e7a','#546e7a'],
+    },
+    gre_ipsec: {
+      label: 'GRE + IPsec',
+      color: '#ffab00',
+      overhead: '74+ bytes',
+      encrypts: true,
+      multicast: true,
+      routing: true,
+      desc: 'GRE encapsulates first (enabling multicast and routing protocols), then IPsec encrypts the entire GRE packet. Best of both worlds — but highest overhead. The standard for DMVPN.',
+      use: 'DMVPN, secure tunnels that also carry OSPF/EIGRP and multicast',
+      header: ['Outer IP (20B)', 'ESP (8B)', 'GRE (4B)', 'Inner IP + Payload'],
+      colors: ['#ffab00','#f43f5e','#00e5ff','#546e7a'],
+    },
+    vxlan: {
+      label: 'VXLAN',
+      color: '#7c4dff',
+      overhead: '50 bytes',
+      encrypts: false,
+      multicast: true,
+      routing: true,
+      desc: 'Virtual Extensible LAN. Encapsulates L2 Ethernet frames in UDP/IP, extending L2 segments across L3 boundaries. 24-bit VNI supports 16 million segments vs VLAN\'s 4094. Used in data centre overlays.',
+      use: 'Data centre overlays, VM mobility across racks/DCs, SDN fabrics',
+      header: ['Outer IP (20B)', 'UDP (8B)', 'VXLAN (8B)', 'L2 Frame + Payload'],
+      colors: ['#7c4dff','#e040fb','#ffab00','#546e7a'],
+    },
+  };
+  const t = types[selected];
+  return (
+    <InlineViz label="TUNNEL TYPES — GRE vs IPSEC vs GRE+IPSEC vs VXLAN" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+        {Object.entries(types).map(([k, v]) => (
+          <button key={k} onClick={() => setSelected(k)} style={{
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: selected === k ? `${v.color}20` : 'var(--bg-elevated)',
+            border: `1px solid ${selected === k ? v.color : 'var(--border-subtle)'}`,
+            color: selected === k ? v.color : 'var(--text-muted)', transition: 'all 0.2s',
+          }}>{v.label}</button>
+        ))}
+      </div>
+      {/* Packet header diagram */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: '0.5875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 5 }}>PACKET STRUCTURE</div>
+        <div style={{ display: 'flex', gap: 2, height: 28 }}>
+          {t.header.map((h, i) => (
+            <div key={i} style={{
+              flex: i === t.header.length - 1 ? 2 : 1,
+              background: `${t.colors[i]}20`,
+              border: `1px solid ${t.colors[i]}60`,
+              borderRadius: 4, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontFamily: 'var(--font-mono)',
+              fontSize: '0.5rem', color: t.colors[i], fontWeight: 700,
+              padding: '0 4px', textAlign: 'center', lineHeight: 1.2,
+            }}>{h}</div>
+          ))}
+        </div>
+      </div>
+      {/* Feature grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 10 }}>
+        {[
+          { label: 'Overhead', value: t.overhead, color: '#ffab00' },
+          { label: 'Encrypts', value: t.encrypts ? '✓ Yes' : '✗ No', color: t.encrypts ? '#00e676' : '#ff5252' },
+          { label: 'Multicast', value: t.multicast ? '✓ Yes' : '✗ No', color: t.multicast ? '#00e676' : '#ff5252' },
+          { label: 'Routing protos', value: t.routing ? '✓ Yes' : '✗ No', color: t.routing ? '#00e676' : '#ff5252' },
+        ].map((f, i) => (
+          <div key={i} style={{ padding: '6px 8px', borderRadius: 5,
+            background: `${f.color}08`, border: `1px solid ${f.color}25`, textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 3 }}>{f.label}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: f.color }}>{f.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: `${t.color}08`, border: `1px solid ${t.color}30` }}>
+        <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 4 }}>{t.desc}</div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: t.color }}>Use: {t.use}</div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Encapsulation — animated tunnel wrapping ──────────────
+function TunnelEncapsulationAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const layers = [
+    { label: 'Original packet', headers: [{label:'IP Src: 10.0.1.10', color:'#ffab00'},{label:'TCP Port 80', color:'#00e676'},{label:'HTTP Payload', color:'#546e7a'}], desc: 'Host generates an IP packet destined for 10.0.2.20 across a GRE+IPsec tunnel.' },
+    { label: 'GRE encapsulation', headers: [{label:'GRE Header (4B)', color:'#00e5ff'},{label:'IP Src: 10.0.1.10', color:'#ffab00'},{label:'TCP Port 80', color:'#00e676'},{label:'Payload', color:'#546e7a'}], desc: 'Tunnel source router wraps the original packet inside a GRE header. GRE enables multicast and routing protocols.' },
+    { label: 'IPsec ESP encryption', headers: [{label:'ESP Header (8B)', color:'#f43f5e'},{label:'🔒 Encrypted: GRE+IP+TCP+Payload', color:'#546e7a'},{label:'ESP Trailer+Auth', color:'#f43f5e'}], desc: 'IPsec encrypts the entire GRE packet. The original IP, TCP headers, and payload are now ciphertext.' },
+    { label: 'Outer IP header added', headers: [{label:'Outer IP: 203.0.113.1→203.0.113.2', color:'#7c4dff'},{label:'ESP Header', color:'#f43f5e'},{label:'🔒 Encrypted GRE+IP+Payload', color:'#546e7a'},{label:'Auth', color:'#f43f5e'}], desc: 'A new outer IP header is prepended with tunnel endpoints as source and destination. This is what routers see on the internet.' },
+    { label: 'Transmitted on wire', headers: [{label:'Outer IP', color:'#7c4dff'},{label:'ESP', color:'#f43f5e'},{label:'Encrypted inner packet', color:'#546e7a'},{label:'Auth', color:'#f43f5e'}], desc: '✓ The tunnel packet traverses the internet. Routers only see the outer IP header — the original destination and payload are hidden.' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= layers.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const cur = layers[step];
+  return (
+    <InlineViz label="TUNNEL ENCAPSULATION — GRE + IPSEC PACKET WRAPPING" accent="#7c4dff">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: '#7c4dff', fontWeight: 700 }}>
+          Step {step + 1}/{layers.length}: {cur.label}
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+        </div>
+      </div>
+      {/* Packet visual */}
+      <div style={{ display: 'flex', gap: 2, height: 36, marginBottom: 12 }}>
+        {cur.headers.map((h, i) => (
+          <div key={i} style={{
+            flex: h.label.includes('Encrypted') || h.label.includes('Payload') ? 3 : 1,
+            background: `${h.color}20`, border: `1px solid ${h.color}60`,
+            borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: h.color,
+            fontWeight: 700, padding: '0 4px', textAlign: 'center', lineHeight: 1.3,
+            transition: 'all 0.4s',
+          }}>{h.label}</div>
+        ))}
+      </div>
+      {/* Step indicator dots */}
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 10 }}>
+        {layers.map((_, i) => (
+          <div key={i} style={{
+            width: 8, height: 8, borderRadius: '50%', cursor: 'pointer',
+            background: i === step ? '#7c4dff' : i < step ? 'rgba(124,77,255,0.4)' : 'var(--border-default)',
+            transition: 'background 0.3s',
+          }} onClick={() => { setStep(i); setIsPaused(true); }}/>
+        ))}
+      </div>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: 'rgba(124,77,255,0.08)', border: '1px solid rgba(124,77,255,0.25)',
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {cur.desc}
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Network Tunneling ─────────────────────────────────────────
+  'tunneling': [
+    { afterSection: 'Common Tunnel Types', component: TunnelTypesComparison },
+    { afterSection: 'Encapsulation',       component: TunnelEncapsulationAnim },
+  ],
+  'network-tunneling': [
+    { afterSection: 'Common Tunnel Types', component: TunnelTypesComparison },
+    { afterSection: 'Encapsulation',       component: TunnelEncapsulationAnim },
+  ],
+  'gre': [
+    { afterSection: 'Common Tunnel Types', component: TunnelTypesComparison },
+    { afterSection: 'Encapsulation',       component: TunnelEncapsulationAnim },
+  ],
+  'gre-tunnels': [
+    { afterSection: 'Common Tunnel Types', component: TunnelTypesComparison },
+    { afterSection: 'Encapsulation',       component: TunnelEncapsulationAnim },
+  ],
   // ── BGP ───────────────────────────────────────────────────────
   'bgp': [
     { afterSection: 'eBGP vs iBGP',                    component: EbgpVsIbgp },
