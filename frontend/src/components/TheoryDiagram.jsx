@@ -4325,7 +4325,302 @@ function RstpComparison() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// LACP INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── What Is LACP — link bundling animation ────────────────
+function LacpBundlingAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  useEffect(() => {
+    if (isPaused || step >= 4) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="LACP — BUNDLING PHYSICAL LINKS INTO ONE LOGICAL LINK" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 320 140" style={{ width: 300, maxHeight: 140, flexShrink: 0 }}>
+          {/* SW1 */}
+          <rect x="10" y="50" width="70" height="40" rx="5"
+            fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1.5"/>
+          <text x="45" y="68" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="11" fontWeight="bold">SW1</text>
+          <text x="45" y="81" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">Gi0/1-4</text>
+          {/* SW2 */}
+          <rect x="240" y="50" width="70" height="40" rx="5"
+            fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1.5"/>
+          <text x="275" y="68" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="11" fontWeight="bold">SW2</text>
+          <text x="275" y="81" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">Gi0/1-4</text>
+          {/* Individual links (steps 0-1) */}
+          {step <= 1 && [55,70,85,100].map((y, i) => (
+            <g key={i}>
+              <line x1="80" y1={y} x2="240" y2={y}
+                stroke={step >= 1 ? '#ffab00' : 'var(--border-subtle)'}
+                strokeWidth="1.5" strokeDasharray={step >= 1 ? '4,2' : 'none'}
+                style={{ transition: 'stroke 0.4s' }}/>
+              {step >= 1 && (
+                <text x="160" y={y - 3} textAnchor="middle" fill="#ffab00"
+                  fontFamily="monospace" fontSize="7">LACPDU</text>
+              )}
+            </g>
+          ))}
+          {/* Bundled port-channel (steps 2+) */}
+          {step >= 2 && (
+            <g>
+              {[62,70,78].map((y, i) => (
+                <line key={i} x1="80" y1={y} x2="240" y2={y}
+                  stroke="#00e676" strokeWidth="2.5"
+                  style={{ transition: 'all 0.5s' }}/>
+              ))}
+              <rect x="130" y="58" width="60" height="24" rx="4"
+                fill="rgba(0,230,118,0.15)" stroke="#00e676" strokeWidth="1.5"/>
+              <text x="160" y="68" textAnchor="middle" fill="#00e676"
+                fontFamily="monospace" fontSize="9" fontWeight="bold">Po1</text>
+              <text x="160" y="78" textAnchor="middle" fill="#00e676"
+                fontFamily="monospace" fontSize="8">4 Gbps</text>
+            </g>
+          )}
+          {/* Failure scenario (step 4) */}
+          {step >= 4 && (
+            <g>
+              <line x1="80" y1="62" x2="240" y2="62"
+                stroke="#ff5252" strokeWidth="2" strokeDasharray="4,4"/>
+              <text x="160" y="55" textAnchor="middle" fill="#ff5252"
+                fontFamily="monospace" fontSize="9">✗ link down</text>
+              <text x="160" y="100" textAnchor="middle" fill="#00e676"
+                fontFamily="monospace" fontSize="9">↓ traffic shifts to remaining 3 links</text>
+            </g>
+          )}
+          {/* Bandwidth labels */}
+          <text x="45" y="115" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">4 × 1G ports</text>
+          <text x="275" y="115" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">4 × 1G ports</text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+            {step === 0 && '4 separate 1 Gbps links exist between SW1 and SW2 — but they\'re not yet bundled.'}
+            {step === 1 && 'LACP sends LACPDUs on each link — negotiating which ports should join the channel.'}
+            {step === 2 && '✓ Port-channel Po1 formed: 4 × 1G = 4 Gbps logical link with automatic load balancing.'}
+            {step === 3 && 'Traffic is hashed across all 4 member links simultaneously — no single link is a bottleneck.'}
+            {step >= 4 && '✓ One link fails — LACP detects it and redistributes traffic across the remaining 3 links. No manual intervention needed.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── LACP Modes — negotiation matrix ───────────────────────
+function LacpModeMatrix() {
+  const [hovered, setHovered] = React.useState(null);
+  const modes = ['Active', 'Passive', 'On'];
+  const matrix = {
+    'Active-Active':   { result: 'Channel forms ✓',  color: '#00e676', note: 'Both sides initiate — recommended' },
+    'Active-Passive':  { result: 'Channel forms ✓',  color: '#00e676', note: 'Active side initiates, passive responds' },
+    'Active-On':       { result: 'No channel ✗',     color: '#ff5252', note: 'On mode doesn\'t speak LACP' },
+    'Passive-Active':  { result: 'Channel forms ✓',  color: '#00e676', note: 'Same as Active-Passive' },
+    'Passive-Passive': { result: 'No channel ✗',     color: '#ff5252', note: 'Neither side initiates negotiation' },
+    'Passive-On':      { result: 'No channel ✗',     color: '#ff5252', note: 'On mode doesn\'t speak LACP' },
+    'On-Active':       { result: 'No channel ✗',     color: '#ff5252', note: 'On mode doesn\'t speak LACP' },
+    'On-Passive':      { result: 'No channel ✗',     color: '#ff5252', note: 'On mode doesn\'t speak LACP' },
+    'On-On':           { result: 'Channel forms ✓',  color: '#ffab00', note: 'Static — no LACP, no negotiation, fragile' },
+  };
+  return (
+    <InlineViz label="LACP MODES — NEGOTIATION COMPATIBILITY MATRIX" accent="#ffab00">
+      <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(3, 1fr)', gap: 4, marginBottom: 10 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>SW1 → SW2 ↓</div>
+        {modes.map(m => (
+          <div key={m} style={{ padding: '5px 0', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: 'var(--accent)', background: 'var(--accent-glow)', borderRadius: 4 }}>{m}</div>
+        ))}
+        {modes.map(row => (
+          <React.Fragment key={row}>
+            <div style={{ padding: '5px 8px', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: 'var(--accent)', background: 'var(--accent-glow)', borderRadius: 4, display: 'flex', alignItems: 'center' }}>{row}</div>
+            {modes.map(col => {
+              const key = `${row}-${col}`;
+              const cell = matrix[key];
+              const isHovered = hovered === key;
+              return (
+                <div key={col}
+                  onMouseEnter={() => setHovered(key)}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{
+                    padding: '6px 4px', borderRadius: 4, textAlign: 'center', cursor: 'default',
+                    background: isHovered ? `${cell.color}20` : `${cell.color}08`,
+                    border: `1px solid ${isHovered ? cell.color : cell.color + '30'}`,
+                    transition: 'all 0.2s',
+                  }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', fontWeight: 700, color: cell.color }}>{cell.result}</div>
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+      {hovered && (
+        <div style={{ padding: '7px 12px', borderRadius: 5,
+          background: `${matrix[hovered].color}10`,
+          border: `1px solid ${matrix[hovered].color}30`,
+          fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: matrix[hovered].color }}>{hovered}: </span>
+          {matrix[hovered].note}
+        </div>
+      )}
+      <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+        Hover a cell for details · PAgP equivalents: Desirable = Active, Auto = Passive
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Load Balancing — hash visualization ───────────────────
+function LacpLoadBalancing() {
+  const [method, setMethod] = React.useState('src-dst-ip');
+  const methods = [
+    { id: 'src-mac',    label: 'src-mac',     desc: 'Hash source MAC. Good for L2 networks where many source MACs exist.' },
+    { id: 'dst-mac',    label: 'dst-mac',     desc: 'Hash destination MAC. Good when traffic goes to many different destinations.' },
+    { id: 'src-dst-ip', label: 'src-dst-ip',  desc: 'Hash source+destination IP. Best for L3 — provides most balanced distribution.' },
+    { id: 'src-ip',     label: 'src-ip',      desc: 'Hash source IP only. Can be unbalanced if few source IPs exist.' },
+  ];
+  // Simulated traffic flows and which link they hash to
+  const flows = [
+    { src: '10.0.1.10', dst: '10.0.2.20', link: 0 },
+    { src: '10.0.1.11', dst: '10.0.2.20', link: 1 },
+    { src: '10.0.1.10', dst: '10.0.2.21', link: method === 'src-ip' ? 0 : 2 },
+    { src: '10.0.1.12', dst: '10.0.2.20', link: method === 'src-ip' ? 2 : 3 },
+    { src: '10.0.1.13', dst: '10.0.2.22', link: method === 'src-ip' ? 3 : 1 },
+    { src: '10.0.1.10', dst: '10.0.2.23', link: method === 'src-ip' ? 0 : 2 },
+  ];
+  const linkColors = ['#00e5ff', '#00e676', '#7c4dff', '#ffab00'];
+  const linkLoads = [0, 1, 2, 3].map(l => flows.filter(f => f.link === l).length);
+  return (
+    <InlineViz label="LACP LOAD BALANCING — TRAFFIC HASHING ACROSS MEMBER LINKS" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        {methods.map(m => (
+          <button key={m.id} onClick={() => setMethod(m.id)} style={{
+            padding: '3px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: method === m.id ? 'rgba(124,77,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${method === m.id ? '#7c4dff' : 'var(--border-subtle)'}`,
+            color: method === m.id ? '#7c4dff' : 'var(--text-muted)',
+          }}>{m.label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Flow table */}
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginBottom: 5 }}>TRAFFIC FLOWS → LINK ASSIGNMENT</div>
+          {flows.map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4,
+              padding: '4px 8px', borderRadius: 4, background: `${linkColors[f.link]}08`,
+              border: `1px solid ${linkColors[f.link]}25` }}>
+              <div style={{ fontSize: '0.5875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flex: 1 }}>
+                {f.src} → {f.dst}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', fontWeight: 700,
+                color: linkColors[f.link], background: `${linkColors[f.link]}20`,
+                padding: '1px 6px', borderRadius: 3, flexShrink: 0 }}>
+                Gi0/{f.link + 1}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Link utilization bars */}
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginBottom: 5 }}>LINK UTILIZATION</div>
+          {[0,1,2,3].map(l => (
+            <div key={l} style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: linkColors[l] }}>Gi0/{l+1}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: linkColors[l] }}>{linkLoads[l]} flows</span>
+              </div>
+              <div style={{ height: 10, background: 'var(--bg-elevated)', borderRadius: 5, overflow: 'hidden' }}>
+                <div style={{ width: `${(linkLoads[l] / flows.length) * 100}%`, height: '100%',
+                  background: linkColors[l], borderRadius: 5, transition: 'width 0.4s' }}/>
+              </div>
+            </div>
+          ))}
+          <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: 4 }}>
+            {methods.find(m => m.id === method)?.desc}
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Requirements for bundling — checklist ─────────────────
+function LacpRequirements() {
+  const [checked, setChecked] = React.useState({});
+  const reqs = [
+    { id: 'speed',   label: 'Same speed & duplex',      detail: 'All member ports must run at the same speed (e.g. all 1G or all 10G). Full duplex required.',           pass: true },
+    { id: 'vlan',    label: 'Same VLAN configuration',  detail: 'Access ports must be in the same VLAN. Trunk ports must carry the same allowed VLANs and native VLAN.', pass: true },
+    { id: 'stp',     label: 'Same STP settings',        detail: 'PortFast, guard settings, and port cost must match across all member ports.',                           pass: true },
+    { id: 'mtu',     label: 'Same MTU',                 detail: 'MTU must match on all member ports. Mismatched MTU causes EXSTART issues for protocols like OSPF.',      pass: true },
+    { id: 'mode',    label: 'Compatible LACP modes',    detail: 'At least one side must be Active. Passive-Passive will not form a channel.',                            pass: true },
+    { id: 'native',  label: 'Same native VLAN (trunks)', detail: 'Native VLAN mismatch on trunk port-channels causes CDP warnings and possible VLAN hopping.',           pass: true },
+  ];
+  const allChecked = reqs.every(r => checked[r.id]);
+  return (
+    <InlineViz label="REQUIREMENTS FOR BUNDLING — ALL MUST MATCH ON BOTH SIDES" accent="#00e676">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {reqs.map(r => (
+          <div key={r.id}
+            onClick={() => setChecked(prev => ({ ...prev, [r.id]: !prev[r.id] }))}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 12px',
+              borderRadius: 6, cursor: 'pointer',
+              background: checked[r.id] ? 'rgba(0,230,118,0.08)' : 'var(--bg-elevated)',
+              border: `1px solid ${checked[r.id] ? '#00e676' : 'var(--border-subtle)'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: 4, flexShrink: 0, marginTop: 1,
+              background: checked[r.id] ? '#00e676' : 'var(--bg-panel)',
+              border: `2px solid ${checked[r.id] ? '#00e676' : 'var(--border-default)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.75rem', transition: 'all 0.2s',
+            }}>{checked[r.id] ? '✓' : ''}</div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem',
+                color: checked[r.id] ? '#00e676' : 'var(--text-primary)', marginBottom: 2 }}>{r.label}</div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{r.detail}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {allChecked && (
+        <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6,
+          background: 'rgba(0,230,118,0.12)', border: '1px solid #00e676',
+          fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem', color: '#00e676' }}>
+          ✓ All requirements met — channel-group will form successfully
+        </div>
+      )}
+      <div style={{ marginTop: 6, fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+        Click each item to check it off · If any requirement fails, the port goes to individual (I) or suspended (s) state
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── LACP ─────────────────────────────────────────────────────
+  'lacp': [
+    { afterSection: 'What Is LACP?',            component: LacpBundlingAnim },
+    { afterSection: 'Modes',                    component: LacpModeMatrix },
+    { afterSection: 'Load Balancing',           component: LacpLoadBalancing },
+    { afterSection: 'Requirements for Bundling', component: LacpRequirements },
+  ],
+  'lacp-etherchannel': [
+    { afterSection: 'What Is LACP?',            component: LacpBundlingAnim },
+    { afterSection: 'Modes',                    component: LacpModeMatrix },
+    { afterSection: 'Load Balancing',           component: LacpLoadBalancing },
+    { afterSection: 'Requirements for Bundling', component: LacpRequirements },
+  ],
   // ── STP ──────────────────────────────────────────────────────
   'stp': [
     { afterSection: 'The Problem STP Solves',   component: BroadcastStormAnim },
