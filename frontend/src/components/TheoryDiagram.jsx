@@ -3688,9 +3688,10 @@ export const INLINE_DIAGRAMS = {
     { afterSection: 'The Seven Layers',           component: OsiLayerBreakdown },
     { afterSection: 'Encapsulation and Decapsulation', component: OsiEncapsulationInline },
   ],
-  // ── Network Layer Architecture (3-tier content per migrate_netarch_redo) ─
+  // ── Network Layer Architecture ─────────────────────────────
+  // Fire after the Core layer description — all 3 tiers explained by then
   'network-layer-arch': [
-    { afterSection: 'Hierarchical Network Design', component: ThreeTierModel },
+    { afterSection: 'Core Layer (Top / Backbone)', component: ThreeTierModel },
     { afterSection: 'Collapsed Core',              component: TwoTierModel },
   ],
   // ── Network Types ───────────────────────────────────────────
@@ -3740,14 +3741,11 @@ export const INLINE_DIAGRAMS = {
     { afterSection: 'Why VLANs Exist',             component: VlanWhyItMatters },
     { afterSection: 'VLAN Database',               component: VlanDatabaseViz },
   ],
-  // ── OSPF — ## headings from migrate_theory.sql ──────────────
-  // Sub-headings (###) are under ## OSPF Concepts
+  // ── OSPF — ### sub-headings under ## OSPF Concepts ─────────
   'ospf': [
-    { afterSection: 'What Is OSPF?',               component: OspfAdjacencyWalkthrough },
-    { afterSection: 'OSPF Concepts',               component: DrBdrElectionAnim },
-    { afterSection: 'LSA Types',                   component: LsaFloodingAnim },
-    { afterSection: 'Neighbor States',             component: OspfAdjacencyWalkthrough },
-    { afterSection: 'DR/BDR Election',             component: DrBdrElectionAnim },
-    { afterSection: 'Cost Calculation',            component: OspfSpfTree },
+    { afterSection: 'Neighbor States',  component: OspfAdjacencyWalkthrough },
+    { afterSection: 'DR/BDR Election',  component: DrBdrElectionAnim },
+    { afterSection: 'LSA Types',        component: LsaFloodingAnim },
+    { afterSection: 'Cost Calculation', component: OspfSpfTree },
   ],
 };
