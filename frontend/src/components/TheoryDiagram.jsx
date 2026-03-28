@@ -5285,7 +5285,284 @@ function PatPortTracking() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// ACL INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── ACL Types — standard vs extended ─────────────────────
+function AclTypesComparison() {
+  const [selected, setSelected] = React.useState('extended');
+  const types = {
+    standard: {
+      label: 'Standard ACL',
+      range: '1–99, 1300–1999',
+      color: '#ffab00',
+      matches: ['Source IP address only'],
+      cannot: ['Destination IP', 'Protocol (TCP/UDP/ICMP)', 'Port numbers', 'Flags (SYN, ACK)'],
+      placement: 'Place CLOSE TO DESTINATION — because it can only match source IP, placing near source would block traffic to ALL destinations.',
+      example: 'access-list 10 permit 10.0.1.0 0.0.0.255',
+      use: 'Simple permit/deny by source. Good for route-map match or VTY line access control.',
+    },
+    extended: {
+      label: 'Extended ACL',
+      range: '100–199, 2000–2699',
+      color: '#00e5ff',
+      matches: ['Source IP + wildcard', 'Destination IP + wildcard', 'Protocol (TCP/UDP/ICMP/IP)', 'Source & destination port', 'TCP flags (established, syn)'],
+      cannot: ['Application payload (use NBAR/DPI for that)'],
+      placement: 'Place CLOSE TO SOURCE — because it can match destination, it only blocks specific unwanted traffic without affecting other flows.',
+      example: 'access-list 110 deny tcp 10.0.1.0 0.0.0.255 any eq 23\naccess-list 110 permit ip any any',
+      use: 'Granular filtering. Blocks specific protocols and ports while permitting others.',
+    },
+    named: {
+      label: 'Named ACL',
+      range: 'Any text name',
+      color: '#7c4dff',
+      matches: ['Same as standard or extended', 'Specified by "standard" or "extended" keyword'],
+      cannot: ['Nothing extra over numbered — just easier management'],
+      placement: 'Same rules as numbered equivalents apply.',
+      example: 'ip access-list extended BLOCK-TELNET\n deny tcp any any eq 23\n permit ip any any',
+      use: 'Preferred in production. Can insert/delete individual lines. Descriptive names improve readability.',
+    },
+  };
+  const t = types[selected];
+  return (
+    <InlineViz label="ACL TYPES — STANDARD vs EXTENDED vs NAMED" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {Object.entries(types).map(([k, v]) => (
+          <button key={k} onClick={() => setSelected(k)} style={{
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: selected === k ? `${v.color}20` : 'var(--bg-elevated)',
+            border: `1px solid ${selected === k ? v.color : 'var(--border-subtle)'}`,
+            color: selected === k ? v.color : 'var(--text-muted)', transition: 'all 0.2s',
+          }}>{v.label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginBottom: 6 }}>CAN MATCH</div>
+          {t.matches.map((m, i) => (
+            <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-start' }}>
+              <span style={{ color: '#00e676', flexShrink: 0, fontWeight: 700 }}>✓</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m}</span>
+            </div>
+          ))}
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginTop: 10, marginBottom: 6 }}>CANNOT MATCH</div>
+          {t.cannot.map((m, i) => (
+            <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-start' }}>
+              <span style={{ color: '#ff5252', flexShrink: 0, fontWeight: 700 }}>✗</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{m}</span>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginBottom: 6 }}>PLACEMENT RULE</div>
+          <div style={{ padding: '8px 10px', borderRadius: 5, background: `${t.color}10`,
+            border: `1px solid ${t.color}30`, fontSize: '0.75rem', color: 'var(--text-secondary)',
+            lineHeight: 1.6, marginBottom: 10 }}>{t.placement}</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginBottom: 6 }}>EXAMPLE</div>
+          <pre style={{ background: 'var(--bg-terminal)', border: '1px solid var(--border-subtle)',
+            borderRadius: 4, padding: '6px 8px', fontFamily: 'var(--font-mono)',
+            fontSize: '0.6rem', color: t.color, overflowX: 'auto', lineHeight: 1.6,
+            margin: 0 }}>{t.example}</pre>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── ACL Processing — top-down first-match animation ───────
+function AclProcessingAnim() {
+  const [packetSrc, setPacketSrc] = React.useState('10.0.1.50');
+  const [step, setStep] = React.useState(-1);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const acl = [
+    { seq: 10,  action: 'deny',   match: '10.0.1.50 0.0.0.0', desc: 'Deny specific host 10.0.1.50', color: '#ff5252' },
+    { seq: 20,  action: 'permit', match: '10.0.1.0 0.0.0.255', desc: 'Permit the entire /24 subnet', color: '#00e676' },
+    { seq: 30,  action: 'permit', match: '192.168.1.0 0.0.0.255', desc: 'Permit another subnet', color: '#00e676' },
+    { seq: null, action: 'deny',  match: 'any',                desc: 'Implicit deny — always at end', color: '#78909c' },
+  ];
+  const packets = {
+    '10.0.1.50':  { matchIdx: 0, result: 'deny',   reason: 'Matches ACE 10 (exact host match)' },
+    '10.0.1.100': { matchIdx: 1, result: 'permit', reason: 'No match on ACE 10, matches ACE 20 (/24 subnet)' },
+    '172.16.0.1': { matchIdx: 3, result: 'deny',   reason: 'No match on any explicit ACE — hits implicit deny' },
+  };
+  const pkt = packets[packetSrc];
+  useEffect(() => {
+    setStep(-1);
+    const t = setTimeout(() => setStep(0), 300);
+    return () => clearTimeout(t);
+  }, [packetSrc]);
+  useEffect(() => {
+    if (isPaused || step < 0 || step >= pkt.matchIdx) return;
+    const t = setTimeout(() => setStep(s => s + 1), 700);
+    return () => clearTimeout(t);
+  }, [step, isPaused, packetSrc]);
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 200); }
+  return (
+    <InlineViz label="ACL PROCESSING — TOP-DOWN, FIRST MATCH WINS" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Packet src:</span>
+        {Object.keys(packets).map(ip => (
+          <button key={ip} onClick={() => { setPacketSrc(ip); setIsPaused(false); }} style={{
+            padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+            background: packetSrc === ip ? 'rgba(0,229,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${packetSrc === ip ? '#00e5ff' : 'var(--border-subtle)'}`,
+            color: packetSrc === ip ? '#00e5ff' : 'var(--text-muted)',
+          }}>{ip}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={replay}>↺</button>
+        </div>
+      </div>
+      {/* ACL entries */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+        {acl.map((ace, i) => {
+          const isCurrent = step === i;
+          const isPast    = step > i && i < pkt.matchIdx;
+          const isMatch   = step >= pkt.matchIdx && i === pkt.matchIdx;
+          return (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px',
+              borderRadius: 5, transition: 'all 0.4s',
+              background: isMatch ? `${ace.color}18` : isCurrent ? 'rgba(0,229,255,0.08)' : isPast ? 'rgba(120,144,156,0.06)' : 'var(--bg-elevated)',
+              border: `1px solid ${isMatch ? ace.color : isCurrent ? '#00e5ff' : isPast ? 'rgba(120,144,156,0.2)' : 'var(--border-subtle)'}`,
+              opacity: step < 0 ? 0.4 : 1,
+            }}>
+              {/* Sequence */}
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+                color: 'var(--text-muted)', width: 24, flexShrink: 0, textAlign: 'right' }}>
+                {ace.seq || '—'}
+              </div>
+              {/* Action badge */}
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.6875rem',
+                color: ace.color, background: `${ace.color}18`, padding: '2px 8px',
+                borderRadius: 4, flexShrink: 0, width: 50, textAlign: 'center' }}>
+                {ace.action.toUpperCase()}
+              </div>
+              {/* Match */}
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                color: isMatch ? ace.color : 'var(--text-secondary)', flex: 1 }}>{ace.match}</div>
+              {/* Status */}
+              <div style={{ fontSize: '0.625rem', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                {isMatch && <span style={{ color: ace.color, fontWeight: 700 }}>← MATCH</span>}
+                {isPast && <span style={{ color: '#78909c' }}>no match ↓</span>}
+                {isCurrent && !isMatch && <span style={{ color: '#00e5ff' }}>checking…</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Result */}
+      {step >= pkt.matchIdx && (
+        <div style={{ padding: '8px 12px', borderRadius: 5,
+          background: pkt.result === 'permit' ? 'rgba(0,230,118,0.10)' : 'rgba(255,82,82,0.10)',
+          border: `1px solid ${pkt.result === 'permit' ? '#00e676' : '#ff5252'}30`,
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+            color: pkt.result === 'permit' ? '#00e676' : '#ff5252' }}>
+            {pkt.result === 'permit' ? '✓ PERMIT' : '✗ DENY'}
+          </span>{' — '}{pkt.reason}
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── ACL Direction — inbound vs outbound ───────────────────
+function AclDirectionViz() {
+  const [dir, setDir] = React.useState('in');
+  const isIn = dir === 'in';
+  return (
+    <InlineViz label="ACL DIRECTION — INBOUND vs OUTBOUND ON AN INTERFACE" accent="#7c4dff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['in','Inbound (in)'],['out','Outbound (out)']].map(([d, label]) => (
+          <button key={d} onClick={() => setDir(d)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: dir === d ? 'rgba(124,77,255,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${dir === d ? '#7c4dff' : 'var(--border-subtle)'}`,
+            color: dir === d ? '#7c4dff' : 'var(--text-muted)',
+          }}>{label}</button>
+        ))}
+      </div>
+      <svg viewBox="0 0 420 120" style={{ width: '100%', maxHeight: 120, display: 'block', marginBottom: 12 }}>
+        {/* Router */}
+        <rect x="160" y="40" width="100" height="40" rx="5"
+          fill="rgba(124,77,255,0.1)" stroke="#7c4dff" strokeWidth="1.5"/>
+        <text x="210" y="58" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="11" fontWeight="bold">Router</text>
+        <text x="210" y="71" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="8">
+          ip access-group ACL {dir}
+        </text>
+        {/* Interface label */}
+        <text x="210" y="28" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="8">Gi0/0</text>
+        {/* Incoming traffic */}
+        <line x1="30" y1="60" x2="160" y2="60" stroke={isIn ? '#ff5252' : '#546e7a'} strokeWidth="2.5"
+          style={{ transition: 'stroke 0.4s' }}/>
+        <polygon points="155,55 163,60 155,65" fill={isIn ? '#ff5252' : '#546e7a'}
+          style={{ transition: 'fill 0.4s' }}/>
+        {/* ACL check box on inbound */}
+        {isIn && (
+          <g>
+            <rect x="70" y="45" width="55" height="28" rx="4"
+              fill="rgba(255,82,82,0.15)" stroke="#ff5252" strokeWidth="1.5"/>
+            <text x="97" y="58" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="8" fontWeight="bold">ACL</text>
+            <text x="97" y="68" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="7">checked</text>
+          </g>
+        )}
+        {/* Label */}
+        <text x="97" y="95" textAnchor="middle" fill={isIn ? '#ff5252' : '#546e7a'}
+          fontFamily="monospace" fontSize="8">
+          {isIn ? '← packets ENTERING' : '← packets entering (no ACL)'}
+        </text>
+        {/* Outgoing traffic */}
+        <line x1="260" y1="60" x2="390" y2="60" stroke={!isIn ? '#ff5252' : '#546e7a'} strokeWidth="2.5"
+          style={{ transition: 'stroke 0.4s' }}/>
+        <polygon points="385,55 393,60 385,65" fill={!isIn ? '#ff5252' : '#546e7a'}
+          style={{ transition: 'fill 0.4s' }}/>
+        {/* ACL check box on outbound */}
+        {!isIn && (
+          <g>
+            <rect x="300" y="45" width="55" height="28" rx="4"
+              fill="rgba(255,82,82,0.15)" stroke="#ff5252" strokeWidth="1.5"/>
+            <text x="327" y="58" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="8" fontWeight="bold">ACL</text>
+            <text x="327" y="68" textAnchor="middle" fill="#ff5252" fontFamily="monospace" fontSize="7">checked</text>
+          </g>
+        )}
+        <text x="327" y="95" textAnchor="middle" fill={!isIn ? '#ff5252' : '#546e7a'}
+          fontFamily="monospace" fontSize="8">
+          {!isIn ? 'packets LEAVING →' : 'packets leaving (no ACL) →'}
+        </text>
+      </svg>
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: 'rgba(124,77,255,0.08)', border: '1px solid rgba(124,77,255,0.25)',
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {isIn
+          ? 'Inbound ACL: packets are checked BEFORE being routed. Most efficient — drops unwanted traffic immediately without consuming routing resources. Use when filtering traffic arriving from an untrusted network.'
+          : 'Outbound ACL: packets are checked AFTER routing, just before leaving the interface. Use when the same traffic comes from multiple input interfaces and you want to filter at the exit point.'}
+        <div style={{ marginTop: 6, fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--accent)' }}>
+          ip access-group {isIn ? 'BLOCK-TELNET in' : 'PERMIT-MGMT out'}
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── ACLs ─────────────────────────────────────────────────────
+  'acls': [
+    { afterSection: 'ACL Types',        component: AclTypesComparison },
+    { afterSection: 'Processing Rules', component: AclProcessingAnim },
+    { afterSection: 'Direction Logic',  component: AclDirectionViz },
+  ],
+  'acl-traffic-filtering': [
+    { afterSection: 'ACL Types',        component: AclTypesComparison },
+    { afterSection: 'Processing Rules', component: AclProcessingAnim },
+    { afterSection: 'Direction Logic',  component: AclDirectionViz },
+  ],
   // ── NAT / PAT ─────────────────────────────────────────────────
   'nat': [
     { afterSection: 'NAT Terminology', component: NatTerminology },
