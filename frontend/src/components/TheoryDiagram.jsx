@@ -6980,7 +6980,276 @@ function MplsUseCases() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// IPv6 INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── IPv6 Address Format — breakdown ───────────────────────
+function Ipv6AddressBreakdown() {
+  const [mode, setMode] = React.useState('full');
+  const examples = {
+    full:        '2001:0DB8:0000:0001:0000:0000:0000:0001',
+    compressed:  '2001:DB8:0:1::1',
+    linklocal:   'FE80::1',
+    slaac:       '2001:DB8::/64 + EUI-64',
+  };
+  const rules = [
+    { rule: 'Leading zeros per group can be omitted',    before: '0DB8', after: 'DB8',  color: '#ffab00' },
+    { rule: 'One consecutive run of all-zero groups → ::', before: ':0000:0000:0000:', after: '::', color: '#00e5ff' },
+    { rule: ':: can only appear once in an address',   before: 'never 2×::',  after: '1× max', color: '#f43f5e' },
+  ];
+  const addr = '2001:0DB8:0000:0001:0000:0000:0000:0001';
+  const groups = addr.split(':');
+  return (
+    <InlineViz label="IPv6 ADDRESS FORMAT — 128 BITS (8 × 16-BIT GROUPS)" accent="#00e5ff">
+      {/* Address visualization */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 2, flexWrap: 'nowrap', overflowX: 'auto', marginBottom: 6 }}>
+          {groups.map((g, i) => {
+            const isPrefix = i < 4;
+            const isZero   = g === '0000';
+            return (
+              <div key={i} style={{
+                minWidth: 52, padding: '5px 4px', borderRadius: 4, textAlign: 'center',
+                background: isZero ? 'rgba(0,229,255,0.06)' : isPrefix ? 'rgba(0,230,118,0.12)' : 'rgba(124,77,255,0.12)',
+                border: `1px solid ${isZero ? 'rgba(0,229,255,0.2)' : isPrefix ? 'rgba(0,230,118,0.4)' : 'rgba(124,77,255,0.4)'}`,
+              }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+                  color: isZero ? '#546e7a' : isPrefix ? '#00e676' : '#7c4dff' }}>{g}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                  {i * 16}–{(i+1)*16-1}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Prefix / Interface-ID split labels */}
+        <div style={{ display: 'flex', gap: 2 }}>
+          <div style={{ flex: 4, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: '#00e676' }}>
+            ← Network Prefix (64 bits) →
+          </div>
+          <div style={{ flex: 4, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: '#7c4dff' }}>
+            ← Interface ID (64 bits) →
+          </div>
+        </div>
+      </div>
+      {/* Compression rules */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)', marginBottom: 6 }}>COMPRESSION RULES</div>
+        {rules.map((r, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 5,
+            padding: '5px 8px', borderRadius: 4, background: `${r.color}08`,
+            border: `1px solid ${r.color}25` }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+              <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                color: 'var(--text-muted)', background: 'var(--bg-terminal)',
+                padding: '1px 5px', borderRadius: 3 }}>{r.before}</code>
+              <span style={{ color: r.color, fontWeight: 700 }}>→</span>
+              <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                color: r.color, background: `${r.color}15`,
+                padding: '1px 5px', borderRadius: 3 }}>{r.after}</code>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{r.rule}</div>
+          </div>
+        ))}
+      </div>
+      {/* Compressed form */}
+      <div style={{ padding: '8px 12px', borderRadius: 5,
+        background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.25)',
+        fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+        <span style={{ color: 'var(--text-muted)' }}>Full:       </span>
+        <span style={{ color: '#546e7a' }}>2001:0DB8:0000:0001:0000:0000:0000:0001</span><br/>
+        <span style={{ color: 'var(--text-muted)' }}>Compressed: </span>
+        <span style={{ color: '#00e5ff', fontWeight: 700 }}>2001:DB8:0:1::1</span>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── IPv6 Address Types — clickable cards ──────────────────
+function Ipv6AddressTypes() {
+  const [selected, setSelected] = React.useState(null);
+  const types = [
+    {
+      type: 'Global Unicast',   prefix: '2000::/3',    color: '#00e5ff',
+      example: '2001:DB8:1::1/64',
+      scope: 'Internet routable',
+      desc: 'Public IPv6 addresses — routable on the internet. Equivalent to public IPv4 addresses. Assigned by RIRs. Range starts with 2 or 3 in hex.',
+    },
+    {
+      type: 'Link-Local',       prefix: 'FE80::/10',   color: '#00e676',
+      example: 'FE80::1/64',
+      scope: 'Single link only',
+      desc: 'Auto-configured on every IPv6 interface. Never routed beyond the local link. Used for neighbor discovery, routing protocol hellos, and default gateway communication. Always present even without a global address.',
+    },
+    {
+      type: 'Unique Local',     prefix: 'FC00::/7',    color: '#7c4dff',
+      example: 'FD00::/8 (common)',
+      scope: 'Private (like RFC 1918)',
+      desc: 'Private IPv6 addresses — not routed on internet. FD00::/8 is the commonly used sub-range (locally assigned). Equivalent to 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 in IPv4.',
+    },
+    {
+      type: 'Multicast',        prefix: 'FF00::/8',    color: '#ffab00',
+      example: 'FF02::1 (all nodes)',
+      scope: 'One-to-many',
+      desc: 'IPv6 has no broadcast — multicast replaces it. FF02::1 = all nodes, FF02::2 = all routers, FF02::5 = all OSPF routers. Solicited-node multicast (FF02::1:FFxx:xxxx) is used by NDP for address resolution.',
+    },
+    {
+      type: 'Loopback',         prefix: '::1/128',     color: '#f43f5e',
+      example: '::1',
+      scope: 'Local host only',
+      desc: 'Equivalent to IPv4 127.0.0.1. Used for testing the IPv6 stack on the local device. Only one loopback address exists in IPv6.',
+    },
+    {
+      type: 'Unspecified',      prefix: '::/128',       color: '#78909c',
+      example: '::',
+      scope: 'Source during init',
+      desc: 'Used as source address before a host has a valid IPv6 address. Appears in DHCPv6 and DAD (Duplicate Address Detection) packets. Never used as a destination.',
+    },
+  ];
+  return (
+    <InlineViz label="IPv6 ADDRESS TYPES — CLICK TO EXPAND" accent="#00e5ff">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+        {types.map((t, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${t.color}18` : `${t.color}08`,
+              border: `1px solid ${selected === i ? t.color : t.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.6875rem', color: t.color, marginBottom: 2 }}>{t.type}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+              color: 'var(--text-muted)' }}>{t.prefix}</div>
+          </div>
+        ))}
+      </div>
+      {selected !== null && (
+        <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 6,
+          background: `${types[selected].color}10`,
+          border: `1px solid ${types[selected].color}40` }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
+            <div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)' }}>PREFIX </span>
+              <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
+                color: types[selected].color, fontWeight: 700 }}>{types[selected].prefix}</code>
+            </div>
+            <div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: 'var(--text-muted)' }}>EXAMPLE </span>
+              <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
+                color: types[selected].color }}>{types[selected].example}</code>
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+              color: types[selected].color, background: `${types[selected].color}15`,
+              padding: '2px 8px', borderRadius: 3 }}>{types[selected].scope}</div>
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            {types[selected].desc}
+          </div>
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── NDP — neighbor discovery animation ────────────────────
+function NdpAnimation() {
+  const [mode, setMode] = React.useState('slaac');
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const modes = {
+    slaac: {
+      label: 'SLAAC (Router Discovery)',
+      color: '#00e676',
+      steps: [
+        { from: 'Host',   to: 'FF02::2', msg: 'RS',  desc: 'Host sends Router Solicitation (RS) to all-routers multicast FF02::2 — "Is there a router on this link?"' },
+        { from: 'Router', to: 'FF02::1', msg: 'RA',  desc: 'Router replies with Router Advertisement (RA) — announces prefix (e.g. 2001:DB8:1::/64), MTU, default gateway, flags.' },
+        { from: 'Host',   to: null,      msg: 'DAD', desc: 'Host generates its address using prefix + EUI-64 (or random). Runs DAD (Duplicate Address Detection) via Neighbor Solicitation to ensure uniqueness.' },
+        { from: 'Host',   to: null,      msg: '✓',   desc: '✓ Host is configured: 2001:DB8:1::EUI-64/64, gateway = FE80::1 (router link-local). No DHCP server needed.' },
+      ],
+    },
+    ndp: {
+      label: 'NDP (Address Resolution)',
+      color: '#00e5ff',
+      steps: [
+        { from: 'Host A', to: 'Solicited-Node', msg: 'NS', desc: 'Host A wants to reach 2001:DB8::2. Sends Neighbor Solicitation (NS) to solicited-node multicast FF02::1:FF00:0002 — "Who has 2001:DB8::2?"' },
+        { from: 'Host B', to: 'Host A',         msg: 'NA', desc: 'Host B (owner of 2001:DB8::2) replies with Neighbor Advertisement (NA) — "I have it, my MAC is aa:bb:cc:dd:ee:ff".' },
+        { from: 'Host A', to: null,             msg: '✓',  desc: '✓ Host A caches the MAC in its neighbor cache and sends the packet. NDP replaces ARP — no broadcasts, uses targeted multicast instead.' },
+      ],
+    },
+  };
+  const m = modes[mode];
+  useEffect(() => {
+    if (isPaused || step >= m.steps.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused, mode]);
+  function reset(k) { setMode(k); setStep(0); setIsPaused(false); }
+  return (
+    <InlineViz label="NDP — NEIGHBOR DISCOVERY (replaces ARP + ICMP Router Discovery)" accent="#00e676">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {Object.entries(modes).map(([k, v]) => (
+          <button key={k} onClick={() => reset(k)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: mode === k ? `${v.color}20` : 'var(--bg-elevated)',
+            border: `1px solid ${mode === k ? v.color : 'var(--border-subtle)'}`,
+            color: mode === k ? v.color : 'var(--text-muted)',
+          }}>{v.label}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => reset(mode)}>↺</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {m.steps.map((s, i) => (
+          <div key={i} style={{
+            display: 'flex', gap: 12, alignItems: 'flex-start',
+            opacity: step >= i ? 1 : 0.2, transition: 'opacity 0.5s',
+          }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+              background: step >= i ? `${m.color}20` : 'var(--bg-elevated)',
+              border: `2px solid ${step >= i ? m.color : 'var(--border-subtle)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font-mono)', fontSize: '0.625rem', fontWeight: 700,
+              color: step >= i ? m.color : 'var(--text-muted)',
+              boxShadow: step === i ? `0 0 12px ${m.color}40` : 'none',
+              transition: 'all 0.4s',
+            }}>{s.msg}</div>
+            <div style={{ flex: 1, paddingTop: 4 }}>
+              {s.from && (
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+                  color: 'var(--text-muted)', marginBottom: 2 }}>
+                  {s.from} → {s.to || 'self'}
+                </div>
+              )}
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                {s.desc}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── IPv6 ──────────────────────────────────────────────────────
+  'ipv6': [
+    { afterSection: 'Address Format',                   component: Ipv6AddressBreakdown },
+    { afterSection: 'Address Types',                    component: Ipv6AddressTypes },
+    { afterSection: 'NDP (Neighbor Discovery Protocol)', component: NdpAnimation },
+  ],
+  'ipv6-addressing': [
+    { afterSection: 'Address Format',                   component: Ipv6AddressBreakdown },
+    { afterSection: 'Address Types',                    component: Ipv6AddressTypes },
+    { afterSection: 'NDP (Neighbor Discovery Protocol)', component: NdpAnimation },
+  ],
   // ── MPLS ──────────────────────────────────────────────────────
   'mpls': [
     { afterSection: 'Why MPLS?',               component: MplsUseCases },
