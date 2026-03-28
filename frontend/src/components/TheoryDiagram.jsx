@@ -10440,6 +10440,342 @@ function RoutingVsSwitchingViz() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// HOW THE INTERNET WORKS — SECTION DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── TCP Three-Way Handshake ───────────────────────────────
+function TcpHandshakeAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const steps = [
+    { from:'Client', to:'Server', msg:'SYN',     color:'#00e5ff', seq:'ISN=1000, SYN=1',
+      desc:'Client picks a random Initial Sequence Number (ISN). Sends SYN flag — "I want to start a connection. My starting sequence is 1000."' },
+    { from:'Server', to:'Client', msg:'SYN-ACK', color:'#00e676', seq:'ISN=5000, ACK=1001',
+      desc:'Server acknowledges client\'s ISN (ACK=1001 means "I got byte 1000, ready for 1001"). Server sends its own ISN=5000. Both ISNs are now known.' },
+    { from:'Client', to:'Server', msg:'ACK',     color:'#ffab00', seq:'ACK=5001',
+      desc:'Client acknowledges server\'s ISN (ACK=5001). Three-way handshake complete — bidirectional connection established. Data can now flow.' },
+    { from:'Client', to:'Server', msg:'HTTP GET', color:'#7c4dff', seq:'Seq=1001',
+      desc:'✓ First data segment sent. TCP guarantees reliable, ordered delivery — if any segment is lost, it is retransmitted. Connection open until FIN/RST.' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= steps.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  const isRight = (s) => s.from === 'Client';
+  return (
+    <InlineViz label="TCP THREE-WAY HANDSHAKE — SYN / SYN-ACK / ACK" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <svg viewBox="0 0 300 175" style={{ width: 280, maxHeight: 175, flexShrink: 0 }}>
+          {/* Actors */}
+          {[{label:'CLIENT', x:60, color:'#00e5ff'},{label:'SERVER', x:240, color:'#00e676'}].map((a,i)=>(
+            <g key={i}>
+              <rect x={a.x-40} y="5" width="80" height="24" rx="4"
+                fill={`${a.color}15`} stroke={a.color} strokeWidth="1"/>
+              <text x={a.x} y="20" textAnchor="middle" fill={a.color}
+                fontFamily="monospace" fontSize="9" fontWeight="bold">{a.label}</text>
+              <line x1={a.x} y1="29" x2={a.x} y2="175"
+                stroke={`${a.color}20`} strokeWidth="1" strokeDasharray="3,3"/>
+            </g>
+          ))}
+          {/* Message arrows */}
+          {steps.map((s, i) => {
+            if (step < i) return null;
+            const y = 45 + i * 30;
+            const x1 = isRight(s) ? 60 : 240;
+            const x2 = isRight(s) ? 240 : 60;
+            return (
+              <g key={i}>
+                <line x1={x1} y1={y} x2={x2} y2={y}
+                  stroke={s.color} strokeWidth={step === i ? 2 : 1.5}
+                  strokeDasharray={s.msg === 'ACK' ? '5,3' : 'none'}/>
+                <polygon
+                  points={isRight(s)
+                    ? `${x2-6},${y-4} ${x2},${y} ${x2-6},${y+4}`
+                    : `${x2+6},${y-4} ${x2},${y} ${x2+6},${y+4}`}
+                  fill={s.color}/>
+                <rect x={(x1+x2)/2-22} y={y-10} width={44} height={13} rx={2}
+                  fill="var(--bg-panel)"/>
+                <text x={(x1+x2)/2} y={y} textAnchor="middle"
+                  fill={s.color} fontFamily="monospace" fontSize="9" fontWeight="bold">
+                  {s.msg}
+                </text>
+                <text x={(x1+x2)/2} y={y+12} textAnchor="middle"
+                  fill="var(--text-muted)" fontFamily="monospace" fontSize="6">
+                  {s.seq}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ padding: '8px 12px', borderRadius: 6,
+            background: `${steps[step].color}10`,
+            border: `1px solid ${steps[step].color}35`,
+            fontSize: '0.8125rem', color: 'var(--text-secondary)',
+            lineHeight: 1.6, marginBottom: 10 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              color: steps[step].color }}>{steps[step].msg}: </span>
+            {steps[step].desc}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+            <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+          </div>
+          <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+            color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Cost: 1 RTT before data flows<br/>
+            Port 443 (HTTPS) or 80 (HTTP)<br/>
+            TLS handshake follows (adds another 1 RTT)
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── TLS Handshake ─────────────────────────────────────────
+function TlsHandshakeAnim() {
+  const [version, setVersion] = React.useState('1.3');
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const versions = {
+    '1.3': {
+      color: '#00e676',
+      steps: [
+        { from:'Client', msg:'ClientHello + Key Share',   desc:'Client sends supported ciphers, TLS version, and a DH key share in the same message. TLS 1.3 starts DH immediately.' },
+        { from:'Server', msg:'ServerHello + Certificate + Finished', desc:'Server completes DH exchange, sends certificate, and a Finished message — all in one flight. Server is done in 1 RTT.' },
+        { from:'Client', msg:'Finished + HTTP Request',  desc:'✓ Client verifies cert, derives session keys, sends Finished + first HTTP request together. Total: 1 RTT after TCP.' },
+      ],
+    },
+    '1.2': {
+      color: '#ffab00',
+      steps: [
+        { from:'Client', msg:'ClientHello',              desc:'Client sends supported cipher suites and TLS version.' },
+        { from:'Server', msg:'ServerHello + Certificate',desc:'Server picks cipher, sends certificate.' },
+        { from:'Client', msg:'Key Exchange + ChangeCipherSpec', desc:'Client sends pre-master secret encrypted with server\'s public key. Both derive session keys.' },
+        { from:'Server', msg:'ChangeCipherSpec + Finished', desc:'Server confirms — encrypted channel ready.' },
+        { from:'Client', msg:'HTTP Request',             desc:'✓ First application data. Total: 2 RTT after TCP.' },
+      ],
+    },
+  };
+  const v = versions[version];
+  useEffect(() => {
+    if (isPaused || step >= v.steps.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    return () => clearTimeout(t);
+  }, [step, isPaused, version]);
+  function reset(ver) { setVersion(ver); setStep(0); setIsPaused(false); }
+  return (
+    <InlineViz label="TLS HANDSHAKE — 1.3 (1 RTT) vs 1.2 (2 RTT)" accent="#00e676">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {['1.3','1.2'].map(ver => (
+          <button key={ver} onClick={() => reset(ver)} style={{
+            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: version === ver ? `${versions[ver].color}20` : 'var(--bg-elevated)',
+            border: `1px solid ${version === ver ? versions[ver].color : 'var(--border-subtle)'}`,
+            color: version === ver ? versions[ver].color : 'var(--text-muted)',
+          }}>TLS {ver}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+          <button style={BASE.btn} onClick={() => reset(version)}>↺</button>
+        </div>
+      </div>
+      <svg viewBox="0 0 300 175" style={{ width: 280, maxHeight: 175, display: 'block', marginBottom: 10 }}>
+        {[{label:'BROWSER', x:55, color:'#00e5ff'},{label:'SERVER', x:245, color:'#00e676'}].map((a,i)=>(
+          <g key={i}>
+            <rect x={a.x-40} y="5" width="80" height="22" rx="4"
+              fill={`${a.color}12`} stroke={a.color} strokeWidth="1"/>
+            <text x={a.x} y="19" textAnchor="middle" fill={a.color}
+              fontFamily="monospace" fontSize="8" fontWeight="bold">{a.label}</text>
+            <line x1={a.x} y1="27" x2={a.x} y2="175"
+              stroke={`${a.color}15`} strokeWidth="1" strokeDasharray="3,3"/>
+          </g>
+        ))}
+        {v.steps.map((s, i) => {
+          if (step < i) return null;
+          const y = 42 + i * 26;
+          const isRight = s.from === 'Client';
+          const x1 = isRight ? 55 : 245, x2 = isRight ? 245 : 55;
+          return (
+            <g key={i}>
+              <line x1={x1} y1={y} x2={x2} y2={y}
+                stroke={v.color} strokeWidth={step === i ? 2 : 1.5}/>
+              <polygon
+                points={isRight
+                  ? `${x2-5},${y-3} ${x2},${y} ${x2-5},${y+3}`
+                  : `${x2+5},${y-3} ${x2},${y} ${x2+5},${y+3}`}
+                fill={v.color}/>
+              <text x={(x1+x2)/2} y={y-3} textAnchor="middle"
+                fill={v.color} fontFamily="monospace" fontSize="7"
+                fontWeight={step === i ? 'bold' : 'normal'}>{s.msg}</text>
+            </g>
+          );
+        })}
+        {/* RTT markers */}
+        <text x="295" y="50" textAnchor="end" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">←1 RTT→</text>
+        {version === '1.2' && (
+          <text x="295" y="95" textAnchor="end" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">←2 RTT→</text>
+        )}
+      </svg>
+      {step < v.steps.length && (
+        <div style={{ padding: '7px 12px', borderRadius: 5,
+          background: `${v.color}08`, border: `1px solid ${v.color}30`,
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: v.color }}>
+            {v.steps[step].msg}: </span>
+          {v.steps[step].desc}
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── IP end-to-end, MAC hop-to-hop ─────────────────────────
+function IpVsMacHopByHop() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const hops = [
+    { label:'PC (src)',  ip:'192.168.1.10', mac:'aa:bb:cc:00:01', color:'#00e5ff' },
+    { label:'Home Router', ip:'203.0.113.1 (NAT)', mac:'dd:ee:ff:00:01', color:'#ffab00' },
+    { label:'ISP Router', ip:'(core)',        mac:'11:22:33:00:01', color:'#7c4dff' },
+    { label:'Server',    ip:'93.184.216.34', mac:'44:55:66:00:01', color:'#00e676' },
+  ];
+  useEffect(() => {
+    if (isPaused || step >= hops.length - 1) return;
+    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  return (
+    <InlineViz label="KEY CONCEPT — IP IS END-TO-END, MAC IS HOP-TO-HOP" accent="#ffab00">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={() => { setStep(0); setIsPaused(false); }}>↺</button>
+      </div>
+      {/* Packet header at current hop */}
+      <div style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 6,
+        background: 'var(--bg-terminal)', border: '1px solid var(--border-subtle)',
+        fontFamily: 'var(--font-mono)', fontSize: '0.6875rem' }}>
+        <div style={{ color: 'var(--text-muted)', marginBottom: 4, fontSize: '0.5875rem' }}>
+          PACKET AT {hops[step].label.toUpperCase()}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.5rem', marginBottom: 2 }}>SRC IP (never changes)</div>
+            <div style={{ color: '#00e5ff' }}>192.168.1.10 → 93.184.216.34</div>
+          </div>
+          <div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.5rem', marginBottom: 2 }}>
+              SRC MAC (changes every hop ↓)
+            </div>
+            <div style={{ color: '#ffab00' }}>
+              {hops[step].mac} → {step < hops.length - 1 ? hops[step + 1].mac : '(destination)'}
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Hop diagram */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto' }}>
+        {hops.map((h, i) => (
+          <React.Fragment key={i}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              minWidth: 70, opacity: step >= i ? 1 : 0.3, transition: 'opacity 0.4s',
+            }}>
+              <div style={{
+                width: 48, height: 36, borderRadius: 6,
+                background: step === i ? `${h.color}25` : `${h.color}08`,
+                border: `2px solid ${step === i ? h.color : h.color + '30'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.625rem', fontFamily: 'var(--font-mono)', fontWeight: 700,
+                color: h.color, textAlign: 'center', padding: 2, lineHeight: 1.2,
+                boxShadow: step === i ? `0 0 12px ${h.color}40` : 'none',
+                transition: 'all 0.4s',
+              }}>{h.label}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem',
+                color: '#ffab00', textAlign: 'center' }}>{h.mac.slice(-5)}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.45rem',
+                color: '#00e5ff', textAlign: 'center' }}>IP unchanged</div>
+            </div>
+            {i < hops.length - 1 && (
+              <div style={{ flex: 1, height: 2, minWidth: 16,
+                background: step > i ? '#ffab00' : 'var(--border-subtle)',
+                transition: 'background 0.4s', margin: '0 4px' }}/>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, padding: '7px 12px', borderRadius: 5,
+        background: 'rgba(255,171,0,0.06)', border: '1px solid rgba(255,171,0,0.2)',
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {step === 0 && 'PC creates IP packet (src: 192.168.1.10 → dst: 93.184.216.34). Ethernet frame uses MAC of local router as destination.'}
+        {step === 1 && 'Home router performs NAT (rewrites src IP). New Ethernet frame: router\'s WAN MAC → ISP router MAC. IP destination unchanged.'}
+        {step === 2 && 'ISP core router forwards. Creates new Ethernet frame with its MAC → next hop MAC. IP addresses still unchanged.'}
+        {step >= 3 && '✓ Server receives. IP packet src/dst are the same as when PC sent it. Every MAC address was different at every hop — CCNA exam key point.'}
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── End-to-End Protocol Summary ───────────────────────────
+function EndToEndProtocolSummary() {
+  const [hovered, setHovered] = React.useState(null);
+  const steps2 = [
+    { step:'1', action:'DNS Resolution',      proto:'DNS / UDP 53',    layer:'L7 + L4', color:'#f43f5e',  detail:'Browser checks cache → /etc/hosts → recursive resolver → root → TLD → authoritative NS. Returns A record IP.' },
+    { step:'2', action:'TCP Handshake',       proto:'TCP',             layer:'L4',      color:'#ffab00',  detail:'SYN → SYN-ACK → ACK. 1 RTT. Establishes reliable bidirectional stream before data can flow.' },
+    { step:'3', action:'TLS Negotiation',     proto:'TLS 1.3',         layer:'L6',      color:'#00e676',  detail:'1 RTT (TLS 1.3). Cipher negotiation, certificate verification, DH key exchange → session keys derived.' },
+    { step:'4', action:'NAT Translation',     proto:'IP rewrite',      layer:'L3',      color:'#7c4dff',  detail:'Home router replaces private src IP (192.168.x) with public WAN IP. PAT tracks sessions by port.' },
+    { step:'5', action:'BGP Routing',         proto:'BGP / IP',        layer:'L3',      color:'#2979ff',  detail:'Packet traverses ~10 AS hops via BGP. Each router does longest-prefix-match. TTL decremented each hop.' },
+    { step:'6', action:'HTTP Request',        proto:'HTTP/2 or HTTP/3', layer:'L7',     color:'#00e5ff',  detail:'GET / HTTP/2. Multiplexed streams. Server responds 200 OK with HTML. TCP handles retransmission.' },
+    { step:'7', action:'Ethernet Framing',    proto:'802.3 Ethernet',  layer:'L2',      color:'#f97316',  detail:'MAC changes every hop. ARP resolves next-hop IP → MAC. FCS error detection on each segment.' },
+    { step:'8', action:'Physical Bits',       proto:'Copper / Fibre',  layer:'L1',      color:'#eab308',  detail:'Electrical signals (copper) or light pulses (fibre). NIC encodes bits using line coding (e.g. 4B/5B).' },
+  ];
+  return (
+    <InlineViz label="END-TO-END SUMMARY — EVERY PROTOCOL IN ONE VIEW" accent="#00e5ff">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {steps2.map((s, i) => (
+          <div key={i}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              display: 'grid', gridTemplateColumns: '24px 160px 120px 50px',
+              alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 5,
+              background: hovered === i ? `${s.color}15` : `${s.color}06`,
+              border: `1px solid ${hovered === i ? s.color : s.color + '25'}`,
+              transition: 'all 0.2s', cursor: 'default',
+            }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800,
+              fontSize: '0.75rem', color: s.color, textAlign: 'center' }}>{s.step}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600,
+              fontSize: '0.75rem', color: hovered === i ? s.color : 'var(--text-primary)' }}>
+              {s.action}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+              color: hovered === i ? s.color : 'var(--text-muted)' }}>{s.proto}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.5875rem', color: s.color, background: `${s.color}18`,
+              padding: '2px 5px', borderRadius: 3, textAlign: 'center' }}>{s.layer}</div>
+          </div>
+        ))}
+      </div>
+      {hovered !== null && (
+        <div style={{ marginTop: 8, padding: '7px 12px', borderRadius: 5,
+          background: `${steps2[hovered].color}08`,
+          border: `1px solid ${steps2[hovered].color}30`,
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          {steps2[hovered].detail}
+        </div>
+      )}
+      <div style={{ marginTop: 6, fontSize: '0.6875rem', color: 'var(--text-muted)',
+        textAlign: 'center' }}>Hover any row for details</div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
   // ── Remote Access VPN ─────────────────────────────────────────
   'remote-access': [
@@ -10739,9 +11075,12 @@ export const INLINE_DIAGRAMS = {
     { afterSection: 'Routing Protocols Overview',     component: RoutingProtocolsComparison },
     { afterSection: 'Routing vs Switching',           component: RoutingVsSwitchingViz },
   ],
-  // ── How Internet Works ──────────────────────────────────────
+  // ── How The Internet Works ──────────────────────────────────
   'how-internet-works': [
-    { afterSection: 'End-to-End Summary',          component: BrowserRequestJourney },
+    { afterSection: 'Step 2 — TCP Three-Way Handshake', component: TcpHandshakeAnim },
+    { afterSection: 'Step 3 — TLS Handshake (HTTPS)',   component: TlsHandshakeAnim },
+    { afterSection: 'Key Concepts Reinforced',           component: IpVsMacHopByHop },
+    { afterSection: 'End-to-End Summary',                component: EndToEndProtocolSummary },
   ],
   // ── VLANs — exact ## / ### headings from migrate_theory.sql ─
   'vlans': [
