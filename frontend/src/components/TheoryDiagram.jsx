@@ -8225,7 +8225,199 @@ function WirelessThreats() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// WIRELESS TOPOLOGY INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Site Survey Types ─────────────────────────────────────
+function SiteSurveyTypes() {
+  const [selected, setSelected] = React.useState(null);
+  const types = [
+    {
+      name: 'Predictive Survey',
+      icon: '🗺️', color: '#7c4dff',
+      desc: 'Software-based planning before deployment. Import floor plans into tools like Ekahau or Cisco Prime Infrastructure. Simulate AP placement, signal strength, and coverage areas using RF propagation models.',
+      pros: ['No site visit needed initially', 'Fast iteration on AP placement', 'Cost-effective for initial planning'],
+      cons: ['Doesn\'t account for real-world obstructions', 'Wall attenuation may differ from model', 'Must be validated with physical survey'],
+      tools: 'Ekahau Site Survey, Cisco Prime, AirMagnet Planner',
+      when: 'Pre-deployment planning, new buildings',
+    },
+    {
+      name: 'Passive Survey',
+      icon: '👂', color: '#00e5ff',
+      desc: 'Walk the site with a laptop/tablet running survey software. Listen-only — don\'t associate to APs. Captures signal strength, noise floor, channel utilisation, and interference sources at each physical location.',
+      pros: ['Captures real RF environment', 'Detects hidden interference sources', 'Shows actual coverage vs predicted'],
+      cons: ['Time-consuming (every square metre)', 'Must revisit after AP changes', 'Client NIC card matters for accuracy'],
+      tools: 'Ekahau Site Survey, AirMagnet Survey, NetSpot',
+      when: 'Post-deployment validation, troubleshooting dead zones',
+    },
+    {
+      name: 'Active Survey',
+      icon: '📡', color: '#00e676',
+      desc: 'Associate to APs and measure real throughput at each location. Captures TCP/UDP performance, latency, packet loss, and roaming behaviour. Most accurate for capacity planning.',
+      pros: ['Measures actual throughput, not just signal', 'Validates roaming behaviour', 'Identifies performance bottlenecks'],
+      cons: ['Requires APs to be installed first', 'Most time-consuming survey type', 'Results depend on network load'],
+      tools: 'Ekahau Site Survey (active mode), iPerf with survey overlay',
+      when: 'High-density deployments, voice/video validation',
+    },
+  ];
+  return (
+    <InlineViz label="SITE SURVEY TYPES — THREE APPROACHES" accent="#7c4dff">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        {types.map((t, i) => (
+          <div key={i} onClick={() => setSelected(selected === i ? null : i)}
+            style={{
+              padding: '10px 12px', borderRadius: 6, cursor: 'pointer',
+              background: selected === i ? `${t.color}18` : `${t.color}08`,
+              border: `1px solid ${selected === i ? t.color : t.color + '30'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>{t.icon}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.75rem', color: t.color, marginBottom: 4 }}>{t.name}</div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              {t.when}
+            </div>
+          </div>
+        ))}
+      </div>
+      {selected !== null && (
+        <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 6,
+          background: `${types[selected].color}08`,
+          border: `1px solid ${types[selected].color}35` }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)',
+            lineHeight: 1.6, marginBottom: 8 }}>{types[selected].desc}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 }}>
+            <div>
+              {types[selected].pros.map((p, i) => (
+                <div key={i} style={{ fontSize: '0.6875rem', color: '#00e676', marginBottom: 3 }}>✓ {p}</div>
+              ))}
+            </div>
+            <div>
+              {types[selected].cons.map((c, i) => (
+                <div key={i} style={{ fontSize: '0.6875rem', color: '#ff5252', marginBottom: 3 }}>✗ {c}</div>
+              ))}
+            </div>
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+            color: types[selected].color }}>Tools: {types[selected].tools}</div>
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
+// ── Design Considerations — coverage overlap viz ───────────
+function WirelessCoverageDesign() {
+  const [overlap, setOverlap] = React.useState(20);
+  const [density, setDensity] = React.useState('medium');
+  const densityInfo = {
+    low:    { clients: '5–15',  spacing: 'Large',  freq: '2.4 GHz acceptable', color: '#00e676' },
+    medium: { clients: '15–30', spacing: 'Medium', freq: '5 GHz preferred',    color: '#ffab00' },
+    high:   { clients: '30–50', spacing: 'Small',  freq: '5 GHz required',     color: '#ff5252' },
+  };
+  const d = densityInfo[density];
+  // AP positions for 3-AP row visualization
+  const aps = [{ x: 80 }, { x: 200 }, { x: 320 }];
+  const radius = 70;
+  const overlapPx = radius * (overlap / 100);
+  return (
+    <InlineViz label="DESIGN CONSIDERATIONS — COVERAGE, CAPACITY & OVERLAP" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* Coverage visualization */}
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <svg viewBox="0 0 400 130" style={{ width: '100%', maxHeight: 130, display: 'block' }}>
+            {/* Floor */}
+            <rect x="10" y="15" width="380" height="100" rx="4"
+              fill="var(--bg-elevated)" stroke="var(--border-subtle)" strokeWidth="1"/>
+            {/* Coverage circles */}
+            {aps.map((ap, i) => (
+              <g key={i}>
+                <circle cx={ap.x} cy={65} r={radius}
+                  fill={`${d.color}12`} stroke={`${d.color}40`} strokeWidth="1"/>
+                {/* Overlap zones */}
+                {i < aps.length - 1 && (
+                  <text x={(ap.x + aps[i+1].x) / 2} y={44}
+                    textAnchor="middle" fill={overlap >= 15 ? '#00e676' : '#ff5252'}
+                    fontFamily="monospace" fontSize="7">
+                    {overlap >= 15 ? `${overlap}% ✓` : `${overlap}% ✗`}
+                  </text>
+                )}
+                {/* AP icon */}
+                <circle cx={ap.x} cy={65} r={8}
+                  fill={`${d.color}30`} stroke={d.color} strokeWidth="1.5"/>
+                <text x={ap.x} y={69} textAnchor="middle"
+                  fill={d.color} fontFamily="monospace" fontSize="7" fontWeight="bold">AP</text>
+                <text x={ap.x} y={105} textAnchor="middle"
+                  fill="var(--text-muted)" fontFamily="monospace" fontSize="7">
+                  ~{density === 'low' ? '35' : density === 'medium' ? '30' : '20'}m
+                </text>
+              </g>
+            ))}
+            {/* Roaming zone indicator */}
+            <text x="200" y="125" textAnchor="middle" fill="var(--text-muted)"
+              fontFamily="monospace" fontSize="7">Client roams within overlap zone — minimum 15–20% overlap needed</text>
+          </svg>
+          {/* Overlap slider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)', flexShrink: 0 }}>Overlap:</span>
+            <input type="range" min={5} max={40} value={overlap}
+              onChange={e => setOverlap(Number(e.target.value))}
+              style={{ flex: 1, accentColor: overlap >= 15 ? '#00e676' : '#ff5252' }}/>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+              color: overlap >= 15 ? '#00e676' : '#ff5252', fontWeight: 700, flexShrink: 0 }}>
+              {overlap}% {overlap >= 15 ? '✓' : '⚠ Too low'}
+            </span>
+          </div>
+        </div>
+        {/* Client density selector */}
+        <div style={{ minWidth: 160 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem',
+            color: 'var(--text-muted)', marginBottom: 8 }}>CLIENT DENSITY</div>
+          {Object.entries(densityInfo).map(([k, v]) => (
+            <div key={k} onClick={() => setDensity(k)}
+              style={{
+                padding: '7px 10px', borderRadius: 5, cursor: 'pointer', marginBottom: 4,
+                background: density === k ? `${v.color}15` : `${v.color}05`,
+                border: `1px solid ${density === k ? v.color : v.color + '30'}`,
+                transition: 'all 0.2s',
+              }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.6875rem', color: v.color, textTransform: 'capitalize' }}>{k}</div>
+              <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)' }}>
+                {v.clients} clients/AP · {v.freq}
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop: 8, padding: '6px 8px', borderRadius: 4,
+            background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+            fontSize: '0.625rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+            lineHeight: 1.6 }}>
+            Rule: 20% overlap for voice/roaming<br/>
+            Max Tx power → more interference<br/>
+            Lower power + more APs = better
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Wireless Topology ─────────────────────────────────────────
+  'wireless-topology': [
+    { afterSection: 'Site Survey Types',      component: SiteSurveyTypes },
+    { afterSection: 'Design Considerations',  component: WirelessCoverageDesign },
+    { afterSection: 'Deployment Models',      component: WlcDeploymentModels },
+    { afterSection: 'Channel Planning',       component: WifiChannelOverlap },
+  ],
+  'wireless-topology-design': [
+    { afterSection: 'Site Survey Types',      component: SiteSurveyTypes },
+    { afterSection: 'Design Considerations',  component: WirelessCoverageDesign },
+    { afterSection: 'Deployment Models',      component: WlcDeploymentModels },
+    { afterSection: 'Channel Planning',       component: WifiChannelOverlap },
+  ],
   // ── Wireless Security ─────────────────────────────────────────
   'wireless-security': [
     { afterSection: 'Evolution of Wi-Fi Security', component: WifiSecurityEvolution },
