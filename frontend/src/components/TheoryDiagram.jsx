@@ -5742,7 +5742,275 @@ function SshHandshakeAnim() {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// FIREWALL INLINE DIAGRAMS
+// ════════════════════════════════════════════════════════════
+
+// ── Firewall Types — comparison ───────────────────────────
+function FirewallTypesComparison() {
+  const [selected, setSelected] = React.useState('stateful');
+  const types = {
+    packet: {
+      label: 'Packet Filter',
+      gen: 'Generation 1',
+      color: '#ffab00',
+      desc: 'Inspects each packet in isolation against static ACL rules. No memory of previous packets — cannot detect multi-packet attacks.',
+      matches: ['Source/Destination IP', 'Protocol (TCP/UDP/ICMP)', 'Port numbers'],
+      blind: ['Connection state (SYN vs established)', 'Application payload', 'Fragmented attack packets'],
+      example: 'Cisco IOS extended ACLs',
+    },
+    stateful: {
+      label: 'Stateful Firewall',
+      gen: 'Generation 2',
+      color: '#00e5ff',
+      desc: 'Tracks the state of every active connection in a state table. Can distinguish between a new connection attempt and a reply to an established session.',
+      matches: ['All packet filter criteria', 'Connection state (NEW/ESTABLISHED/RELATED)', 'TCP flags (SYN flood detection)', 'Return traffic auto-permitted'],
+      blind: ['Application-layer content', 'Encrypted traffic', 'Evasion via allowed ports (HTTP/S)'],
+      example: 'Cisco ASA, IOS Zone-Based Firewall',
+    },
+    ngfw: {
+      label: 'NGFW',
+      gen: 'Generation 3',
+      color: '#00e676',
+      desc: 'Next-Generation Firewall adds deep packet inspection, application identification, user identity, IPS, and TLS inspection on top of stateful tracking.',
+      matches: ['All stateful criteria', 'Application identity (Facebook, Netflix, BitTorrent)', 'User identity (AD/LDAP integration)', 'URL categories', 'TLS/SSL decryption & inspection'],
+      blind: ['Truly novel/unknown threats (requires threat intel updates)', 'Perfect-forward-secrecy TLS without decryption'],
+      example: 'Cisco Firepower (FTD), Palo Alto PA-series',
+    },
+  };
+  const t = types[selected];
+  return (
+    <InlineViz label="FIREWALL TYPES — THREE GENERATIONS" accent="#00e5ff">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {Object.entries(types).map(([k, v]) => (
+          <button key={k} onClick={() => setSelected(k)} style={{
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
+            background: selected === k ? `${v.color}20` : 'var(--bg-elevated)',
+            border: `1px solid ${selected === k ? v.color : 'var(--border-subtle)'}`,
+            color: selected === k ? v.color : 'var(--text-muted)', transition: 'all 0.2s',
+          }}>{v.label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 10 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: '#00e676', marginBottom: 5 }}>✓ CAN INSPECT</div>
+          {t.matches.map((m, i) => (
+            <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 3 }}>
+              <span style={{ color: '#00e676', flexShrink: 0 }}>✓</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m}</span>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5875rem', color: '#ff5252', marginBottom: 5 }}>✗ CANNOT SEE</div>
+          {t.blind.map((m, i) => (
+            <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 3 }}>
+              <span style={{ color: '#ff5252', flexShrink: 0 }}>✗</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{m}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ padding: '8px 12px', borderRadius: 5, background: `${t.color}08`,
+        border: `1px solid ${t.color}30`, marginBottom: 6 }}>
+        <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 4 }}>{t.desc}</div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: t.color }}>
+          Example: {t.example}
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Zone-Based Firewall — topology + policies ──────────────
+function ZbfTopology() {
+  const [flow, setFlow] = React.useState(null);
+  const flows = [
+    { id: 'out-in',  from: 'OUTSIDE', to: 'INSIDE', label: 'Internet → Corp',     result: 'deny',   color: '#ff5252', rule: 'Default deny — no unsolicited inbound traffic from internet to corp network.' },
+    { id: 'in-out',  from: 'INSIDE',  to: 'OUTSIDE', label: 'Corp → Internet',     result: 'permit', color: '#00e676', rule: 'Permit outbound web/email. Stateful — return traffic auto-allowed.' },
+    { id: 'out-dmz', from: 'OUTSIDE', to: 'DMZ',     label: 'Internet → Web Server', result: 'permit', color: '#ffab00', rule: 'Explicit permit TCP 80/443 to DMZ web server only. All other ports denied.' },
+    { id: 'dmz-in',  from: 'DMZ',     to: 'INSIDE',  label: 'Web Server → Corp DB',  result: 'deny',   color: '#ff5252', rule: 'DMZ cannot initiate connections to INSIDE — compromise of web server doesn\'t reach core network.' },
+    { id: 'in-dmz',  from: 'INSIDE',  to: 'DMZ',     label: 'Admin → Web Server',    result: 'permit', color: '#00e676', rule: 'Admin hosts permitted SSH access to DMZ servers for management.' },
+  ];
+  const zones = [
+    { name: 'OUTSIDE', color: '#ff5252', x: 30,  y: 75, desc: 'Untrusted (internet)' },
+    { name: 'DMZ',     color: '#ffab00', x: 200, y: 30, desc: 'Semi-trusted (servers)' },
+    { name: 'INSIDE',  color: '#00e676', x: 370, y: 75, desc: 'Trusted (corporate)' },
+  ];
+  const active = flow ? flows.find(f => f.id === flow) : null;
+  return (
+    <InlineViz label="ZONE-BASED FIREWALL — ZONES AND TRAFFIC POLICIES" accent="#ff6d00">
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <svg viewBox="0 0 420 155" style={{ width: '100%', maxHeight: 155, display: 'block', marginBottom: 10 }}>
+            {/* Firewall box */}
+            <rect x="175" y="60" width="70" height="35" rx="5"
+              fill="rgba(255,109,0,0.15)" stroke="#ff6d00" strokeWidth="2"/>
+            <text x="210" y="75" textAnchor="middle" fill="#ff6d00"
+              fontFamily="monospace" fontSize="10" fontWeight="bold">FW</text>
+            <text x="210" y="87" textAnchor="middle" fill="#ff6d00"
+              fontFamily="monospace" fontSize="8">Zone-Based</text>
+            {/* Zones */}
+            {zones.map((z, i) => (
+              <g key={i}>
+                <rect x={z.x - 50} y={z.y - 20} width={100} height={40} rx={5}
+                  fill={`${z.color}12`} stroke={`${z.color}50`} strokeWidth={1.5}/>
+                <text x={z.x} y={z.y - 5} textAnchor="middle" fill={z.color}
+                  fontFamily="monospace" fontSize="10" fontWeight="bold">{z.name}</text>
+                <text x={z.x} y={z.y + 8} textAnchor="middle" fill={z.color}
+                  fontFamily="monospace" fontSize="7">{z.desc}</text>
+              </g>
+            ))}
+            {/* Links to firewall */}
+            <line x1="80"  y1="75" x2="175" y2="77" stroke="#546e7a" strokeWidth="1.5"/>
+            <line x1="200" y1="50" x2="200" y2="60" stroke="#546e7a" strokeWidth="1.5"/>
+            <line x1="320" y1="75" x2="245" y2="77" stroke="#546e7a" strokeWidth="1.5"/>
+            {/* Flow arrows */}
+            {flows.map(f => {
+              const isActive = flow === f.id;
+              const fromZ = zones.find(z => z.name === f.from);
+              const toZ   = zones.find(z => z.name === f.to);
+              if (!isActive) return null;
+              return (
+                <g key={f.id}>
+                  <line x1={fromZ.x} y1={fromZ.y + 22} x2={toZ.x} y2={toZ.y + 22}
+                    stroke={f.color} strokeWidth="2.5" strokeDasharray={f.result==='deny'?'5,3':'none'}
+                    markerEnd="url(#arrowFw)"/>
+                  <text x={(fromZ.x+toZ.x)/2} y={120} textAnchor="middle"
+                    fill={f.color} fontFamily="monospace" fontSize="9" fontWeight="bold">
+                    {f.result === 'permit' ? '✓ PERMIT' : '✗ DENY'}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+          {/* Flow buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {flows.map(f => (
+              <button key={f.id} onClick={() => setFlow(flow === f.id ? null : f.id)} style={{
+                padding: '5px 10px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+                fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+                background: flow === f.id ? `${f.color}18` : 'var(--bg-elevated)',
+                border: `1px solid ${flow === f.id ? f.color : 'var(--border-subtle)'}`,
+                color: flow === f.id ? f.color : 'var(--text-secondary)',
+                transition: 'all 0.2s',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ fontWeight: 700 }}>{f.result === 'permit' ? '✓' : '✗'}</span>
+                <span>{f.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ minWidth: 160, flex: 1 }}>
+          {active ? (
+            <div style={{ padding: '10px 12px', borderRadius: 6,
+              background: `${active.color}10`, border: `1px solid ${active.color}40` }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700,
+                color: active.color, marginBottom: 6, fontSize: '0.75rem' }}>
+                {active.from} → {active.to}:{' '}
+                <span style={{ textTransform: 'uppercase' }}>{active.result}</span>
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {active.rule}
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Click a traffic flow to see the zone-pair policy that controls it.
+            </p>
+          )}
+          <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 5,
+            background: 'rgba(255,109,0,0.06)', border: '1px solid rgba(255,109,0,0.2)',
+            fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            ZBF key rule: traffic between zones requires an explicit zone-pair + service-policy. Traffic within the same zone is permitted by default. Self-zone (router itself) needs its own policy.
+          </div>
+        </div>
+      </div>
+    </InlineViz>
+  );
+}
+
+// ── Stateful Inspection — connection table ────────────────
+function StatefulInspectionAnim() {
+  const [step, setStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const events = [
+    { desc: 'Host 10.0.1.10 sends SYN to 8.8.8.8:443. Firewall sees NEW connection.', action: 'add', entry: { src: '10.0.1.10:52341', dst: '8.8.8.8:443', proto: 'TCP', state: 'SYN_SENT', color: '#ffab00' } },
+    { desc: 'SYN-ACK returns from 8.8.8.8. State upgrades to ESTABLISHED. Return traffic auto-permitted — no ACL needed.', action: 'update', entry: { src: '10.0.1.10:52341', dst: '8.8.8.8:443', proto: 'TCP', state: 'ESTABLISHED', color: '#00e676' } },
+    { desc: 'Second host 10.0.1.11 opens DNS query to 1.1.1.1:53 (UDP). Added to state table.', action: 'add', entry: { src: '10.0.1.11:49201', dst: '1.1.1.1:53', proto: 'UDP', state: 'SINGLE', color: '#00e5ff' } },
+    { desc: 'Attacker sends unsolicited SYN from internet to 10.0.1.10. No matching state entry — DROPPED.', action: 'drop', entry: { src: '203.0.113.99:80', dst: '10.0.1.10:445', proto: 'TCP', state: 'BLOCKED', color: '#ff5252' } },
+  ];
+  const [table, setTable] = React.useState([]);
+  useEffect(() => {
+    if (isPaused || step >= events.length) return;
+    const t = setTimeout(() => {
+      const ev = events[step];
+      if (ev.action === 'add') setTable(prev => [...prev, ev.entry]);
+      else if (ev.action === 'update') setTable(prev => prev.map((e, i) => i === 0 ? ev.entry : e));
+      setStep(s => s + 1);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [step, isPaused]);
+  function replay() { setStep(0); setTable([]); setIsPaused(false); }
+  return (
+    <InlineViz label="STATEFUL INSPECTION — CONNECTION STATE TABLE" accent="#00e5ff">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+        <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
+        <button style={BASE.btn} onClick={replay}>↺</button>
+      </div>
+      {/* State table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse',
+        fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', marginBottom: 12 }}>
+        <thead>
+          <tr>
+            {['Proto','Source','Destination','State'].map(h => (
+              <th key={h} style={{ padding: '4px 8px', textAlign: 'left',
+                borderBottom: '1px solid var(--border-subtle)',
+                color: 'var(--text-muted)', fontSize: '0.5875rem' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.length === 0 && (
+            <tr><td colSpan={4} style={{ padding: '6px 8px', color: 'var(--text-muted)', fontStyle: 'italic' }}>(empty — no active sessions)</td></tr>
+          )}
+          {table.map((e, i) => (
+            <tr key={i} style={{ background: `${e.color}08` }}>
+              <td style={{ padding: '5px 8px', color: e.color }}>{e.proto}</td>
+              <td style={{ padding: '5px 8px', color: '#00e5ff' }}>{e.src}</td>
+              <td style={{ padding: '5px 8px', color: 'var(--text-secondary)' }}>{e.dst}</td>
+              <td style={{ padding: '5px 8px', fontWeight: 700, color: e.color }}>{e.state}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {step > 0 && step <= events.length && (
+        <div style={{ padding: '8px 12px', borderRadius: 5,
+          background: `${events[step-1].entry.color}10`,
+          border: `1px solid ${events[step-1].entry.color}30`,
+          fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          {events[step-1].desc}
+        </div>
+      )}
+    </InlineViz>
+  );
+}
+
 export const INLINE_DIAGRAMS = {
+  // ── Firewalls ─────────────────────────────────────────────────
+  'firewall': [
+    { afterSection: 'Firewall Types',              component: FirewallTypesComparison },
+    { afterSection: 'Zone-Based Firewall (ZBF)',   component: ZbfTopology },
+    { afterSection: 'Stateful Inspection',         component: StatefulInspectionAnim },
+  ],
+  'firewall-zones': [
+    { afterSection: 'Firewall Types',              component: FirewallTypesComparison },
+    { afterSection: 'Zone-Based Firewall (ZBF)',   component: ZbfTopology },
+    { afterSection: 'Stateful Inspection',         component: StatefulInspectionAnim },
+  ],
   // ── SSH ───────────────────────────────────────────────────────
   'ssh': [
     { afterSection: 'SSH vs Telnet', component: SshVsTelnet },
