@@ -1168,14 +1168,22 @@ async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db
     """Execute a CLI command against a simulated device and validate against lab step."""
     key = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
 
-    # Lazily replay command history on first use after a server restart
+    # Lazily replay command history on first use after a server restart.
+    # We capture the current DEVICE_MODES entry BEFORE replay — if reset-mode
+    # already ran and set "privileged", we restore that value after replay so
+    # replayed history cannot override an explicit mode reset.
     from app.routers.lab_state import get_state as _get_state
     _st = _get_state(key, req.device_name)
+    mode_before_replay = DEVICE_MODES.get(key)  # None if never set
     if not getattr(_st, '_replayed', False):
         await _replay_history(
             key, req.device_name,
             req.user_id or "anon", req.lab_slug, db
         )
+        # If the mode was explicitly set before replay (e.g. by reset-mode),
+        # restore it so history replay doesn't override the intentional reset.
+        if mode_before_replay is not None:
+            DEVICE_MODES[key] = mode_before_replay
 
     pre_mode = DEVICE_MODES.get(key, "privileged")
 
@@ -1303,12 +1311,25 @@ async def validate_step(req: CommandRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/reset-mode")
-async def reset_device_mode(req: CommandRequest):
+async def reset_device_mode(req: CommandRequest, db: AsyncSession = Depends(get_db)):
     """
     Reset a device's CLI mode to privileged exec.
-    Called by the frontend when the terminal connects to a device
-    so stale mode state from a previous session doesn't bleed through.
+    Also runs command history replay here (eagerly) so that DeviceState is
+    rebuilt for show commands, but the final mode is always forced to
+    privileged — preventing lazy replay on the first user command from
+    overwriting the reset with a stale "config" or "config-if" mode.
     """
     key = _mode_key(req.user_id or "anon", req.lab_slug, req.device_name)
+
+    # Run replay now (builds DeviceState for show commands) if not done yet
+    from app.routers.lab_state import get_state as _get_state
+    _st = _get_state(key, req.device_name)
+    if not getattr(_st, "_replayed", False):
+        await _replay_history(
+            key, req.device_name,
+            req.user_id or "anon", req.lab_slug, db
+        )
+
+    # Force mode to privileged AFTER replay so replay cannot override it
     DEVICE_MODES[key] = "privileged"
     return {"status": "ok", "prompt": get_prompt(req.device_name, "privileged")}
