@@ -3433,96 +3433,290 @@ function VlanDatabaseViz() {
 // ────────────────────────────────────────────────────────────────
 function InterVlanRoutingAnim() {
   const [step, setStep] = React.useState(0);
-  const [mode, setMode] = React.useState('roas'); // roas | svi
+  const [mode, setMode] = React.useState('legacy');
   const [isPaused, setIsPaused] = React.useState(false);
+
+  const configs = {
+    legacy: { steps: 7, label: 'Dedicated Router per VLAN (Legacy)' },
+    roas:   { steps: 7, label: 'Router-on-a-Stick (RoaS)' },
+    svi:    { steps: 6, label: 'L3 Switch SVI' },
+  };
+
   useEffect(() => {
-    if (isPaused || step >= 7) return;
-    const t = setTimeout(() => setStep(s => s + 1), 900);
+    const maxSteps = configs[mode].steps;
+    if (isPaused || step >= maxSteps) return;
+    const t = setTimeout(() => setStep(s => s + 1), 950);
     return () => clearTimeout(t);
-  }, [step, isPaused]);
+  }, [step, isPaused, mode]);
+
   function reset(m) { setMode(m); setStep(0); setIsPaused(false); }
-  const isRoas = mode === 'roas';
+
+  const modeColor = { legacy: '#f43f5e', roas: '#ffab00', svi: '#00e676' };
+  const accent = modeColor[mode];
+
+  // ── packet x position helpers ─────────────────────────────────
+  // Legacy: PC-A → SW → Router Gi0/0 → Router Gi0/1 → SW → PC-B
+  const legacyX = [50, 115, 230, 230, 340, 380];
+  const legacyY = [45, 75,  40,  110, 75,  110];
+  // RoaS: PC-A → SW → trunk → Router → trunk → SW → PC-B
+  const roasX   = [50, 140, 215, 290, 215, 140, 50];
+  const roasY   = [40,  75,  75,  75,  75,  75, 110];
+  // SVI: PC-A → SW L3 (internal SVI10 → SVI20) → PC-B
+  // packet stays inside switch during routing
+  const sviPktX = [50, 150, 190, 230, 275, 380];
+  const sviPktY = [45,  75,  65,  75,  85,  110];
+
   return (
-    <InlineViz label="INTER-VLAN ROUTING — TWO APPROACHES" accent="#7c4dff">
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        {[['roas','Router-on-a-Stick'],['svi','L3 Switch SVI']].map(([m, label]) => (
+    <InlineViz label="INTER-VLAN ROUTING — THREE APPROACHES" accent={accent}>
+      {/* Mode selector */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+        {Object.entries(configs).map(([m, cfg]) => (
           <button key={m} onClick={() => reset(m)} style={{
-            padding: '4px 14px', borderRadius: 20, cursor: 'pointer',
+            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
             fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', fontWeight: 700,
-            background: mode === m ? 'rgba(124,77,255,0.15)' : 'var(--bg-elevated)',
-            border: `1px solid ${mode === m ? '#7c4dff' : 'var(--border-subtle)'}`,
-            color: mode === m ? '#7c4dff' : 'var(--text-muted)',
-          }}>{label}</button>
+            background: mode === m ? `${modeColor[m]}18` : 'var(--bg-elevated)',
+            border: `1px solid ${mode === m ? modeColor[m] : 'var(--border-subtle)'}`,
+            color: mode === m ? modeColor[m] : 'var(--text-muted)',
+            transition: 'all 0.2s',
+          }}>{cfg.label}</button>
         ))}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <button style={BASE.btn} onClick={() => setIsPaused(p => !p)}>{isPaused ? '▶' : '⏸'}</button>
           <button style={BASE.btn} onClick={() => reset(mode)}>↺</button>
         </div>
       </div>
-      <svg viewBox="0 0 420 140" style={{ width: '100%', maxHeight: 140, display: 'block' }}>
-        {/* PC-A VLAN 10 */}
-        <rect x="5" y="20" width="65" height="30" rx="4"
-          fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
-        <text x="37" y="32" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-A</text>
-        <text x="37" y="42" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">VLAN 10</text>
-        {/* PC-B VLAN 20 */}
-        <rect x="5" y="90" width="65" height="30" rx="4"
-          fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1"/>
-        <text x="37" y="102" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-B</text>
-        <text x="37" y="112" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="7">VLAN 20</text>
-        {/* Switch */}
-        <rect x="100" y="55" width="70" height="30" rx="4"
-          fill="rgba(124,77,255,0.1)" stroke="#7c4dff" strokeWidth="1.5"/>
-        <text x="135" y="70" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="9" fontWeight="bold">SW1</text>
-        <text x="135" y="80" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">{isRoas ? 'L2 Switch' : 'L3 Switch'}</text>
-        {/* Links PC→SW */}
-        <line x1="70" y1="35" x2="100" y2="70" stroke={step>=1 ? '#00e5ff':'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
-        <line x1="70" y1="105" x2="100" y2="70" stroke={step>=5 ? '#00e676':'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
-        {isRoas ? (
-          <>
-            {/* Router */}
-            <circle cx="290" cy="70" r="28"
-              fill={step>=2&&step<=5 ? 'rgba(255,171,0,0.15)' : 'rgba(255,171,0,0.06)'}
-              stroke="#ffab00" strokeWidth="1.5" style={{transition:'all 0.4s'}}/>
-            <text x="290" y="66" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="9" fontWeight="bold">R1</text>
-            <text x="290" y="77" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Gi0/0.10+.20</text>
-            {/* Trunk SW→R */}
-            <line x1="170" y1="70" x2="262" y2="70"
-              stroke={step>=1 ? '#7c4dff':'var(--border-subtle)'} strokeWidth="2.5" style={{transition:'stroke 0.4s'}}/>
-            <text x="216" y="62" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="7">Trunk</text>
-            {/* Packet dot */}
-            {step>=1 && step<=4 && (
-              <circle cx={135+step*35} cy={70} r="7"
-                fill={step<=2?'#00e5ff':'#00e676'} opacity="0.9"/>
-            )}
-          </>
-        ) : (
-          <>
-            {/* SVI inside switch */}
-            <rect x="185" y="50" width="80" height="40" rx="4"
-              fill={step>=2 ? 'rgba(0,230,118,0.15)' : 'rgba(0,230,118,0.06)'}
-              stroke="#00e676" strokeWidth="1.5" style={{transition:'all 0.4s'}}/>
-            <text x="225" y="64" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">SVI</text>
-            <text x="225" y="74" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Vlan10+Vlan20</text>
-            <text x="225" y="83" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">Wire-speed</text>
-            {/* Routing inside switch */}
-            <line x1="170" y1="70" x2="185" y2="70"
-              stroke={step>=1 ? '#7c4dff':'var(--border-subtle)'} strokeWidth="2" style={{transition:'stroke 0.4s'}}/>
-            {step>=1 && step<=5 && (
-              <circle cx={145+step*15} cy={70} r="7"
-                fill={step<=2?'#00e5ff':'#00e676'} opacity="0.9"/>
-            )}
-          </>
-        )}
-      </svg>
-      <div style={{ textAlign: 'center', marginTop: 6, fontSize: '0.8125rem', color: 'var(--text-secondary)', minHeight: 20 }}>
-        {step===0 && 'PC-A (VLAN 10) needs to reach PC-B (VLAN 20). Different subnets — needs L3 routing.'}
-        {step===1 && 'PC-A sends packet to default gateway. Frame tagged VLAN 10 on trunk.'}
-        {step===2 && (isRoas ? 'Router receives on sub-interface Gi0/0.10. Strips VLAN 10 tag.' : 'L3 Switch routes internally between SVI Vlan10 and SVI Vlan20. No external hop.')}
-        {step===3 && (isRoas ? 'Router routes: dest is 10.0.20.0/24 → out Gi0/0.20. Tags frame VLAN 20.' : 'Packet switched at wire speed inside the ASIC.')}
-        {step===4 && 'Tagged frame returned to switch on trunk. Switch sees VLAN 20 tag.'}
-        {step===5 && 'Switch delivers frame to PC-B access port (VLAN 20). Tag stripped.'}
-        {step>=6 && '✓ PC-B receives packet. Inter-VLAN routing complete.'}
+
+      {/* ── LEGACY: Dedicated Router per VLAN ── */}
+      {mode === 'legacy' && (
+        <svg viewBox="0 0 420 155" style={{ width: '100%', maxHeight: 155, display: 'block' }}>
+          {/* PC-A VLAN 10 */}
+          <rect x="5" y="25" width="58" height="28" rx="3"
+            fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+          <text x="34" y="36" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-A</text>
+          <text x="34" y="46" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">VLAN 10</text>
+          {/* PC-B VLAN 20 */}
+          <rect x="5" y="100" width="58" height="28" rx="3"
+            fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1"/>
+          <text x="34" y="111" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-B</text>
+          <text x="34" y="121" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="7">VLAN 20</text>
+
+          {/* L2 Switch */}
+          <rect x="88" y="55" width="68" height="32" rx="4"
+            fill="rgba(124,77,255,0.1)" stroke="#7c4dff" strokeWidth="1.5"/>
+          <text x="122" y="68" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="9" fontWeight="bold">SW1</text>
+          <text x="122" y="79" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">L2 Switch</text>
+
+          {/* Router */}
+          <rect x="195" y="20" width="80" height="30" rx="4"
+            fill={step>=2 && step<=4 ? 'rgba(244,63,94,0.18)' : 'rgba(244,63,94,0.07)'}
+            stroke="#f43f5e" strokeWidth="1.5" style={{transition:'all 0.4s'}}/>
+          <text x="235" y="32" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="9" fontWeight="bold">ROUTER</text>
+          <text x="235" y="43" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Gi0/0 ← VLAN10   Gi0/1 ← VLAN20</text>
+
+          {/* PC-A → SW1 */}
+          <line x1="63" y1="39" x2="88" y2="68" stroke={step>=1 ? '#00e5ff' : 'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+          {/* PC-B → SW1 */}
+          <line x1="63" y1="114" x2="88" y2="74" stroke={step>=5 ? '#00e676' : 'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+
+          {/* SW1 → Router Gi0/0 (VLAN 10 dedicated cable) */}
+          <line x1="156" y1="62" x2="195" y2="35" stroke={step>=1 && step<=3 ? '#00e5ff' : 'rgba(244,63,94,0.25)'} strokeWidth="2" style={{transition:'stroke 0.4s'}}/>
+          <text x="170" y="42" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="7">Gi0/0</text>
+
+          {/* SW1 → Router Gi0/1 (VLAN 20 dedicated cable) */}
+          <line x1="156" y1="80" x2="195" y2="42" stroke={step>=4 ? '#00e676' : 'rgba(244,63,94,0.25)'} strokeWidth="2" style={{transition:'stroke 0.4s'}}/>
+          <text x="170" y="72" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="7">Gi0/1</text>
+
+          {/* Labels */}
+          <text x="235" y="70" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="8">1 port per VLAN</text>
+          <text x="235" y="82" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">4 VLANs = 4 router ports</text>
+
+          {/* Warning */}
+          <rect x="195" y="90" width="140" height="30" rx="4"
+            fill="rgba(244,63,94,0.06)" stroke="rgba(244,63,94,0.3)" strokeWidth="1"/>
+          <text x="265" y="103" textAnchor="middle" fill="#f43f5e" fontFamily="monospace" fontSize="8">⚠ Doesn't scale.</text>
+          <text x="265" y="114" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">Router runs out of physical ports.</text>
+
+          {/* Packet dot */}
+          {step>=1 && step<=5 && (() => {
+            const positions = [
+              {x:88,y:65},{x:195,y:35},{x:235,y:35},{x:195,y:42},{x:156,y:78},{x:88,y:74}
+            ];
+            const pos = positions[Math.min(step-1, positions.length-1)];
+            return (
+              <circle cx={pos.x} cy={pos.y} r="7"
+                fill={step<=2 ? '#00e5ff' : step<=3 ? '#f43f5e' : '#00e676'}
+                opacity="0.9" style={{transition:'cx 0.5s,cy 0.5s'}}/>
+            );
+          })()}
+        </svg>
+      )}
+
+      {/* ── RoaS: Router-on-a-Stick ── */}
+      {mode === 'roas' && (
+        <svg viewBox="0 0 420 145" style={{ width: '100%', maxHeight: 145, display: 'block' }}>
+          {/* PC-A */}
+          <rect x="5" y="20" width="58" height="28" rx="3"
+            fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+          <text x="34" y="31" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-A</text>
+          <text x="34" y="41" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">VLAN 10</text>
+          {/* PC-B */}
+          <rect x="5" y="98" width="58" height="28" rx="3"
+            fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1"/>
+          <text x="34" y="109" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-B</text>
+          <text x="34" y="119" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="7">VLAN 20</text>
+          {/* L2 Switch */}
+          <rect x="88" y="53" width="68" height="40" rx="4"
+            fill="rgba(124,77,255,0.1)" stroke="#7c4dff" strokeWidth="1.5"/>
+          <text x="122" y="68" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="9" fontWeight="bold">SW1</text>
+          <text x="122" y="79" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">L2 Switch</text>
+          <text x="122" y="88" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="7">trunk port</text>
+          {/* Router */}
+          <rect x="245" y="45" width="100" height="56" rx="4"
+            fill={step>=2 && step<=5 ? 'rgba(255,171,0,0.18)' : 'rgba(255,171,0,0.07)'}
+            stroke="#ffab00" strokeWidth="1.5" style={{transition:'all 0.4s'}}/>
+          <text x="295" y="62" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="9" fontWeight="bold">ROUTER</text>
+          <text x="295" y="74" textAnchor="middle" fill={step>=2 && step<=3 ? '#00e5ff' : 'var(--text-muted)'} fontFamily="monospace" fontSize="7" style={{transition:'color 0.4s'}}>Gi0/0.10  10.0.10.1</text>
+          <text x="295" y="84" textAnchor="middle" fill={step>=4 ? '#00e676' : 'var(--text-muted)'} fontFamily="monospace" fontSize="7" style={{transition:'color 0.4s'}}>Gi0/0.20  10.0.20.1</text>
+          <text x="295" y="95" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="6">(1 physical interface)</text>
+          {/* PC-A → SW */}
+          <line x1="63" y1="34" x2="88" y2="68" stroke={step>=1?'#00e5ff':'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+          {/* PC-B → SW */}
+          <line x1="63" y1="112" x2="88" y2="78" stroke={step>=6?'#00e676':'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+          {/* Trunk SW → Router */}
+          <line x1="156" y1="73" x2="245" y2="73"
+            stroke={step>=1?'#7c4dff':'var(--border-subtle)'} strokeWidth="3" style={{transition:'stroke 0.4s'}}/>
+          <text x="200" y="65" textAnchor="middle" fill="#7c4dff" fontFamily="monospace" fontSize="7" fontWeight="bold">802.1Q Trunk</text>
+          <text x="200" y="86" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="6">all VLANs on 1 cable</text>
+          {/* Packet dot */}
+          {step>=1 && step<=6 && (() => {
+            const positions = [
+              {x:122,y:73},{x:245,y:73},{x:295,y:73},{x:245,y:73},{x:156,y:73},{x:122,y:73}
+            ];
+            const pos = positions[Math.min(step-1, positions.length-1)];
+            return (
+              <circle cx={pos.x} cy={pos.y} r="7"
+                fill={step<=2?'#00e5ff': step<=4?'#ffab00':'#00e676'}
+                opacity="0.9" style={{transition:'cx 0.5s,cy 0.5s'}}/>
+            );
+          })()}
+        </svg>
+      )}
+
+      {/* ── SVI: L3 Switch — routing entirely inside ── */}
+      {mode === 'svi' && (
+        <svg viewBox="0 0 420 140" style={{ width: '100%', maxHeight: 140, display: 'block' }}>
+          {/* PC-A */}
+          <rect x="5" y="22" width="58" height="28" rx="3"
+            fill="rgba(0,229,255,0.1)" stroke="#00e5ff" strokeWidth="1"/>
+          <text x="34" y="33" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-A</text>
+          <text x="34" y="43" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">VLAN 10</text>
+          {/* PC-B */}
+          <rect x="5" y="98" width="58" height="28" rx="3"
+            fill="rgba(0,230,118,0.1)" stroke="#00e676" strokeWidth="1"/>
+          <text x="34" y="109" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">PC-B</text>
+          <text x="34" y="119" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="7">VLAN 20</text>
+
+          {/* L3 Switch — large box, routing happens INSIDE */}
+          <rect x="88" y="20" width="250" height="100" rx="6"
+            fill="rgba(0,230,118,0.05)" stroke="#00e676" strokeWidth="2"/>
+          <text x="213" y="36" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="9" fontWeight="bold">L3 SWITCH</text>
+
+          {/* SVI10 inside switch */}
+          <rect x="108" y="45" width="76" height="30" rx="3"
+            fill={step>=2 ? 'rgba(0,229,255,0.18)' : 'rgba(0,229,255,0.06)'}
+            stroke="#00e5ff" strokeWidth={step>=2?2:1} style={{transition:'all 0.4s'}}/>
+          <text x="146" y="57" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="8" fontWeight="bold">SVI10</text>
+          <text x="146" y="68" textAnchor="middle" fill="#00e5ff" fontFamily="monospace" fontSize="7">10.0.10.1/24</text>
+
+          {/* SVI20 inside switch */}
+          <rect x="250" y="45" width="76" height="30" rx="3"
+            fill={step>=4 ? 'rgba(0,230,118,0.18)' : 'rgba(0,230,118,0.06)'}
+            stroke="#00e676" strokeWidth={step>=4?2:1} style={{transition:'all 0.4s'}}/>
+          <text x="288" y="57" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="8" fontWeight="bold">SVI20</text>
+          <text x="288" y="68" textAnchor="middle" fill="#00e676" fontFamily="monospace" fontSize="7">10.0.20.1/24</text>
+
+          {/* Internal routing arrow SVI10 → SVI20 */}
+          <line x1="184" y1="60" x2="250" y2="60"
+            stroke={step>=3 ? '#ffab00' : 'rgba(255,171,0,0.15)'}
+            strokeWidth={step>=3?2:1} strokeDasharray={step>=3?'none':'4,3'}
+            style={{transition:'all 0.4s'}}/>
+          {step>=3 && (
+            <polygon points="246,56 254,60 246,64" fill="#ffab00"/>
+          )}
+          {step>=3 && (
+            <text x="217" y="54" textAnchor="middle" fill="#ffab00" fontFamily="monospace" fontSize="7">route (ASIC)</text>
+          )}
+
+          {/* ASIC label */}
+          <text x="213" y="105" textAnchor="middle" fill="var(--text-muted)" fontFamily="monospace" fontSize="7">hardware ASIC — wire speed — no external router</text>
+
+          {/* PC-A → L3 Switch */}
+          <line x1="63" y1="36" x2="88" y2="55" stroke={step>=1?'#00e5ff':'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+          {/* L3 Switch → PC-B */}
+          <line x1="88" y1="90" x2="63" y2="112" stroke={step>=5?'#00e676':'var(--border-subtle)'} strokeWidth="1.5" style={{transition:'stroke 0.4s'}}/>
+
+          {/* Packet dot — stays INSIDE switch boundary */}
+          {step>=1 && step<=5 && (() => {
+            const positions = [
+              {x:108,y:60},   // 1: arrives at SVI10 left edge
+              {x:146,y:60},   // 2: at SVI10
+              {x:217,y:60},   // 3: crossing between SVIs (routing)
+              {x:288,y:60},   // 4: at SVI20
+              {x:338,y:85},   // 5: heading to PC-B
+            ];
+            const pos = positions[Math.min(step-1, positions.length-1)];
+            return (
+              <circle cx={pos.x} cy={pos.y} r="7"
+                fill={step<=2?'#00e5ff': step===3?'#ffab00':'#00e676'}
+                opacity="0.9" style={{transition:'cx 0.5s,cy 0.5s'}}/>
+            );
+          })()}
+        </svg>
+      )}
+
+      {/* Step description */}
+      <div style={{ textAlign: 'center', marginTop: 8, minHeight: 36,
+        fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        {mode==='legacy' && step===0 && 'PC-A (VLAN 10) needs to reach PC-B (VLAN 20). The old way: one router port per VLAN.'}
+        {mode==='legacy' && step===1 && 'PC-A sends to default gateway. Switch forwards on VLAN 10 access port → Router Gi0/0.'}
+        {mode==='legacy' && step===2 && 'Packet arrives at Router Gi0/0 (dedicated VLAN 10 port). Router makes L3 forwarding decision.'}
+        {mode==='legacy' && step===3 && 'Router routes: 10.0.20.0/24 is out Gi0/1. Sends packet out the dedicated VLAN 20 port.'}
+        {mode==='legacy' && step===4 && 'Packet returns to switch on VLAN 20 access port from Router Gi0/1.'}
+        {mode==='legacy' && step===5 && 'Switch delivers frame to PC-B on VLAN 20. ✓ Works — but uses 2 router ports for 2 VLANs.'}
+        {mode==='legacy' && step>=6 && '⚠ Legacy problem: 10 VLANs = 10 router physical ports. Routers have 2–4 ports. Doesn\'t scale at all.'}
+        {mode==='roas' && step===0 && 'PC-A (VLAN 10) → PC-B (VLAN 20). Router-on-a-Stick: one trunk carries all VLANs to one router port.'}
+        {mode==='roas' && step===1 && 'PC-A sends to default gateway (10.0.10.1). Frame tagged VLAN 10. Forwarded up trunk to router.'}
+        {mode==='roas' && step===2 && 'Router receives frame on sub-interface Gi0/0.10. Strips VLAN 10 tag. Performs L3 routing decision.'}
+        {mode==='roas' && step===3 && 'Router routes: 10.0.20.0/24 → out sub-interface Gi0/0.20. Tags frame VLAN 20.'}
+        {mode==='roas' && step===4 && 'Tagged VLAN 20 frame sent back down the same physical trunk.'}
+        {mode==='roas' && step===5 && 'Switch receives VLAN 20 frame on trunk port. Knows to deliver to VLAN 20 access ports.'}
+        {mode==='roas' && step>=6 && '✓ Done. One physical link, unlimited VLANs. But all traffic bottlenecks through one router interface.'}
+        {mode==='svi' && step===0 && 'PC-A (VLAN 10) → PC-B (VLAN 20). L3 Switch SVI: the switch itself does the routing — no router needed.'}
+        {mode==='svi' && step===1 && 'PC-A sends packet to default gateway 10.0.10.1. Packet enters the L3 switch.'}
+        {mode==='svi' && step===2 && 'Packet hits SVI10 (Switch Virtual Interface) — a virtual L3 interface inside the switch for VLAN 10.'}
+        {mode==='svi' && step===3 && 'L3 switch routes internally: destination 10.0.20.x → SVI20. No packet leaves the switch. ASIC-speed.'}
+        {mode==='svi' && step===4 && 'Packet arrives at SVI20 — the virtual L3 interface for VLAN 20. Still inside the switch.'}
+        {mode==='svi' && step>=5 && '✓ Switch delivers to PC-B. Routing happened entirely in hardware — wire speed, no router bottleneck.'}
+      </div>
+
+      {/* Comparison footer */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 10 }}>
+        {[
+          { m:'legacy', label:'Legacy',  note:'1 port/VLAN — obsolete', col:'#f43f5e' },
+          { m:'roas',   label:'RoaS',    note:'1 trunk, subinterfaces', col:'#ffab00' },
+          { m:'svi',    label:'SVI',     note:'Routing in hardware ✓',  col:'#00e676' },
+        ].map(({ m, label, note, col }) => (
+          <div key={m} onClick={() => reset(m)}
+            style={{
+              padding: '5px 8px', borderRadius: 5, cursor: 'pointer', textAlign: 'center',
+              background: mode===m ? `${col}15` : `${col}05`,
+              border: `1px solid ${mode===m ? col : col+'25'}`,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'0.6875rem', color:col }}>{label}</div>
+            <div style={{ fontSize:'0.5875rem', color:'var(--text-muted)', marginTop:2 }}>{note}</div>
+          </div>
+        ))}
       </div>
     </InlineViz>
   );
