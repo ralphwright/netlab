@@ -50,25 +50,120 @@ const BASE = {
 };
 
 function DiagramShell({ title, onReplay, onPause, isPaused, children }) {
-  return (
-    <div style={BASE.wrap}>
-      <div style={BASE.header}>
-        <span>{title}</span>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {onPause && (
-            <button style={BASE.btn} onClick={onPause} title={isPaused ? 'Play' : 'Pause'}>
-              {isPaused ? '▶ Play' : '⏸ Pause'}
-            </button>
-          )}
-          {onReplay && (
-            <button style={BASE.btn} onClick={() => { onReplay(); }} title="Replay">
-              ↺ Replay
-            </button>
-          )}
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    function onKey(e) { if (e.key === 'Escape') setExpanded(false); }
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [expanded]);
+
+  // Derive a colour from the title for the accent (neutral teal default)
+  const accent = 'var(--accent)';
+
+  const overlay = expanded ? ReactDOM.createPortal(
+    <div
+      onClick={() => setExpanded(false)}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 2000,
+        background: 'rgba(0,0,0,0.75)',
+        backdropFilter: 'blur(5px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '92vw', maxWidth: 1140, maxHeight: '90vh',
+          borderRadius: 12, overflow: 'hidden',
+          border: '1px solid var(--accent-glow)',
+          background: 'var(--bg-panel)',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: '0 0 80px rgba(0,229,255,0.12), 0 32px 80px rgba(0,0,0,0.55)',
+        }}
+      >
+        {/* Modal header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 18px', flexShrink: 0,
+          borderBottom: '1px solid var(--border-subtle)',
+          background: 'var(--bg-elevated)',
+          fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+          letterSpacing: '0.06em', color: 'var(--text-muted)',
+        }}>
+          <span>{title}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {onPause && (
+              <button style={BASE.btn} onClick={onPause}>
+                {isPaused ? '▶ Play' : '⏸ Pause'}
+              </button>
+            )}
+            {onReplay && (
+              <button style={BASE.btn} onClick={onReplay}>↺ Replay</button>
+            )}
+            <span style={{ fontSize: '0.5625rem', opacity: 0.45 }}>esc to close</span>
+            <button
+              onClick={() => setExpanded(false)}
+              style={{
+                background: 'var(--accent-glow)', border: '1px solid var(--accent)',
+                borderRadius: 6, cursor: 'pointer', color: 'var(--accent)',
+                fontSize: '0.875rem', lineHeight: 1, padding: '3px 8px',
+                fontWeight: 700, transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-glow-strong)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-glow)'}
+            >✕</button>
+          </div>
+        </div>
+        {/* Modal body */}
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {children}
         </div>
       </div>
-      {children}
-    </div>
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <>
+      {overlay}
+      <div style={BASE.wrap}>
+        <div style={BASE.header}>
+          <span>{title}</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {onPause && (
+              <button style={BASE.btn} onClick={onPause} title={isPaused ? 'Play' : 'Pause'}>
+                {isPaused ? '▶ Play' : '⏸ Pause'}
+              </button>
+            )}
+            {onReplay && (
+              <button style={BASE.btn} onClick={onReplay} title="Replay">
+                ↺ Replay
+              </button>
+            )}
+            <button
+              onClick={() => setExpanded(true)}
+              title="Expand (fullscreen)"
+              style={{
+                ...BASE.btn,
+                opacity: 0.6, fontSize: '0.9375rem', padding: '1px 7px',
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
+            >⤢</button>
+          </div>
+        </div>
+        {children}
+      </div>
+    </>
   );
 }
 
