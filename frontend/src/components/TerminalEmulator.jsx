@@ -312,13 +312,13 @@ export default function TerminalEmulator({
 
     // show history — handled client-side like a real IOS terminal
     // Real IOS shows last 10 commands from the current session, numbered.
+    // Note: the input line was already added above — don't add it again here.
     if (trimmed.toLowerCase() === 'show history') {
       const recent = cmdHistory.slice(-10);
       const histText = recent.length > 0
         ? recent.map(c => `  ${c}`).join('\n')
         : '  (no commands in history)';
       setHistory(prev => [...prev,
-        { type: 'input', prompt, text: trimmed },
         { type: 'output', text: histText },
       ]);
       return;
