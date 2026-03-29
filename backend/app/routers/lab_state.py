@@ -432,6 +432,11 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
         # Use first interface for single-value reads; all for writes
         iface = state.ifaces.setdefault(iface_name, IfaceState(name=iface_name))
 
+        # Loopback interfaces are always up/up when created (no physical layer)
+        if iface_name.lower().startswith("loop") or iface_name.lower().startswith("lo"):
+            iface.status = "up"
+            iface.protocol = "up"
+
         # description <text>
         m_desc = re.match(r"description\s+(.+)", cmd, re.I)
         if m_desc:
@@ -444,11 +449,14 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
         if m:
             iface.ip = m.group(1)
             iface.mask = m.group(2)
-            iface.status = "up"
-            iface.protocol = "up"
-            # Auto-enable routing on L3 switches when SVIs are configured
-            if iface_name.lower().startswith("vlan") or iface_name.lower().startswith("vl"):
-                state.ip_routing = True
+            # Do NOT auto-bring up — requires explicit 'no shutdown'
+            # Exception: SVIs (Vlan interfaces) and Loopbacks come up automatically
+            iface_lower = iface_name.lower()
+            if iface_lower.startswith("vlan") or iface_lower.startswith("vl") or iface_lower.startswith("loop") or iface_lower.startswith("lo"):
+                iface.status = "up"
+                iface.protocol = "up"
+                if iface_lower.startswith("vlan") or iface_lower.startswith("vl"):
+                    state.ip_routing = True
             return
 
         # ipv6 address
@@ -457,8 +465,10 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
             addr = m.group(1)
             if addr not in iface.ipv6:
                 iface.ipv6.append(addr)
-            iface.status = "up"
-            iface.protocol = "up"
+            iface_lower = iface_name.lower()
+            if iface_lower.startswith("loop") or iface_lower.startswith("lo"):
+                iface.status = "up"
+                iface.protocol = "up"
             return
 
         # no shutdown
