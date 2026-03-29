@@ -5,7 +5,7 @@ import {
   ArrowLeft, BookOpen, Terminal, AlertTriangle, ExternalLink,
   Clock, ChevronRight, Layers, Code, Lightbulb
 } from 'lucide-react';
-import TheoryDiagram, { INLINE_DIAGRAMS } from './TheoryDiagram';
+import TheoryDiagram, { INLINE_DIAGRAMS, ExpandCtx, DiagramModal } from './TheoryDiagram';
 
 // ── Inline diagram injector ────────────────────────────────────
 // Splits markdown on ## headings, renders Markdown sections with
@@ -416,9 +416,12 @@ export default function TheoryPage() {
 
       {/* Tab Content */}
       {activeTab === 'theory' && (
-        <div className="fade-in">
-          <TheoryPageContent slug={content.slug} theoryMd={content.theory_md} />
-        </div>
+        <ExpandCtx.Provider value={{ open: (node, lbl, acc) => DiagramModal._open(node, lbl, acc) }}>
+          <DiagramModal />
+          <div className="fade-in">
+            <TheoryPageContent slug={content.slug} theoryMd={content.theory_md} />
+          </div>
+        </ExpandCtx.Provider>
       )}
 
       {activeTab === 'practical' && (

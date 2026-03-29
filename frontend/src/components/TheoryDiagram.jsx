@@ -1,9 +1,92 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 
 /* ══════════════════════════════════════════════════════════════
    TheoryDiagram — animated SVG diagrams for theory pages
    Each diagram is self-contained. TheoryDiagram dispatches on slug.
    ══════════════════════════════════════════════════════════════ */
+
+
+// ── Diagram expand / fullscreen modal ─────────────────────────
+export const ExpandCtx = createContext({ open: () => {} });
+
+export function DiagramModal() {
+  const [content, setContent] = useState(null);
+  const [label,   setLabel]   = useState('');
+  const [accent,  setAccent]  = useState('var(--accent)');
+  const close = useCallback(() => setContent(null), []);
+
+  // Expose open() via context value — hoisted to module scope below
+  DiagramModal._open = useCallback((node, lbl, acc) => {
+    setContent(node);
+    setLabel(lbl);
+    setAccent(acc);
+  }, []);
+
+  useEffect(() => {
+    if (!content) return;
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [content, close]);
+
+  if (!content) return null;
+  return (
+    <div
+      onClick={close}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 2000,
+        background: 'rgba(0,0,0,0.72)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '90vw', maxWidth: 1100, maxHeight: '88vh',
+          borderRadius: 12, overflow: 'hidden',
+          border: `1px solid ${accent}40`,
+          background: 'var(--bg-panel)',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: `0 0 60px ${accent}25, 0 24px 64px rgba(0,0,0,0.5)`,
+        }}
+      >
+        {/* Modal header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 16px',
+          borderBottom: `1px solid ${accent}20`,
+          background: `${accent}08`,
+          fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+          letterSpacing: '0.1em', color: accent,
+          flexShrink: 0,
+        }}>
+          <span>◈ {label}</span>
+          <button
+            onClick={close}
+            title="Close (Esc)"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: accent, fontSize: '1.1rem', lineHeight: 1,
+              padding: '0 2px', opacity: 0.7,
+            }}
+          >✕</button>
+        </div>
+        {/* Modal body — scrollable */}
+        <div style={{ padding: '24px 32px', overflowY: 'auto', flex: 1 }}>
+          {content}
+        </div>
+      </div>
+    </div>
+  );
+}
+// Singleton ref — set by DiagramModal on mount
+DiagramModal._open = () => {};
 
 // ── Shared styles ──────────────────────────────────────────────
 const BASE = {
@@ -1663,6 +1746,7 @@ export default function TheoryDiagram({ slug }) {
 
 // ── Shared inline shell ────────────────────────────────────────
 function InlineViz({ label, children, accent = 'var(--accent)' }) {
+  const { open } = useContext(ExpandCtx);
   return (
     <div style={{
       margin: '24px 0', borderRadius: 10, overflow: 'hidden',
@@ -1671,12 +1755,27 @@ function InlineViz({ label, children, accent = 'var(--accent)' }) {
     }}>
       {label && (
         <div style={{
-          padding: '5px 14px', borderBottom: `1px solid ${accent}20`,
+          padding: '5px 14px 5px 14px',
+          borderBottom: `1px solid ${accent}20`,
           fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
           letterSpacing: '0.1em', color: accent, opacity: 0.8,
           background: `${accent}08`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          ◈ {label}
+          <span>◈ {label}</span>
+          <button
+            onClick={() => open(children, label, accent)}
+            title="Expand diagram"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: accent, opacity: 0.55, fontSize: '0.875rem',
+              lineHeight: 1, padding: '0 2px',
+              transition: 'opacity 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '0.55'}
+            title="Expand (fullscreen)"
+          >⤢</button>
         </div>
       )}
       <div style={{ padding: '16px 20px' }}>{children}</div>
