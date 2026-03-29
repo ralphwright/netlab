@@ -20,7 +20,7 @@ router = APIRouter()
 class CommandRequest(BaseModel):
     lab_slug: str
     device_name: str
-    command: str
+    command: str = ""          # optional for reset-mode / validate-step endpoints
     step_number: Optional[int] = None
     user_id: Optional[str] = "student"
 
