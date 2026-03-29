@@ -198,6 +198,42 @@ def reset_state(scope_key: str) -> None:
 
 # ── Command parser ─────────────────────────────────────────────
 
+def _expand_iface_range(raw: str) -> list[str]:
+    """
+    Expand an interface range spec to a list of interface names.
+
+    Handles:
+      GigabitEthernet0/1               → ['GigabitEthernet0/1']
+      GigabitEthernet0/1-4             → ['GigabitEthernet0/1', ..., 'GigabitEthernet0/4']
+      Gi0/1-4                          → ['GigabitEthernet0/1', ..., 'GigabitEthernet0/4']
+      GigabitEthernet0/1-4, Fa0/1-2   → combined list
+    """
+    from app.routers.cmd_normalize import _expand_interface
+    names: list[str] = []
+    # Split on comma for multi-range syntax
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    for part in parts:
+        # Match: <prefix><slot>/<start>-<end>  (with optional spaces around dash)
+        range_m = re.match(r"(.*?)(\d+)/(\d+)\s*-\s*(\d+)$", part)
+        if range_m:
+            prefix, slot, start, end = range_m.groups()
+            # Normalise the interface prefix abbreviation
+            sample = _expand_interface(prefix.strip() + slot + "/" + start)
+            # Extract the canonical prefix (everything up to the last digit group)
+            pfx_m = re.match(r"(.*?)(\d+)/(\d+)$", sample)
+            if pfx_m:
+                canon_pfx = pfx_m.group(1)
+                canon_slot = pfx_m.group(2)
+                for port in range(int(start), int(end) + 1):
+                    names.append(f"{canon_pfx}{canon_slot}/{port}")
+            else:
+                names.append(sample)
+        else:
+            # Single interface — just expand any abbreviation
+            names.append(_expand_interface(part))
+    return names if names else [raw]
+
+
 def parse_command(scope_key: str, device_name: str, command: str, current_mode: str) -> None:
     """
     Parse a validated IOS command and update DeviceState.
@@ -377,18 +413,30 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
 
     # ── Interface-level commands ───────────────────────────────
     if current_mode in ("config-if",):
-        # Determine which interface we're in via the scope key's context
-        # We rely on the most recently entered interface command stored in state
+        # Determine which interface(s) we're in.
+        # _current_iface_range is set by "interface range" and contains all
+        # interfaces that subsequent commands should apply to.
         iface_name = getattr(state, '_current_iface', None)
         if not iface_name:
             return
+        iface_range = getattr(state, '_current_iface_range', [iface_name])
+        if not iface_range:
+            iface_range = [iface_name]
 
+        def _apply(fn):
+            """Apply fn(iface) to every interface in the current range."""
+            for _n in iface_range:
+                _if = state.ifaces.setdefault(_n, IfaceState(name=_n))
+                fn(_if)
+
+        # Use first interface for single-value reads; all for writes
         iface = state.ifaces.setdefault(iface_name, IfaceState(name=iface_name))
 
         # description <text>
         m_desc = re.match(r"description\s+(.+)", cmd, re.I)
         if m_desc:
-            iface.description = m_desc.group(1).strip()
+            _v = m_desc.group(1).strip()
+            _apply(lambda i: setattr(i, 'description', _v))
             return
 
         # ip address <ip> <mask>
@@ -415,31 +463,32 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
 
         # no shutdown
         if re.match(r"no\s+shutdown", low):
-            iface.status = "up"
-            iface.protocol = "up"
+            _apply(lambda i: (setattr(i, "status", "up"), setattr(i, "protocol", "up")))
             return
 
         # shutdown
         if low == "shutdown":
-            iface.status = "administratively down"
-            iface.protocol = "down"
+            _apply(lambda i: (setattr(i, "status", "administratively down"), setattr(i, "protocol", "down")))
             return
 
         # switchport mode access/trunk
         m = re.match(r"switchport\s+mode\s+(access|trunk)", low)
         if m:
-            iface.mode = m.group(1)
+            _v = m.group(1)
+            _apply(lambda i: setattr(i, "mode", _v))
             return
 
         # switchport access vlan <id>
         m = re.match(r"switchport\s+access\s+vlan\s+(\d+)", low)
         if m:
-            iface.access_vlan = int(m.group(1))
             vid = int(m.group(1))
             if vid not in state.vlans:
                 state.vlans[vid] = VlanEntry(vid=vid, name=f"VLAN{vid:04d}")
-            if _short_if(iface_name) not in state.vlans[vid].ports:
-                state.vlans[vid].ports.append(_short_if(iface_name))
+            for _n in iface_range:
+                _if = state.ifaces.setdefault(_n, IfaceState(name=_n))
+                _if.access_vlan = vid
+                if _short_if(_n) not in state.vlans[vid].ports:
+                    state.vlans[vid].ports.append(_short_if(_n))
             return
 
         # switchport trunk encapsulation dot1q
@@ -465,12 +514,13 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
         # ip nat inside/outside
         m = re.match(r"ip\s+nat\s+(inside|outside)", low)
         if m:
-            iface.nat = m.group(1)
+            _v = m.group(1)
+            _apply(lambda i: setattr(i, "nat", _v))
             return
 
         # mpls ip
         if low == "mpls ip":
-            iface.mpls = True
+            _apply(lambda i: setattr(i, "mpls", True))
             return
 
         # channel-group <n> mode <mode>
@@ -485,12 +535,12 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
 
         # spanning-tree portfast
         if re.match(r"spanning-tree\s+portfast", low):
-            iface.portfast = True
+            _apply(lambda i: setattr(i, "portfast", True))
             return
 
         # spanning-tree bpduguard enable
         if re.match(r"spanning-tree\s+bpduguard\s+enable", low):
-            iface.bpduguard = True
+            _apply(lambda i: setattr(i, "bpduguard", True))
             return
 
         # ip access-group <acl> in/out
@@ -1733,4 +1783,14 @@ def _show_running_config(s: DeviceState) -> str:
 def _get_access_ports(s: DeviceState) -> list:
     return [_short_if(n) for n, i in s.ifaces.items()
             if i.mode == "access" or (not i.mode and not i.ip)]
+    # ── Interface / interface range — track current interface ────
+    m = re.match(r"interface(?:\s+range)?\s+(.+)", cmd, re.I)
+    if m and current_mode in ("config", "config-if"):
+        raw = m.group(1).strip()
+        names = _expand_iface_range(raw)
+        state._current_iface       = names[0]
+        state._current_iface_range = names
+        for n in names:
+            state.ifaces.setdefault(n, IfaceState(name=n))
+        return
 
