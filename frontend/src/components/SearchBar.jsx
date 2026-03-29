@@ -88,10 +88,19 @@ export default function SearchBar() {
     return () => document.removeEventListener('mousedown', handle);
   }, [open, closeSearch]);
 
-  // Global / shortcut
+  // Global / shortcut — suppressed when focus is in any text input
+  // (CLI terminal, textarea, contenteditable) so / works normally in labs
   useEffect(() => {
     function handle(e) {
-      if ((e.key === '/' || (e.key === 'k' && (e.metaKey || e.ctrlKey))) && !open) {
+      if (open) return;
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      const isEditable = (
+        tag === 'input' ||
+        tag === 'textarea' ||
+        document.activeElement?.isContentEditable
+      );
+      if (isEditable) return;
+      if (e.key === '/' || (e.key === 'k' && (e.metaKey || e.ctrlKey))) {
         e.preventDefault();
         openSearch();
       }
