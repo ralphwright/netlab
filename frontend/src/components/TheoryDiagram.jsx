@@ -90,6 +90,19 @@ function SpeedToggle({ accent }) {
   );
 }
 
+
+// ── Mobile detection hook ─────────────────────────────────────
+// Returns true when viewport width ≤ 600px. Updates on resize.
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth <= 600);
+  useEffect(() => {
+    function handler() { setMobile(window.innerWidth <= 600); }
+    window.addEventListener('resize', handler, { passive: true });
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
+}
+
 // ── Shared styles ──────────────────────────────────────────────
 const BASE = {
   wrap: {
@@ -204,6 +217,51 @@ function DiagramShell({ title, onReplay, onPause, isPaused, children }) {
     </div>,
     document.body
   ) : null;
+
+  const isMobile = useIsMobile();
+
+  if (isMobile && !expanded) return (
+    <>
+      {overlay}
+      <div
+        onClick={() => setExpanded(true)}
+        style={{ ...BASE.wrap, cursor: 'pointer' }}
+      >
+        <div style={BASE.header}>
+          <span>{title}</span>
+          <SpeedToggle />
+        </div>
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            filter: 'blur(3px)', opacity: 0.3,
+            pointerEvents: 'none', userSelect: 'none',
+            maxHeight: 110, overflow: 'hidden',
+          }}>
+            {children}
+          </div>
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <div style={{
+              background: 'var(--accent-glow)',
+              border: '1.5px solid var(--accent)',
+              borderRadius: 12, padding: '10px 22px',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 5,
+            }}>
+              <span style={{ fontSize: '1.5rem' }}>⤢</span>
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontWeight: 700,
+                fontSize: '0.75rem', color: 'var(--accent)',
+              }}>Tap to expand</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <>
@@ -1932,6 +1990,67 @@ function InlineViz({ label, children, accent = 'var(--accent)' }) {
     </div>,
     document.body
   ) : null;
+
+  const isMobile = useIsMobile();
+
+  // On mobile, show a thumbnail placeholder — tap to open fullscreen
+  const mobilePlaceholder = isMobile && !expanded ? (
+    <div
+      onClick={() => setExpanded(true)}
+      style={{
+        margin: '24px 0', borderRadius: 10, overflow: 'hidden',
+        border: `1px solid ${accent}35`,
+        background: `${accent}05`,
+        cursor: 'pointer',
+      }}
+    >
+      {/* Label bar */}
+      <div style={{
+        padding: '5px 14px',
+        borderBottom: `1px solid ${accent}20`,
+        fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
+        letterSpacing: '0.1em', color: accent, opacity: 0.8,
+        background: `${accent}08`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span>◈ {label}</span>
+        <SpeedToggle accent={accent} />
+      </div>
+      {/* Blurred thumbnail */}
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          padding: '16px 20px',
+          filter: 'blur(3px)', opacity: 0.35,
+          pointerEvents: 'none', userSelect: 'none',
+          maxHeight: 120, overflow: 'hidden',
+        }}>
+          {children}
+        </div>
+        {/* Tap overlay */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <div style={{
+            background: `${accent}22`,
+            border: `1.5px solid ${accent}60`,
+            borderRadius: 12, padding: '10px 22px',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 5,
+          }}>
+            <span style={{ fontSize: '1.5rem' }}>⤢</span>
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontWeight: 700,
+              fontSize: '0.75rem', color: accent,
+            }}>Tap to expand</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  if (isMobile && !expanded) return <>{overlay}{mobilePlaceholder}</>;
 
   return (
     <>
