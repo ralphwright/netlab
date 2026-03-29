@@ -246,6 +246,183 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
     cmd = command.strip()
     low = cmd.lower()
 
+    # ── 'no' commands — remove configuration ───────────────────
+    # Handled first so they apply regardless of current_mode context.
+    if low.startswith("no "):
+        sub = low[3:].strip()
+        cmd_sub = cmd[3:].strip()  # preserve case for values
+
+        # no hostname
+        if sub.startswith("hostname"):
+            state.hostname = ""
+            return
+
+        # no ip routing
+        if sub == "ip routing":
+            state.ip_routing = False
+            return
+
+        # no ip route <net> <mask> [<nh>]
+        if sub.startswith("ip route "):
+            m_rt = re.match(r"ip\s+route\s+(\S+)\s+(\S+)(?:\s+(\S+))?", sub)
+            if m_rt:
+                net, mask, nh = m_rt.group(1), m_rt.group(2), m_rt.group(3)
+                if hasattr(state, "_static_routes"):
+                    if nh:
+                        state._static_routes = [
+                            r for r in state._static_routes
+                            if not (r[0] == net and r[1] == mask and r[2] == nh)
+                        ]
+                    else:
+                        state._static_routes = [
+                            r for r in state._static_routes
+                            if not (r[0] == net and r[1] == mask)
+                        ]
+            return
+
+        # no vlan <id>
+        m_vlan = re.match(r"vlan\s+(\d+)$", sub)
+        if m_vlan:
+            state.vlans.pop(int(m_vlan.group(1)), None)
+            return
+
+        # no router ospf <pid>
+        m_ospf = re.match(r"router\s+ospf\s+(\d+)", sub)
+        if m_ospf:
+            state.ospf.pop(int(m_ospf.group(1)), None)
+            return
+
+        # no router bgp
+        if sub.startswith("router bgp"):
+            state.bgp = None
+            return
+
+        # no ip dhcp pool <n>
+        m_dhcp = re.match(r"ip\s+dhcp\s+pool\s+(\S+)", sub)
+        if m_dhcp:
+            state.dhcp_pools.pop(m_dhcp.group(1), None)
+            return
+
+        # no ip dhcp excluded-address
+        if sub.startswith("ip dhcp excluded"):
+            state.dhcp_excluded = []
+            return
+
+        # no access-list <num>
+        m_acl_num = re.match(r"access-list\s+(\d+)", sub)
+        if m_acl_num:
+            state.acls.pop(m_acl_num.group(1), None)
+            return
+
+        # no ip access-list <kind> <name>
+        m_acl = re.match(r"ip\s+access-list\s+\S+\s+(\S+)", sub)
+        if m_acl:
+            state.acls.pop(m_acl.group(1), None)
+            return
+
+        # no username <n>
+        m_user = re.match(r"username\s+(\S+)", sub)
+        if m_user and hasattr(state, "_usernames"):
+            state._usernames.pop(m_user.group(1), None)
+            return
+
+        # no spanning-tree vlan <id> priority
+        m_stp = re.match(r"spanning-tree\s+vlan\s+(\d+)\s+priority", sub)
+        if m_stp:
+            state.stp_priority.pop(int(m_stp.group(1)), None)
+            return
+
+        # ── Interface-level no commands ───────────────────────────
+        if current_mode == "config-if":
+            iface_name  = getattr(state, "_current_iface", None)
+            iface_range = getattr(state, "_current_iface_range", [iface_name] if iface_name else [])
+            if iface_name and iface_range:
+                def _no_apply(fn):
+                    for _n in iface_range:
+                        _if = state.ifaces.get(_n)
+                        if _if:
+                            fn(_if)
+
+                if sub.startswith("ip address"):
+                    _no_apply(lambda i: [setattr(i, "ip", ""), setattr(i, "mask", "")])
+                    return
+                if sub.startswith("switchport access vlan"):
+                    _no_apply(lambda i: setattr(i, "access_vlan", 1))
+                    return
+                if sub.startswith("switchport mode"):
+                    _no_apply(lambda i: setattr(i, "mode", ""))
+                    return
+                if sub.startswith("description"):
+                    _no_apply(lambda i: setattr(i, "description", ""))
+                    return
+                if sub.startswith("ip nat"):
+                    _no_apply(lambda i: setattr(i, "nat", ""))
+                    return
+                m_ag = re.match(r"ip\s+access-group\s+\S+\s+(in|out)", sub)
+                if m_ag:
+                    if m_ag.group(1) == "in":
+                        _no_apply(lambda i: setattr(i, "acl_in", ""))
+                    else:
+                        _no_apply(lambda i: setattr(i, "acl_out", ""))
+                    return
+                if sub.startswith("spanning-tree portfast"):
+                    _no_apply(lambda i: setattr(i, "portfast", False))
+                    return
+                if sub.startswith("spanning-tree bpduguard"):
+                    _no_apply(lambda i: setattr(i, "bpduguard", False))
+                    return
+                if sub == "mpls ip":
+                    _no_apply(lambda i: setattr(i, "mpls", False))
+                    return
+                if sub.startswith("channel-group"):
+                    for _n in iface_range:
+                        _if = state.ifaces.get(_n)
+                        if _if and _if.channel_group:
+                            pg = _if.channel_group
+                            if pg in state.po_members:
+                                state.po_members[pg] = [m for m in state.po_members[pg] if m != _n]
+                                if not state.po_members[pg]:
+                                    del state.po_members[pg]
+                            _if.channel_group = 0
+                    return
+                if sub.startswith("ipv6 address"):
+                    addr = sub[12:].strip()
+                    _no_apply(lambda i: i.ipv6.remove(addr) if addr in i.ipv6 else None)
+                    return
+                if sub.startswith("zone-member"):
+                    _no_apply(lambda i: setattr(i, "zone", ""))
+                    return
+                # no shutdown → shutdown (handled below, fall through)
+                if sub.startswith("shut"):
+                    pass
+                else:
+                    return  # unknown interface no command — accept silently
+
+        # ── OSPF sub-mode no commands ──────────────────────────
+        if current_mode == "config-router":
+            pid  = getattr(state, "_current_ospf_pid", 1)
+            proc = state.ospf.get(pid)
+            if proc:
+                m_net = re.match(r"network\s+(\S+)\s+(\S+)\s+area\s+(\d+)", sub)
+                if m_net:
+                    net, wc, area = m_net.group(1), m_net.group(2), int(m_net.group(3))
+                    proc.networks = [n for n in proc.networks
+                                     if not (n.network == net and n.wildcard == wc and n.area == area)]
+                    return
+                if sub.startswith("router-id"):
+                    proc.router_id = ""
+                    return
+                m_nbr = re.match(r"neighbor\s+(\S+)", sub)
+                if m_nbr:
+                    nbr_ip = m_nbr.group(1)
+                    state.bgp.neighbors = [(ip, asn) for ip, asn in state.bgp.neighbors
+                                           if ip != nbr_ip] if state.bgp else None
+                    return
+
+        # no shutdown — fall through to config-if handler below
+        if not sub.startswith("shut"):
+            return  # all remaining no commands — accept silently
+
     # ── Global config commands ─────────────────────────────────
     if current_mode in ("config", "privileged"):
 
