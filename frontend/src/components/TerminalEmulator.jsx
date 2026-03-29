@@ -362,6 +362,20 @@ export default function TerminalEmulator({
 
   // ── Keyboard handler ───────────────────────────────────────
   const handleKeyDown = (e) => {
+    // Ctrl+C — discard current input line, print ^C, like real IOS
+    if (e.ctrlKey && e.key === 'c') {
+      e.preventDefault();
+      if (input.trim()) {
+        // Show the partial command with ^C appended, then a blank prompt line
+        setHistory(prev => [...prev,
+          { type: 'input', prompt, text: input + '^C' },
+        ]);
+      }
+      setInput('');
+      setHistoryIdx(-1);
+      return;
+    }
+
     if (e.key === 'Enter') {
       executeCommand(input);
       setInput('');
