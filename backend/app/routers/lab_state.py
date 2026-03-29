@@ -888,6 +888,10 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
     if re.match(r"show\s+interfaces?$", cmd):
         return _show_interfaces_detail(state)
 
+    # ── show version ──────────────────────────────────────────
+    if re.match(r"show\s+version$", cmd):
+        return _show_version(state, device_name)
+
     return None  # not handled — caller uses canned output
 
 
@@ -1023,6 +1027,74 @@ def _show_ip_route(s: DeviceState) -> str:
         lines.append("(routing table is empty — configure interfaces and routes)")
 
     return "\n".join(lines)
+
+
+def _show_version(s: DeviceState, device_name: str) -> str:
+    """Generate realistic show version output based on device name."""
+    hostname = s.hostname or device_name
+    # Guess device type from name
+    name_upper = device_name.upper()
+    is_switch = any(x in name_upper for x in ('SW', 'SWITCH', 'CAT', 'CS'))
+
+    if is_switch:
+        model        = "WS-C2960X-24TS-L"
+        platform     = "C2960X"
+        ios_image    = "C2960X-UNIVERSALK9-M"
+        ios_ver      = "15.2(7)E6"
+        rom_ver      = "12.2(53r)SEY3"
+        sys_uptime   = "1 week, 2 days, 4 hours, 17 minutes"
+        reload_cause = "power-on"
+        ram_mb       = 512
+        flash_mb     = 128
+        ports        = "24 FastEthernet, 2 GigabitEthernet"
+        serial       = f"FCW{abs(hash(device_name)) % 10000:04d}A{abs(hash(device_name+'-s')) % 100:02d}Z"
+    else:
+        model        = "CISCO2911/K9"
+        platform     = "2911"
+        ios_image    = "C2900-UNIVERSALK9-M"
+        ios_ver      = "15.7(3)M8"
+        rom_ver      = "15.0(1r)M16"
+        sys_uptime   = "3 days, 7 hours, 42 minutes"
+        reload_cause = "power-on"
+        ram_mb       = 512
+        flash_mb     = 256
+        ports        = "3 GigabitEthernet"
+        serial       = f"FTX{abs(hash(device_name)) % 10000:04d}B{abs(hash(device_name+'-r')) % 100:02d}W"
+
+    # Build interface list from configured ifaces
+    iface_count = len(s.ifaces)
+    iface_line = f"{iface_count} interface(s)" if iface_count else ports
+
+    return (
+        f"Cisco IOS Software, {platform} Software ({ios_image}), Version {ios_ver}, RELEASE SOFTWARE (fc3)\n"
+        f"Technical Support: http://www.cisco.com/techsupport\n"
+        f"Copyright (c) 1986-2022 by Cisco Systems, Inc.\n"
+        f"Compiled Mon 27-Jun-22 12:25 by prod_rel_team\n"
+        f"\n"
+        f"ROM: Bootstrap program is {platform} boot loader\n"
+        f"BOOTLDR: {platform} Boot Loader (C{platform}-HBOOT-M) Version {rom_ver}\n"
+        f"\n"
+        f"{hostname} uptime is {sys_uptime}\n"
+        f"System returned to ROM by {reload_cause}\n"
+        f"\n"
+        f"System image file is \"flash:{ios_image}.bin\"\n"
+        f"\n"
+        f"Last reload type: Normal Reload\n"
+        f"\n"
+        f"cisco {model} (revision 1.0) with {ram_mb}K/{ram_mb // 4}K bytes of memory.\n"
+        f"Processor board ID {serial}\n"
+        f"\n"
+        f"{ports}\n"
+        f"{flash_mb}K bytes of non-volatile configuration memory.\n"
+        f"{flash_mb * 1024}K bytes of ATA System CompactFlash 0 (Read/Write)\n"
+        f"\n"
+        f"Configuration register is 0x2102\n"
+        f"\n"
+        f"License Information for \'slot 0\':\n"
+        f"  License Level: ipservices\n"
+        f"  License Type: Permanent\n"
+        f"  Next reload license Level: ipservices\n"
+    )
 
 
 def _show_route_summary(s: DeviceState) -> str:
