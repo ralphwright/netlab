@@ -803,7 +803,7 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
 
     # ── show ip ospf neighbor ──────────────────────────────────
     if re.match(r"show\s+ip\s+ospf\s+neighbor$", cmd):
-        return _show_ospf_neighbor(state)
+        return _show_ospf_neighbor(state, scope_key=scope_key, device_name=device_name)
 
     # ── show ip bgp ────────────────────────────────────────────
     if re.match(r"show\s+ip\s+bgp$", cmd):
@@ -1226,31 +1226,163 @@ def _show_etherchannel(s: DeviceState) -> str:
     return "\n".join(lines)
 
 
-def _show_ospf_neighbor(s: DeviceState) -> str:
-    # Real IOS column widths
+def _ip_in_network(ip: str, network: str, wildcard: str) -> bool:
+    """Return True if ip falls within network/wildcard."""
+    try:
+        ip_i   = sum(int(x) << (24 - 8*i) for i, x in enumerate(ip.split(".")))
+        net_i  = sum(int(x) << (24 - 8*i) for i, x in enumerate(network.split(".")))
+        wc_i   = sum(int(x) << (24 - 8*i) for i, x in enumerate(wildcard.split(".")))
+        mask_i = 0xFFFFFFFF ^ wc_i
+        return (ip_i & mask_i) == (net_i & mask_i)
+    except (ValueError, AttributeError):
+        return False
+
+
+def _iface_for_ospf_net(s: DeviceState, ospf_net: OspfNetwork) -> str | None:
+    """
+    Return the interface name whose IP is matched by this OSPF network statement,
+    and which is currently up. Returns None if no matching up interface found.
+    """
+    for iface_name, iface in s.ifaces.items():
+        if iface.ip and iface.status == "up":
+            if _ip_in_network(iface.ip, ospf_net.network, ospf_net.wildcard):
+                return iface_name
+    return None
+
+
+def _find_ospf_neighbors(scope_key: str, device_name: str) -> list[dict]:
+    """
+    Cross-reference all devices in the same lab to find genuine OSPF neighbors.
+
+    A neighbor is valid when ALL of these are true:
+      1. Peer device has OSPF configured with an overlapping area
+      2. Peer has a network statement that matches one of its up interfaces
+      3. That peer interface's subnet overlaps with one of our up interfaces
+         in the same OSPF area
+      4. Both interfaces are up
+
+    Returns a list of neighbor dicts:
+      { neighbor_id, priority, state, dead_time, address, interface }
+    """
+    # Parse scope_key = "user_id:lab_slug:device_name"
+    parts = scope_key.split(":")
+    if len(parts) < 2:
+        return []
+    lab_prefix = ":".join(parts[:-1])  # "user_id:lab_slug"
+
+    our_state = LAB_STATES.get(scope_key)
+    if not our_state or not our_state.ospf:
+        return []
+
+    neighbors = []
+
+    # Collect our active OSPF interfaces: {area -> [(iface_name, iface_ip, network_addr, mask)]}
+    our_ospf_ifaces: list[tuple[int, str, str, str]] = []  # (area, iface_name, ip, mask)
+    for pid, proc in our_state.ospf.items():
+        for ospf_net in proc.networks:
+            iface_name = _iface_for_ospf_net(our_state, ospf_net)
+            if iface_name:
+                iface = our_state.ifaces[iface_name]
+                our_ospf_ifaces.append((ospf_net.area, iface_name, iface.ip, iface.mask))
+
+    if not our_ospf_ifaces:
+        return []
+
+    # Scan all other devices in the same lab
+    for peer_key, peer_state in LAB_STATES.items():
+        if not peer_key.startswith(lab_prefix + ":"):
+            continue
+        peer_device = peer_key.split(":")[-1]
+        if peer_device == device_name:
+            continue
+        if not peer_state.ospf:
+            continue
+
+        for pid, proc in peer_state.ospf.items():
+            for ospf_net in proc.networks:
+                peer_iface_name = _iface_for_ospf_net(peer_state, ospf_net)
+                if not peer_iface_name:
+                    continue
+                peer_iface = peer_state.ifaces[peer_iface_name]
+
+                # Check if peer interface subnet overlaps with one of ours in same area
+                for our_area, our_iface_name, our_ip, our_mask in our_ospf_ifaces:
+                    if ospf_net.area != our_area:
+                        continue
+                    # Both interfaces must be on the same subnet
+                    try:
+                        our_net  = _network_addr(our_ip, our_mask)
+                        peer_net = _network_addr(peer_iface.ip, peer_iface.mask)
+                        if our_net != peer_net:
+                            continue
+                    except Exception:
+                        continue
+
+                    # Valid neighbor found
+                    nbr_id = proc.router_id or peer_iface.ip or "0.0.0.0"
+                    # Determine DR/BDR role — higher router-id wins DR
+                    our_rid  = our_state.ospf.get(pid, OspfProc(pid=1)).router_id or our_ip
+                    peer_rid = proc.router_id or peer_iface.ip or "0.0.0.0"
+                    try:
+                        our_rid_i  = sum(int(x) << (24-8*i) for i, x in enumerate(our_rid.split(".")))
+                        peer_rid_i = sum(int(x) << (24-8*i) for i, x in enumerate(peer_rid.split(".")))
+                        nbr_role = "FULL/DR" if peer_rid_i > our_rid_i else "FULL/BDR"
+                    except (ValueError, AttributeError):
+                        nbr_role = "FULL/DR"
+
+                    neighbors.append({
+                        "neighbor_id": nbr_id,
+                        "priority":    1,
+                        "state":       nbr_role,
+                        "dead_time":   "00:00:37",
+                        "address":     peer_iface.ip,
+                        "interface":   our_iface_name,
+                    })
+
+    return neighbors
+
+
+def _show_ospf_neighbor(s: DeviceState, scope_key: str = "", device_name: str = "") -> str:
     HDR = f"{'Neighbor ID':<16}{'Pri':<6}{'State':<14}{'Dead Time':<12}{'Address':<16}Interface"
     lines = [HDR]
 
     if not s.ospf:
-        return HDR + "\n(no OSPF process configured)"
+        return HDR + "\n(no OSPF process configured — use: router ospf <pid>)"
 
-    nbr_count = 0
-    for pid, proc in s.ospf.items():
-        for i, net in enumerate(proc.networks):
-            parts = net.network.split(".")
-            if len(parts) == 4:
-                parts_n = parts[:]
-                parts_n[-1] = str(min(int(parts_n[-1]) + 2, 254))
-                nbr_ip  = ".".join(parts_n)
-                nbr_id  = f"{i+2}.{i+2}.{i+2}.{i+2}"
-                state   = "FULL/DR" if i == 0 else "FULL/BDR" if i == 1 else "FULL/  -"
-                dead    = f"00:00:3{i}"
-                iface   = f"GigabitEthernet0/{i}"
-                lines.append(f"{nbr_id:<16}{1:<6}{state:<14}{dead:<12}{nbr_ip:<16}{iface}")
-                nbr_count += 1
+    # Check prerequisites before attempting neighbor discovery
+    # 1. At least one network statement
+    has_network = any(proc.networks for proc in s.ospf.values())
+    if not has_network:
+        return (HDR + "\n"
+                "(no network statements — use: network <ip> <wildcard> area <n>)")
 
-    if nbr_count == 0:
-        lines.append("(no OSPF adjacencies formed — check network statements and interface config)")
+    # 2. At least one matching up interface
+    has_up_iface = False
+    for proc in s.ospf.values():
+        for ospf_net in proc.networks:
+            if _iface_for_ospf_net(s, ospf_net):
+                has_up_iface = True
+                break
+
+    if not has_up_iface:
+        return (HDR + "\n"
+                "(no up interfaces match OSPF network statements\n"
+                " — check: ip address configured and no shutdown on matching interfaces)")
+
+    # Find real neighbors by cross-referencing peer device states
+    neighbors = _find_ospf_neighbors(scope_key, device_name) if scope_key else []
+
+    if not neighbors:
+        return (HDR + "\n"
+                "(no OSPF adjacencies formed\n"
+                " — verify peer has matching OSPF area and overlapping subnet)")
+
+    for nbr in neighbors:
+        lines.append(
+            f"{nbr['neighbor_id']:<16}{nbr['priority']:<6}"
+            f"{nbr['state']:<14}{nbr['dead_time']:<12}"
+            f"{nbr['address']:<16}{nbr['interface']}"
+        )
     return "\n".join(lines)
 
 
