@@ -1189,6 +1189,15 @@ async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db
     step_completed = False
     hint = None
 
+    # ? help commands must never trigger state changes, step completion,
+    # or config updates — return immediately after producing help output.
+    if normalized_cmd.strip().endswith("?") or normalized_cmd.strip() == "?":
+        return CommandResponse(
+            output=output, is_valid=True, prompt=prompt,
+            step_completed=False, hint=None,
+            normalized_command=normalized_cmd, current_mode=pre_mode,
+        )
+
     # Update live config state with the normalized command
     parse_command(key, req.device_name, normalized_cmd, pre_mode)
 
