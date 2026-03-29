@@ -16,6 +16,80 @@ export const ExpandCtx = createContext(null); // kept for TheoryPage compat — 
 export function DiagramModal() { return null; } // kept for import compat
 DiagramModal._open = () => {};
 
+
+// ── Animation speed store ─────────────────────────────────────
+// Values: 0.5 = Fast, 1 = Normal, 2 = Slow
+const _SPEED_OPTS = [
+  { key: 'slow',   mult: 2.2, label: '🐢' },
+  { key: 'normal', mult: 1.0, label: '▶' },
+  { key: 'fast',   mult: 0.45, label: '⚡' },
+];
+const _DEFAULT_SPEED = 'slow';
+
+let _speedMult = (() => {
+  try {
+    const saved = localStorage.getItem('netlab-anim-speed');
+    const opt = _SPEED_OPTS.find(o => o.key === saved);
+    return opt ? opt.mult : _SPEED_OPTS.find(o => o.key === _DEFAULT_SPEED).mult;
+  } catch { return _SPEED_OPTS.find(o => o.key === _DEFAULT_SPEED).mult; }
+})();
+
+const _speedListeners = new Set();
+
+function _setSpeed(key) {
+  const opt = _SPEED_OPTS.find(o => o.key === key);
+  if (!opt) return;
+  _speedMult = opt.mult;
+  try { localStorage.setItem('netlab-anim-speed', key); } catch {}
+  _speedListeners.forEach(fn => fn(key));
+}
+
+function _getSpeedKey() {
+  try {
+    const saved = localStorage.getItem('netlab-anim-speed');
+    return _SPEED_OPTS.find(o => o.key === saved) ? saved : _DEFAULT_SPEED;
+  } catch { return _DEFAULT_SPEED; }
+}
+
+/** Hook: returns current speed multiplier. Re-renders when speed changes. */
+function useAnimSpeed() {
+  const [key, setKey] = useState(_getSpeedKey);
+  useEffect(() => {
+    _speedListeners.add(setKey);
+    return () => _speedListeners.delete(setKey);
+  }, []);
+  return _speedMult;
+}
+
+/** Inline speed toggle button — used in DiagramShell and InlineViz headers. */
+function SpeedToggle({ accent }) {
+  const [key, setKeyLocal] = useState(_getSpeedKey);
+  useEffect(() => {
+    _speedListeners.add(setKeyLocal);
+    return () => _speedListeners.delete(setKeyLocal);
+  }, []);
+  const current = _SPEED_OPTS.find(o => o.key === key);
+  const next    = _SPEED_OPTS[(_SPEED_OPTS.indexOf(current) + 1) % _SPEED_OPTS.length];
+  const btnColor = accent || 'var(--accent)';
+  return (
+    <button
+      onClick={() => { _setSpeed(next.key); setKeyLocal(next.key); }}
+      title={`Speed: ${key} — click for ${next.key}`}
+      style={{
+        background: 'none', border: `1px solid transparent`,
+        borderRadius: 4, cursor: 'pointer',
+        color: btnColor, opacity: 0.65,
+        fontSize: '0.8125rem', lineHeight: 1,
+        padding: '2px 5px',
+        fontFamily: 'var(--font-mono)',
+        transition: 'opacity 0.15s, border-color 0.15s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.borderColor=btnColor; }}
+      onMouseLeave={e => { e.currentTarget.style.opacity='0.65'; e.currentTarget.style.borderColor='transparent'; }}
+    >{current.label}</button>
+  );
+}
+
 // ── Shared styles ──────────────────────────────────────────────
 const BASE = {
   wrap: {
@@ -148,6 +222,7 @@ function DiagramShell({ title, onReplay, onPause, isPaused, children }) {
                 ↺ Replay
               </button>
             )}
+            <SpeedToggle />
             <button
               onClick={() => setExpanded(true)}
               title="Expand (fullscreen)"
@@ -182,19 +257,20 @@ const OSI_LAYERS = [
 
 function OsiDiagram() {
   const [step, setStep] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [phase, setPhase] = useState('idle');
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (phase === 'idle' || isPaused) return;
     if (step < OSI_LAYERS.length) {
-      const t = setTimeout(() => setStep((s) => s + 1), 450);
+      const t = setTimeout(() => setStep((s) => s + 1), 450 * _speedMult);
       return () => clearTimeout(t);
     }
   }, [step, phase, isPaused]);
 
-  function replay() { setStep(0); setPhase('idle'); setIsPaused(false); setTimeout(() => setPhase('down'), 50); }
-  useEffect(() => { setTimeout(() => setPhase('down'), 600); }, []);
+  function replay() { setStep(0); setPhase('idle'); setIsPaused(false); setTimeout(() => setPhase('down'), 50 * _speedMult); }
+  useEffect(() => { setTimeout(() => setPhase('down'), 600 * _speedMult); }, []);
 
   const activeDown = phase === 'down' ? step : 7;
 
@@ -315,12 +391,13 @@ function OsiDiagram() {
 // ────────────────────────────────────────────────────────────────
 function VlanDiagram() {
   const [step, setStep] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (isPaused) return;
-    if (step === 0) { const t = setTimeout(() => setStep(1), 700); return () => clearTimeout(t); }
-    if (step < 5)   { const t = setTimeout(() => setStep((s) => s + 1), 900); return () => clearTimeout(t); }
+    if (step === 0) { const t = setTimeout(() => setStep(1), 700 * _speedMult); return () => clearTimeout(t); }
+    if (step < 5)   { const t = setTimeout(() => setStep((s) => s + 1), 900 * _speedMult); return () => clearTimeout(t); }
   }, [step, isPaused]);
 
   function replay() { setStep(0); setIsPaused(false); }
@@ -447,22 +524,23 @@ const DORA_STEPS = [
 
 function DhcpDiagram() {
   const [step, setStep] = useState(-1);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setStep(0), 500);
+    const t = setTimeout(() => setStep(0), 500 * _speedMult);
     return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
     if (isPaused) return;
     if (step >= 0 && step < DORA_STEPS.length - 1) {
-      const t = setTimeout(() => setStep((s) => s + 1), 1200);
+      const t = setTimeout(() => setStep((s) => s + 1), 1200 * _speedMult);
       return () => clearTimeout(t);
     }
   }, [step, isPaused]);
 
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300 * _speedMult); }
 
   return (
     <DiagramShell title="DHCP — DORA SEQUENCE (Discover → Offer → Request → Acknowledge)" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
@@ -554,6 +632,7 @@ const OSPF_STATES = ['DOWN', 'INIT', '2-WAY', 'EXSTART', 'EXCHANGE', 'LOADING', 
 
 function OspfDiagram() {
   const [stateIdx, setStateIdx] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [packets, setPackets] = useState([]);
   const [pkId, setPkId] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -577,9 +656,9 @@ function OspfDiagram() {
         const id = pkId + 1;
         setPkId(id);
         setPackets((prev) => [...prev, { ...pk, id, dir: stateIdx % 2 === 0 ? 'right' : 'left' }]);
-        setTimeout(() => setPackets((prev) => prev.filter((p) => p.id !== id)), 900);
+        setTimeout(() => setPackets((prev) => prev.filter((p) => p.id !== id)), 900 * _speedMult);
       }
-    }, 900);
+    }, 900 * _speedMult);
     return () => clearTimeout(t);
   }, [stateIdx, isPaused]);
 
@@ -674,11 +753,12 @@ const STP_PHASES = [
 
 function StpDiagram() {
   const [phase, setPhase] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (isPaused || phase >= STP_PHASES.length - 1) return;
-    const t = setTimeout(() => setPhase((p) => p + 1), 1100);
+    const t = setTimeout(() => setPhase((p) => p + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [phase, isPaused]);
 
@@ -765,19 +845,20 @@ const DNS_NODES = ['Client', 'Resolver', 'Root NS', 'TLD NS', 'Auth NS'];
 
 function DnsDiagram() {
   const [step, setStep] = useState(-1);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
 
-  useEffect(() => { const t = setTimeout(() => setStep(0), 500); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setStep(0), 500 * _speedMult); return () => clearTimeout(t); }, []);
 
   useEffect(() => {
     if (isPaused) return;
     if (step >= 0 && step < DNS_HOPS.length - 1) {
-      const t = setTimeout(() => setStep((s) => s + 1), 950);
+      const t = setTimeout(() => setStep((s) => s + 1), 950 * _speedMult);
       return () => clearTimeout(t);
     }
   }, [step, isPaused]);
 
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300 * _speedMult); }
 
   const nodeColor = (name) => {
     if (name === 'Client')   return '#00e5ff';
@@ -844,6 +925,7 @@ function DnsDiagram() {
 // ────────────────────────────────────────────────────────────────
 function NatDiagram() {
   const [entries, setEntries] = useState([]);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -858,7 +940,7 @@ function NatDiagram() {
     const t = setTimeout(() => {
       setEntries((prev) => [...prev, TRANSLATIONS[step]]);
       setStep((s) => s + 1);
-    }, 900);
+    }, 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
@@ -923,10 +1005,11 @@ function NatDiagram() {
 // ────────────────────────────────────────────────────────────────
 function GreDiagram() {
   const [step, setStep] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep((s) => s + 1), 950);
+    const t = setTimeout(() => setStep((s) => s + 1), 950 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   function replay() { setStep(0); setIsPaused(false); }
@@ -1007,10 +1090,11 @@ function GreDiagram() {
 // ────────────────────────────────────────────────────────────────
 function LacpDiagram() {
   const [step, setStep] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep((s) => s + 1), 900);
+    const t = setTimeout(() => setStep((s) => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   function replay() { setStep(0); setIsPaused(false); }
@@ -1072,10 +1156,11 @@ function LacpDiagram() {
 // ────────────────────────────────────────────────────────────────
 function SubnettingDiagram() {
   const [step, setStep] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep((s) => s + 1), 900);
+    const t = setTimeout(() => setStep((s) => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   function replay() { setStep(0); setIsPaused(false); }
@@ -1162,12 +1247,13 @@ const NET_TYPES = [
 
 function NetworkTypesDiagram() {
   const [active, setActive] = useState(null);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep]     = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (isPaused || step >= NET_TYPES.length) return;
-    const t = setTimeout(() => setStep((s) => s + 1), 380);
+    const t = setTimeout(() => setStep((s) => s + 1), 380 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
@@ -1259,13 +1345,14 @@ const TOPOS = [
 
 function TopologyComparisonDiagram() {
   const [active, setActive] = useState(1); // default to Star
+  const _s = useAnimSpeed(); // re-render on speed change
   const [failed, setFailed] = useState(null);
   const [showFail, setShowFail]   = useState(false);
 
   function simulateFail() {
     setShowFail(true);
     setFailed(active === 1 ? 'center' : active === 0 ? 'bus' : active === 2 ? 'link' : null);
-    setTimeout(() => { setShowFail(false); setFailed(null); }, 2000);
+    setTimeout(() => { setShowFail(false); setFailed(null); }, 2000 * _speedMult);
   }
 
   const topo = TOPOS[active];
@@ -1563,6 +1650,7 @@ const TEST_PACKETS = [
 
 function RoutingDiagram() {
   const [packetIdx, setPacketIdx] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [checking, setChecking]   = useState(-1);
   const [winner, setWinner]       = useState(null);
   const [isPaused, setIsPaused]   = useState(false);
@@ -1577,13 +1665,13 @@ function RoutingDiagram() {
       if (idx <= pkt.winner) {
         setChecking(idx);
         if (idx === pkt.winner) {
-          setTimeout(() => setWinner(pkt.winner), 450);
+          setTimeout(() => setWinner(pkt.winner), 450 * _speedMult);
         }
         idx++;
-        if (idx <= pkt.winner) setTimeout(run, 600);
+        if (idx <= pkt.winner) setTimeout(run, 600 * _speedMult);
       }
     };
-    const t = setTimeout(run, 400);
+    const t = setTimeout(run, 400 * _speedMult);
     return () => clearTimeout(t);
   }, [packetIdx, isPaused]);
 
@@ -1665,16 +1753,17 @@ const INTERNET_STEPS = [
 
 function HowInternetWorksDiagram() {
   const [step, setStep] = useState(-1);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setStep(0), 500); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setStep(0), 500 * _speedMult); return () => clearTimeout(t); }, []);
   useEffect(() => {
     if (isPaused) return;
     if (step >= 0 && step < INTERNET_STEPS.length - 1) {
-      const t = setTimeout(() => setStep((s) => s + 1), 800);
+      const t = setTimeout(() => setStep((s) => s + 1), 800 * _speedMult);
       return () => clearTimeout(t);
     }
   }, [step, isPaused]);
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300 * _speedMult); }
 
   return (
     <DiagramShell title="HOW THE INTERNET WORKS — END-TO-END BROWSER REQUEST" onReplay={replay} onPause={() => setIsPaused(p => !p)} isPaused={isPaused}>
@@ -1862,18 +1951,21 @@ function InlineViz({ label, children, accent = 'var(--accent)' }) {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <span>◈ {label}</span>
-            <button
-              onClick={() => setExpanded(true)}
-              title="Expand (fullscreen)"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: accent, opacity: 0.5, fontSize: '0.9375rem',
-                lineHeight: 1, padding: '0 2px',
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
-            >⤢</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <SpeedToggle accent={accent} />
+              <button
+                onClick={() => setExpanded(true)}
+                title="Expand (fullscreen)"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: accent, opacity: 0.5, fontSize: '0.9375rem',
+                  lineHeight: 1, padding: '0 2px',
+                  transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
+              >⤢</button>
+            </div>
           </div>
         )}
         <div style={{ padding: '16px 20px' }}>{children}</div>
@@ -1935,13 +2027,14 @@ function OsiLayerBreakdown() {
 // ────────────────────────────────────────────────────────────────
 function OsiEncapsulationInline() {
   const [step, setStep] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
   const layers = ['App', 'Pres', 'Sess', 'Trans', 'Net', 'Data', 'Phys'];
   const colors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#f97316','#eab308'];
   const headers = ['HTTP', 'TLS', 'SYN', 'TCP', 'IP', 'ETH', '01010'];
   useEffect(() => {
     if (isPaused || step >= layers.length) return;
-    const t = setTimeout(() => setStep(s => s + 1), 500);
+    const t = setTimeout(() => setStep(s => s + 1), 500 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
@@ -2159,12 +2252,13 @@ function DeviceExplorer() {
 // ────────────────────────────────────────────────────────────────
 function DeviceForwardingAnim() {
   const [mode, setMode] = useState('switch'); // hub | switch
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep(s => s + 1), 900);
+    const t = setTimeout(() => setStep(s => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
@@ -2459,6 +2553,7 @@ function CablesComparisonInline() {
 // ────────────────────────────────────────────────────────────────
 function RoutingTableWalkthrough() {
   const [dest, setDest] = useState('10.0.1.50');
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep] = useState(-1);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -2490,11 +2585,11 @@ function RoutingTableWalkthrough() {
       setStep(i);
       if (i < (match === -1 ? routes.length : match)) {
         i++;
-        const t = setTimeout(run, 500);
+        const t = setTimeout(run, 500 * _speedMult);
         return () => clearTimeout(t);
       }
     };
-    const t = setTimeout(run, 300);
+    const t = setTimeout(run, 300 * _speedMult);
     return () => clearTimeout(t);
   }, [dest, isPaused]);
 
@@ -2547,6 +2642,7 @@ function RoutingTableWalkthrough() {
 // ────────────────────────────────────────────────────────────────
 function BrowserRequestJourney() {
   const [step, setStep] = useState(-1);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
   const hops = [
     { icon: '💻', label: 'Browser',       color: '#2979ff', detail: 'User types www.example.com. Browser checks local DNS cache.' },
@@ -2558,10 +2654,10 @@ function BrowserRequestJourney() {
   ];
   useEffect(() => {
     if (isPaused || step >= hops.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 900);
+    const t = setTimeout(() => setStep(s => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300 * _speedMult); }
 
   return (
     <InlineViz label="INTERNET REQUEST — BROWSER TO SERVER" accent="#2979ff">
@@ -2756,12 +2852,13 @@ function VlanWhyItMatters() {
 // ────────────────────────────────────────────────────────────────
 function VlanTrunkAnimation() {
   const [step, setStep] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [vlan, setVlan] = useState(10);
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (isPaused || step >= 5) return;
-    const t = setTimeout(() => setStep(s => s + 1), 800);
+    const t = setTimeout(() => setStep(s => s + 1), 800 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
@@ -2856,6 +2953,7 @@ function VlanTrunkAnimation() {
 // ────────────────────────────────────────────────────────────────
 function OspfAdjacencyWalkthrough() {
   const [step, setStep] = useState(-1);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
 
   const states = [
@@ -2870,11 +2968,11 @@ function OspfAdjacencyWalkthrough() {
 
   useEffect(() => {
     if (isPaused || step >= states.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    const t = setTimeout(() => setStep(s => s + 1), 1000 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300 * _speedMult); }
 
   return (
     <InlineViz label="OSPF — ADJACENCY STATE MACHINE" accent="#00e676">
@@ -2933,6 +3031,7 @@ function OspfAdjacencyWalkthrough() {
 // ────────────────────────────────────────────────────────────────
 function OspfSpfTree() {
   const [step, setStep] = useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = useState(false);
 
   const routers = [
@@ -2952,7 +3051,7 @@ function OspfSpfTree() {
 
   useEffect(() => {
     if (isPaused || step >= links.length) return;
-    const t = setTimeout(() => setStep(s => s + 1), 900);
+    const t = setTimeout(() => setStep(s => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
@@ -3166,10 +3265,11 @@ function TwoTierModel() {
 // ────────────────────────────────────────────────────────────────
 function HubFloodAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   useEffect(() => {
     if (isPaused || step >= 3) return;
-    const t = setTimeout(() => setStep(s => s + 1), 900);
+    const t = setTimeout(() => setStep(s => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const ports = [
@@ -3239,6 +3339,7 @@ function HubFloodAnim() {
 // ────────────────────────────────────────────────────────────────
 function SwitchMacLearning() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const events = [
     { text: 'PC-A sends a frame. Switch has empty MAC table — floods to all ports except source.', mac: null },
@@ -3252,7 +3353,7 @@ function SwitchMacLearning() {
   ];
   useEffect(() => {
     if (isPaused || step >= events.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    const t = setTimeout(() => setStep(s => s + 1), 1200 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -3325,10 +3426,11 @@ function SwitchMacLearning() {
 // ────────────────────────────────────────────────────────────────
 function RouterForwardingAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   useEffect(() => {
     if (isPaused || step >= 5) return;
-    const t = setTimeout(() => setStep(s => s + 1), 900);
+    const t = setTimeout(() => setStep(s => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -3480,6 +3582,7 @@ function FirewallZoneAnim() {
 // ────────────────────────────────────────────────────────────────
 function ApAssociationAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const steps2 = [
     'AP broadcasts beacon frames — announces SSID "CorpWiFi" every 100ms.',
@@ -3491,7 +3594,7 @@ function ApAssociationAnim() {
   ];
   useEffect(() => {
     if (isPaused || step >= steps2.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    const t = setTimeout(() => setStep(s => s + 1), 1000 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -3631,6 +3734,7 @@ function VlanDatabaseViz() {
 // ────────────────────────────────────────────────────────────────
 function InterVlanRoutingAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [mode, setMode] = React.useState('legacy');
   const [isPaused, setIsPaused] = React.useState(false);
 
@@ -3643,7 +3747,7 @@ function InterVlanRoutingAnim() {
   useEffect(() => {
     const maxSteps = configs[mode].steps;
     if (isPaused || step >= maxSteps) return;
-    const t = setTimeout(() => setStep(s => s + 1), 950);
+    const t = setTimeout(() => setStep(s => s + 1), 950 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused, mode]);
 
@@ -3925,10 +4029,11 @@ function InterVlanRoutingAnim() {
 // ────────────────────────────────────────────────────────────────
 function DrBdrElectionAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const routers = [
@@ -3993,6 +4098,7 @@ function DrBdrElectionAnim() {
 // ────────────────────────────────────────────────────────────────
 function LsaFloodingAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const nodes = [
     { id: 'R1', x: 140, y: 40, color: '#00e676', root: true },
@@ -4010,7 +4116,7 @@ function LsaFloodingAnim() {
   if (step >= 1) reached.add(0);
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep(s => s + 1), 900);
+    const t = setTimeout(() => setStep(s => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -4224,6 +4330,7 @@ function SubnetReferenceTable() {
 // ── How to Subnet — animated step-by-step ─────────────────
 function SubnetStepByStep() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   // Example: subnet 192.168.1.0/24 for Engineering (50 hosts)
   const steps2 = [
@@ -4234,7 +4341,7 @@ function SubnetStepByStep() {
   ];
   useEffect(() => {
     if (isPaused || step >= steps2.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1400);
+    const t = setTimeout(() => setStep(s => s + 1), 1400 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
@@ -4280,6 +4387,7 @@ function SubnetStepByStep() {
 // ── VLSM — visual block allocation ─────────────────────────
 function VlsmVisual() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const allocs = [
     { label: 'Engineering /26', start: 0,   size: 64,  color: '#00e5ff', hosts: 62, cidr: '/26', net: '192.168.1.0' },
@@ -4292,7 +4400,7 @@ function VlsmVisual() {
 
   useEffect(() => {
     if (isPaused || step >= allocs.length) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    const t = setTimeout(() => setStep(s => s + 1), 1000 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
 
@@ -4361,10 +4469,11 @@ function VlsmVisual() {
 // ── Broadcast Storm — the problem STP solves ───────────────
 function BroadcastStormAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep(s => s + 1), 900);
+    const t = setTimeout(() => setStep(s => s + 1), 900 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const active = step >= 2;
@@ -4436,6 +4545,7 @@ function BroadcastStormAnim() {
 // ── Root Bridge Election ───────────────────────────────────
 function RootBridgeElection() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const switches = [
     { id: 'SW1', priority: 32768, mac: 'aa:bb:cc:00:00:01', x: 140, y: 30  },
@@ -4446,7 +4556,7 @@ function RootBridgeElection() {
   const rootIdx = 2;
   useEffect(() => {
     if (isPaused || step >= 3) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -4579,6 +4689,7 @@ function PortRoleAssignment() {
 // ── Port States — state machine ────────────────────────────
 function StpPortStates() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const states = [
     { name: 'Blocking',   time: '—',    color: '#ff5252', desc: 'Receives BPDUs only. No data frames forwarded. Default state for non-designated ports.', bpdu: true,  learn: false, fwd: false },
@@ -4588,7 +4699,7 @@ function StpPortStates() {
   ];
   useEffect(() => {
     if (isPaused || step >= states.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    const t = setTimeout(() => setStep(s => s + 1), 1200 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -4654,13 +4765,14 @@ function StpPortStates() {
 // ── RSTP vs STP convergence comparison ─────────────────────
 function RstpComparison() {
   const [mode, setMode] = React.useState('stp');
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep] = React.useState(0);
   const [isPaused, setIsPaused] = React.useState(false);
   const isStp = mode === 'stp';
   const totalSteps = isStp ? 5 : 2;
   useEffect(() => {
     if (isPaused || step >= totalSteps) return;
-    const t = setTimeout(() => setStep(s => s + 1), isStp ? 1000 : 700);
+    const t = setTimeout(() => setStep(s => s + 1), isStp ? 1000 * _speedMult : 700 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused, mode]);
   function reset(m) { setMode(m); setStep(0); setIsPaused(false); }
@@ -4725,10 +4837,11 @@ function RstpComparison() {
 // ── What Is LACP — link bundling animation ────────────────
 function LacpBundlingAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    const t = setTimeout(() => setStep(s => s + 1), 1000 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -5007,6 +5120,7 @@ function LacpRequirements() {
 // ── DHCP DORA — detailed packet animation ─────────────────
 function DhcpDoraDetailed() {
   const [step, setStep] = React.useState(-1);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const doraSteps = [
     { name: 'DISCOVER',  dir: 'right', color: '#ffab00', src: '0.0.0.0',      dst: '255.255.255.255', port: 'UDP 68→67', detail: 'Client has no IP. Broadcasts to find any DHCP server.' },
@@ -5015,15 +5129,15 @@ function DhcpDoraDetailed() {
     { name: 'ACK',       dir: 'left',  color: '#7c4dff', src: '10.0.1.1',     dst: '10.0.1.50',       port: 'UDP 67→68', detail: 'Server confirms. Client configures IP, mask, gateway, DNS.' },
   ];
   useEffect(() => {
-    const t = setTimeout(() => setStep(0), 500);
+    const t = setTimeout(() => setStep(0), 500 * _speedMult);
     return () => clearTimeout(t);
   }, []);
   useEffect(() => {
     if (isPaused || step < 0 || step >= doraSteps.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1300);
+    const t = setTimeout(() => setStep(s => s + 1), 1300 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300 * _speedMult); }
   return (
     <InlineViz label="DHCP — DORA SEQUENCE (Discover → Offer → Request → Acknowledge)" accent="#ffab00">
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 12 }}>
@@ -5088,10 +5202,11 @@ function DhcpDoraDetailed() {
 // ── DHCP Key Concepts — relay agent animation ─────────────
 function DhcpRelayAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   useEffect(() => {
     if (isPaused || step >= 5) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -5351,6 +5466,7 @@ function DnsRecordTypes() {
 // ── DNS Resolution — recursive query animation ────────────
 function DnsResolutionAnim() {
   const [step, setStep] = React.useState(-1);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const hops = [
     { from: 'Client',     to: 'Resolver',     q: 'www.example.com?',   a: null,               color: '#ffab00', detail: 'Client asks its configured DNS resolver (e.g. 8.8.8.8 or ISP DNS). Checks resolver cache first.' },
@@ -5363,15 +5479,15 @@ function DnsResolutionAnim() {
     { from: 'Resolver',   to: 'Client',       q: null,                 a: '93.184.216.34',   color: '#00e676', detail: '✓ Client receives the IP. Browser connects to 93.184.216.34:443.' },
   ];
   useEffect(() => {
-    const t = setTimeout(() => setStep(0), 400);
+    const t = setTimeout(() => setStep(0), 400 * _speedMult);
     return () => clearTimeout(t);
   }, []);
   useEffect(() => {
     if (isPaused || step < 0 || step >= hops.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    const t = setTimeout(() => setStep(s => s + 1), 1000 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300 * _speedMult); }
   const actors = ['Client', 'Resolver', 'Root', '.com TLD', 'Auth NS'];
   const colors  = { Client: '#00e5ff', Resolver: '#ffab00', Root: '#f43f5e', '.com TLD': '#7c4dff', 'Auth NS': '#00e676' };
   const xPos = { Client: 30, Resolver: 110, Root: 190, '.com TLD': 270, 'Auth NS': 355 };
@@ -5527,6 +5643,7 @@ function NatTerminology() {
 // ── NAT Types — comparison animation ─────────────────────
 function NatTypesComparison() {
   const [mode, setMode] = React.useState('static');
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep] = React.useState(0);
   const [isPaused, setIsPaused] = React.useState(false);
   const types = {
@@ -5558,7 +5675,7 @@ function NatTypesComparison() {
   const t = types[mode];
   useEffect(() => {
     if (isPaused || step >= t.mapping.length) return;
-    const tm = setTimeout(() => setStep(s => s + 1), 900);
+    const tm = setTimeout(() => setStep(s => s + 1), 900 * _speedMult);
     return () => clearTimeout(tm);
   }, [step, isPaused, mode]);
   function reset(m) { setMode(m); setStep(0); setIsPaused(false); }
@@ -5622,6 +5739,7 @@ function NatTypesComparison() {
 // ── PAT — port tracking animation ────────────────────────
 function PatPortTracking() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const flows = [
     { client: '10.0.1.10', sport: 52341, dst: '8.8.8.8:53',    proto: 'UDP', natPort: 1024, color: '#00e5ff' },
@@ -5631,7 +5749,7 @@ function PatPortTracking() {
   ];
   useEffect(() => {
     if (isPaused || step >= flows.length) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    const t = setTimeout(() => setStep(s => s + 1), 1000 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -5767,6 +5885,7 @@ function AclTypesComparison() {
 // ── ACL Processing — top-down first-match animation ───────
 function AclProcessingAnim() {
   const [packetSrc, setPacketSrc] = React.useState('10.0.1.50');
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep] = React.useState(-1);
   const [isPaused, setIsPaused] = React.useState(false);
   const acl = [
@@ -5783,15 +5902,15 @@ function AclProcessingAnim() {
   const pkt = packets[packetSrc];
   useEffect(() => {
     setStep(-1);
-    const t = setTimeout(() => setStep(0), 300);
+    const t = setTimeout(() => setStep(0), 300 * _speedMult);
     return () => clearTimeout(t);
   }, [packetSrc]);
   useEffect(() => {
     if (isPaused || step < 0 || step >= pkt.matchIdx) return;
-    const t = setTimeout(() => setStep(s => s + 1), 700);
+    const t = setTimeout(() => setStep(s => s + 1), 700 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused, packetSrc]);
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 200); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 200 * _speedMult); }
   return (
     <InlineViz label="ACL PROCESSING — TOP-DOWN, FIRST MATCH WINS" accent="#00e5ff">
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -6013,6 +6132,7 @@ function SshVsTelnet() {
 // ── SSH Handshake — animated 4-phase sequence ─────────────
 function SshHandshakeAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const phases = [
     {
@@ -6060,7 +6180,7 @@ function SshHandshakeAnim() {
   ];
   useEffect(() => {
     if (isPaused || step >= phases.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -6328,6 +6448,7 @@ function ZbfTopology() {
 // ── Stateful Inspection — connection table ────────────────
 function StatefulInspectionAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const events = [
     { desc: 'Host 10.0.1.10 sends SYN to 8.8.8.8:443. Firewall sees NEW connection.', action: 'add', entry: { src: '10.0.1.10:52341', dst: '8.8.8.8:443', proto: 'TCP', state: 'SYN_SENT', color: '#ffab00' } },
@@ -6343,7 +6464,7 @@ function StatefulInspectionAnim() {
       if (ev.action === 'add') setTable(prev => [...prev, ev.entry]);
       else if (ev.action === 'update') setTable(prev => prev.map((e, i) => i === 0 ? ev.entry : e));
       setStep(s => s + 1);
-    }, 1200);
+    }, 1200 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   function replay() { setStep(0); setTable([]); setIsPaused(false); }
@@ -6758,6 +6879,7 @@ function EbgpVsIbgp() {
 // ── BGP Path Selection — decision tree ────────────────────
 function BgpPathSelection() {
   const [step, setStep] = React.useState(-1);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const attrs = [
     { n: 1,  attr: 'Weight',           scope: 'Cisco-local', color: '#f43f5e', detail: 'Highest wins. Cisco-proprietary — not advertised to peers. Set per-router. Use to prefer paths on one specific router.' },
@@ -6773,10 +6895,10 @@ function BgpPathSelection() {
   ];
   useEffect(() => {
     if (isPaused || step >= attrs.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 700);
+    const t = setTimeout(() => setStep(s => s + 1), 700 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
-  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300); }
+  function replay() { setStep(-1); setIsPaused(false); setTimeout(() => setStep(0), 300 * _speedMult); }
   return (
     <InlineViz label="BGP PATH SELECTION — 10-STEP DECISION PROCESS (highest/lowest wins at each step)" accent="#f43f5e">
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
@@ -6824,6 +6946,7 @@ function BgpPathSelection() {
 // ── BGP Message Types — session lifecycle ─────────────────
 function BgpMessageTypes() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const msgs = [
     { type: 'OPEN',         color: '#ffab00', dir: 'both',  detail: 'TCP connection established. Both peers send OPEN with: BGP version (4), AS number, Hold Time (default 180s), BGP Router ID, capabilities.' },
@@ -6833,7 +6956,7 @@ function BgpMessageTypes() {
   ];
   useEffect(() => {
     if (isPaused || step >= msgs.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    const t = setTimeout(() => setStep(s => s + 1), 1200 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -7015,6 +7138,7 @@ function TunnelTypesComparison() {
 // ── Encapsulation — animated tunnel wrapping ──────────────
 function TunnelEncapsulationAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const layers = [
     { label: 'Original packet', headers: [{label:'IP Src: 10.0.1.10', color:'#ffab00'},{label:'TCP Port 80', color:'#00e676'},{label:'HTTP Payload', color:'#546e7a'}], desc: 'Host generates an IP packet destined for 10.0.2.20 across a GRE+IPsec tunnel.' },
@@ -7025,7 +7149,7 @@ function TunnelEncapsulationAnim() {
   ];
   useEffect(() => {
     if (isPaused || step >= layers.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    const t = setTimeout(() => setStep(s => s + 1), 1200 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const cur = layers[step];
@@ -7229,6 +7353,7 @@ function MplsLabelFormat() {
 // ── MPLS Key Operations — push/swap/pop animation ─────────
 function MplsOperationsAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const nodes = [
     { id: 'CE1',  label: 'CE1',       role: 'Customer Edge',     x: 30,  color: '#546e7a' },
@@ -7254,7 +7379,7 @@ function MplsOperationsAnim() {
   ];
   useEffect(() => {
     if (isPaused || step >= steps.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const cur = steps[step];
@@ -7549,6 +7674,7 @@ function Ipv6AddressTypes() {
 // ── NDP — neighbor discovery animation ────────────────────
 function NdpAnimation() {
   const [mode, setMode] = React.useState('slaac');
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep] = React.useState(0);
   const [isPaused, setIsPaused] = React.useState(false);
   const modes = {
@@ -7575,7 +7701,7 @@ function NdpAnimation() {
   const m = modes[mode];
   useEffect(() => {
     if (isPaused || step >= m.steps.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused, mode]);
   function reset(k) { setMode(k); setStep(0); setIsPaused(false); }
@@ -7878,6 +8004,7 @@ function ApModes() {
 // ── CAPWAP — AP join process animation ───────────────────
 function CapwapJoinAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const steps = [
     { phase: 'Discovery',      color: '#ffab00', icon: '🔍',
@@ -7901,7 +8028,7 @@ function CapwapJoinAnim() {
   ];
   useEffect(() => {
     if (isPaused || step >= steps.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const cur = steps[step];
@@ -8152,6 +8279,7 @@ function WlcDeploymentModels() {
 // ── Channel Planning — RRM visualization ─────────────────
 function RrmChannelPlanning() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const aps = [
     { id: 'AP1', x: 80,  y: 60,  ch: null, power: null, finalCh: 1,  finalPow: 'Med' },
@@ -8164,7 +8292,7 @@ function RrmChannelPlanning() {
   const chColors = { 1: '#00e5ff', 6: '#00e676', 11: '#ffab00' };
   useEffect(() => {
     if (isPaused || step >= 3) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    const t = setTimeout(() => setStep(s => s + 1), 1200 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -8456,6 +8584,7 @@ function WifiAuthModes() {
 // ── 802.1X Components — triangle animation ────────────────
 function Dot1xComponents() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const steps = [
     { desc: 'Client (Supplicant) connects to AP. AP blocks all traffic except EAP auth frames.', highlight: 'sup' },
@@ -8467,7 +8596,7 @@ function Dot1xComponents() {
   ];
   useEffect(() => {
     if (isPaused || step >= steps.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    const t = setTimeout(() => setStep(s => s + 1), 1200 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const cur = steps[step];
@@ -8884,6 +9013,7 @@ function RemoteAccessComparison() {
 // ── IPsec Phases — Phase 1 IKE + Phase 2 IPsec ────────────
 function IpsecPhasesAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const steps = [
     {
@@ -8924,7 +9054,7 @@ function IpsecPhasesAnim() {
   ];
   useEffect(() => {
     if (isPaused || step >= steps.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1200);
+    const t = setTimeout(() => setStep(s => s + 1), 1200 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const cur = steps[step];
@@ -9563,6 +9693,7 @@ function BusTopologyDiagram() {
 // ── Ring Topology — token passing animation ───────────────
 function RingTopologyDiagram() {
   const [broken, setBroken] = React.useState(false);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [tokenPos, setTokenPos] = React.useState(0);
   const [isPaused, setIsPaused] = React.useState(false);
   const nodes = [
@@ -9571,7 +9702,7 @@ function RingTopologyDiagram() {
   ];
   useEffect(() => {
     if (isPaused || broken) return;
-    const t = setTimeout(() => setTokenPos(p => (p + 1) % nodes.length), 700);
+    const t = setTimeout(() => setTokenPos(p => (p + 1) % nodes.length), 700 * _speedMult);
     return () => clearTimeout(t);
   }, [tokenPos, isPaused, broken]);
   return (
@@ -9965,12 +10096,13 @@ function L3SwitchDiagram() {
 // ── WLC — centralised management diagram ──────────────────
 function WlcManagementDiagram() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const aps = [{x:60,y:140},{x:180,y:140},{x:300,y:140}];
   const clients = [{x:30,y:200},{x:90,y:200},{x:150,y:200},{x:210,y:200},{x:270,y:200},{x:330,y:200}];
   useEffect(() => {
     if (isPaused || step >= 4) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    const t = setTimeout(() => setStep(s => s + 1), 1000 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
@@ -10537,6 +10669,7 @@ function CablePinoutDiagram() {
 // ── How a Router Forwards a Packet — flowchart ────────────
 function RouterForwardingFlowchart() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [dest, setDest] = React.useState('10.0.1.50');
   const [isPaused, setIsPaused] = React.useState(false);
 
@@ -10558,7 +10691,7 @@ function RouterForwardingFlowchart() {
 
   useEffect(() => {
     if (isPaused || step >= sc.matchIdx + 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 700);
+    const t = setTimeout(() => setStep(s => s + 1), 700 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused, dest]);
 
@@ -10840,6 +10973,7 @@ function RoutingVsSwitchingViz() {
 // ── TCP Three-Way Handshake ───────────────────────────────
 function TcpHandshakeAnim() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const steps = [
     { from:'Client', to:'Server', msg:'SYN',     color:'#00e5ff', seq:'ISN=1000, SYN=1',
@@ -10853,7 +10987,7 @@ function TcpHandshakeAnim() {
   ];
   useEffect(() => {
     if (isPaused || step >= steps.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   const isRight = (s) => s.from === 'Client';
@@ -10931,6 +11065,7 @@ function TcpHandshakeAnim() {
 // ── TLS Handshake ─────────────────────────────────────────
 function TlsHandshakeAnim() {
   const [version, setVersion] = React.useState('1.3');
+  const _s = useAnimSpeed(); // re-render on speed change
   const [step, setStep] = React.useState(0);
   const [isPaused, setIsPaused] = React.useState(false);
   const versions = {
@@ -10956,7 +11091,7 @@ function TlsHandshakeAnim() {
   const v = versions[version];
   useEffect(() => {
     if (isPaused || step >= v.steps.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1100);
+    const t = setTimeout(() => setStep(s => s + 1), 1100 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused, version]);
   function reset(ver) { setVersion(ver); setStep(0); setIsPaused(false); }
@@ -11030,6 +11165,7 @@ function TlsHandshakeAnim() {
 // ── IP end-to-end, MAC hop-to-hop ─────────────────────────
 function IpVsMacHopByHop() {
   const [step, setStep] = React.useState(0);
+  const _s = useAnimSpeed(); // re-render on speed change
   const [isPaused, setIsPaused] = React.useState(false);
   const hops = [
     { label:'PC (src)',  ip:'192.168.1.10', mac:'aa:bb:cc:00:01', color:'#00e5ff' },
@@ -11039,7 +11175,7 @@ function IpVsMacHopByHop() {
   ];
   useEffect(() => {
     if (isPaused || step >= hops.length - 1) return;
-    const t = setTimeout(() => setStep(s => s + 1), 1000);
+    const t = setTimeout(() => setStep(s => s + 1), 1000 * _speedMult);
     return () => clearTimeout(t);
   }, [step, isPaused]);
   return (
