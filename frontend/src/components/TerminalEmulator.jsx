@@ -293,23 +293,8 @@ export default function TerminalEmulator({
 
     setHistory((prev) => [...prev, { type: 'input', prompt, text: trimmed }]);
 
-    if (trimmed === '?' || trimmed === 'help') {
-      setHistory((prev) => [...prev, {
-        type: 'output',
-        text: 'Available commands:\n'
-          + '  configure terminal  Enter global configuration mode\n'
-          + '  show ...            Display device information\n'
-          + '  interface ...       Enter interface configuration\n'
-          + '  router ...          Enter routing protocol config\n'
-          + '  vlan ...            Create/enter VLAN config\n'
-          + '  ping ...            Test connectivity\n'
-          + '  traceroute ...      Trace packet path\n'
-          + '  enable              Enter privileged EXEC mode\n'
-          + '  end                 Return to privileged EXEC\n'
-          + '  exit                Exit current mode',
-      }]);
-      return;
-    }
+    // ? and 'help' are forwarded to the backend which returns
+    // mode-aware IOS-style help output (do not intercept here)
 
     if (trimmed === 'clear') {
       setHistory([{ type: 'system', text: `--- ${deviceName} terminal cleared ---` }]);

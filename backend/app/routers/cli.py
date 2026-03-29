@@ -885,6 +885,13 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
 
     # Block exec-only commands in config modes (unless prefixed with 'do')
     if not is_do and not in_exec and EXEC_ONLY.match(cmd):
+        # configure terminal is not 'do'-able — give a clearer message
+        if re.match(r"^configure\b", cmd):
+            return (
+                "% Invalid input detected at '^' marker.\n"
+                "  (Already in configuration mode — type 'end' to return to privileged EXEC first)",
+                current_mode,
+            )
         return (
             "% Invalid input detected at '^' marker.\n"
             "  (Hint: use 'do' prefix to run exec commands from config mode, "
