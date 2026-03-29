@@ -309,7 +309,7 @@ export default function TerminalEmulator({
 
       if (res.output) {
         setHistory((prev) => [...prev, {
-          type: res.output.includes('% Invalid') ? 'error' : 'output',
+          type: ['% Invalid', '% Incomplete', '% Ambiguous', '% Unknown', '% Error'].some(e => res.output.includes(e)) ? 'error' : 'output',
           text: res.output,
         }]);
       }

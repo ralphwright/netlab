@@ -818,6 +818,43 @@ def _help_output(raw_input: str, mode: str) -> str:
     return _resolve_help(tokens, tree)
 
 
+
+# ── IOS error message helpers ─────────────────────────────────────
+
+def _caret_error(command: str, bad_token: str | None = None) -> str:
+    """
+    Produce a real IOS-style "Invalid input detected at ^ marker" error.
+    Places the ^ under the first unrecognised token in the command.
+
+    R1(config-if)# ip nat insidr
+                            ^
+    % Invalid input detected at '^' marker.
+    """
+    cmd = command.strip()
+    if bad_token and bad_token in cmd:
+        pos = cmd.index(bad_token)
+        caret_line = " " * pos + "^"
+    else:
+        # Point to the last token
+        tokens = cmd.split()
+        if tokens:
+            # Find last token position
+            pos = cmd.rfind(tokens[-1])
+            caret_line = " " * pos + "^"
+        else:
+            caret_line = "^"
+    return f"{caret_line}\n% Invalid input detected at '^' marker."
+
+
+def _incomplete_error() -> str:
+    """% Incomplete command."""
+    return "% Incomplete command."
+
+
+def _ambiguous_error(partial: str) -> str:
+    """% Ambiguous command: "sh"."""
+    return f'% Ambiguous command:  \"{partial}\"'
+
 def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple[str, str]:
     """Return (output_text, new_mode)."""
     # Strip 'do ' prefix — allows exec commands from any config mode
@@ -885,33 +922,35 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
 
     # Block exec-only commands in config modes (unless prefixed with 'do')
     if not is_do and not in_exec and EXEC_ONLY.match(cmd):
-        # configure terminal is not 'do'-able — give a clearer message
         if re.match(r"^configure\b", cmd):
             return (
-                "% Invalid input detected at '^' marker.\n"
-                "  (Already in configuration mode — type 'end' to return to privileged EXEC first)",
+                _caret_error(raw, "configure") + "\n"
+                "  % You are already in configuration mode.\n"
+                "  Use \'end\' or \'Ctrl-Z\' to return to privileged EXEC.",
                 current_mode,
             )
         return (
-            "% Invalid input detected at '^' marker.\n"
-            "  (Hint: use 'do' prefix to run exec commands from config mode, "
-            "e.g. 'do show ip interface brief')",
+            _caret_error(raw, raw.split()[0]) + "\n"
+            "  % This command is only available in privileged EXEC mode.\n"
+            "  Use \'do\' prefix to run it from config mode (e.g. \'do show ip int br\')",
             current_mode,
         )
 
     # Block config-only commands in exec mode
     if in_exec and CONFIG_ONLY.match(cmd):
         return (
-            "% Invalid input detected at '^' marker.\n"
-            "  (Hint: enter 'configure terminal' first)",
+            _caret_error(raw, raw.split()[0]) + "\n"
+            "  % Command only available in global configuration mode.\n"
+            "  Use \'configure terminal\' to enter config mode.",
             current_mode,
         )
 
     # Block interface-only commands outside of config-if
     if not in_if and IF_ONLY.match(cmd):
         return (
-            "% Invalid input detected at '^' marker.\n"
-            "  (Hint: enter an interface first, e.g. 'interface GigabitEthernet0/0')",
+            _caret_error(raw, raw.split()[0]) + "\n"
+            "  % Command only available in interface configuration mode.\n"
+            "  Use \'interface <type><slot/port>\' to enter interface config.",
             current_mode,
         )
 
@@ -1007,12 +1046,40 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
         if re.match(pat, cmd):
             return ("", current_mode)
 
-    # Unrecognized
-    return (
-        f"% Invalid input detected at '^' marker.\n"
-        f"% Type 'help' for available commands.",
-        current_mode,
-    )
+    # Unrecognized command — produce caret error pointing at bad token
+    tokens = cmd.split()
+    if tokens:
+        # Check if it looks like a recognised command with wrong/missing args
+        # (first token known but rest is garbage → incomplete/invalid)
+        known_starts = (
+            "show", "ip", "no", "interface", "router", "vlan", "line",
+            "spanning-tree", "channel-group", "switchport", "hostname",
+            "username", "crypto", "access-list", "permit", "deny",
+            "network", "neighbor", "tunnel", "mpls", "description",
+            "encapsulation", "shutdown", "duplex", "speed", "ntp",
+            "logging", "service", "banner", "enable", "snmp-server",
+        )
+        first = tokens[0].lower()
+        if first in known_starts and len(tokens) > 1:
+            # Known verb, unknown argument
+            bad = tokens[1]
+            pos = raw.find(bad)
+            caret = " " * pos + "^"
+            return (
+                f"{caret}\n% Invalid input detected at \'^\' marker.",
+                current_mode,
+            )
+        elif first in known_starts:
+            # Known verb with no argument — incomplete
+            return (_incomplete_error(), current_mode)
+        else:
+            # Completely unknown first token
+            caret = "^"
+            return (
+                f"{caret}\n% Invalid input detected at \'^\' marker.",
+                current_mode,
+            )
+    return (_caret_error(raw), current_mode)
 
 
 # ── API endpoint ─────────────────────────────────────────────────
@@ -1118,7 +1185,7 @@ async def execute_command(req: CommandRequest, db: AsyncSession = Depends(get_db
     # Use normalized command for simulation so abbreviations work correctly
     output, new_mode = simulate_output(normalized_cmd, req.device_name, mode_key=key)
     prompt = get_prompt(req.device_name, new_mode)
-    is_valid = "% Invalid" not in output
+    is_valid = not any(e in output for e in ("% Invalid", "% Incomplete", "% Ambiguous", "% Unknown", "% Error"))
     step_completed = False
     hint = None
 
