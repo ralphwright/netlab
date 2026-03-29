@@ -1101,51 +1101,164 @@ def _show_ip_int_brief(s: DeviceState) -> str:
     return "\n".join(lines)
 
 
+def _if_type_attrs(name: str, iface) -> dict:
+    """
+    Return hardware/BW/DLY/encap/media attributes matching real IOS output
+    for each interface type.
+    """
+    nl = name.lower()
+    mac = f"aabb.cc00.{abs(hash(name)) % 0xFFFF:04x}"
+
+    if nl.startswith("gigabit") or nl.startswith("gi"):
+        return dict(hw="iGbE", mac=mac, bw=1000000, dly=10,
+                    mtu=1500, encap="ARPA", media="RJ45",
+                    duplex="Full Duplex, 1000Mb/s",
+                    keepalive="Keepalive set (10 sec)",
+                    extra=[])
+    if nl.startswith("fastethernet") or nl.startswith("fa"):
+        return dict(hw="10/100BaseTX", mac=mac, bw=100000, dly=100,
+                    mtu=1500, encap="ARPA", media="RJ45",
+                    duplex="Full Duplex, 100Mb/s",
+                    keepalive="Keepalive set (10 sec)",
+                    extra=[])
+    if nl.startswith("tengigabit") or nl.startswith("te"):
+        return dict(hw="10GbE", mac=mac, bw=10000000, dly=10,
+                    mtu=1500, encap="ARPA", media="SFP",
+                    duplex="Full Duplex, 10000Mb/s",
+                    keepalive="Keepalive set (10 sec)",
+                    extra=[])
+    if nl.startswith("serial") or nl.startswith("se"):
+        return dict(hw="HD44780", mac="", bw=1544, dly=20000,
+                    mtu=1500, encap=iface.encap or "HDLC", media="",
+                    duplex="",
+                    keepalive="Keepalive set (10 sec)",
+                    extra=["  DTE mode, DCE cable"])
+    if nl.startswith("loopback") or nl.startswith("lo"):
+        return dict(hw="Loopback", mac="", bw=8000000, dly=5000,
+                    mtu=1514, encap="Loopback", media="",
+                    duplex="",
+                    keepalive="Keepalive not set",
+                    extra=[])
+    if nl.startswith("tunnel") or nl.startswith("tu"):
+        mode = getattr(iface, "tun_mode", "GRE/IP") or "GRE/IP"
+        src  = getattr(iface, "tun_src", "unset") or "unset"
+        dst  = getattr(iface, "tun_dst", "unset") or "unset"
+        return dict(hw="Tunnel", mac="", bw=100, dly=50000,
+                    mtu=17916, encap=mode.upper(), media="",
+                    duplex="",
+                    keepalive="Keepalive not set",
+                    extra=[f"  Tunnel source {src}, destination {dst}",
+                           f"  Tunnel protocol/transport {mode.upper()}"])
+    if nl.startswith("vlan") or nl.startswith("vl"):
+        return dict(hw="EtherSVI", mac=mac, bw=1000000, dly=10,
+                    mtu=1500, encap="ARPA", media="",
+                    duplex="",
+                    keepalive="Keepalive not set",
+                    extra=[])
+    if nl.startswith("port-channel") or nl.startswith("po"):
+        return dict(hw="EtherChannel", mac=mac, bw=1000000, dly=10,
+                    mtu=1500, encap="ARPA", media="RJ45",
+                    duplex="Full Duplex, 1000Mb/s",
+                    keepalive="Keepalive set (10 sec)",
+                    extra=[])
+    # Default — generic ethernet
+    return dict(hw="iGbE", mac=mac, bw=1000000, dly=10,
+                mtu=1500, encap="ARPA", media="RJ45",
+                duplex="Full Duplex, 1000Mb/s",
+                keepalive="Keepalive set (10 sec)",
+                extra=[])
+
+
 def _show_interfaces_detail(s: DeviceState, if_name: str | None = None) -> str:
-    """show interfaces [name] — full IOS-style output."""
+    """show interfaces [name] — full IOS-style output per interface type."""
     ifaces = {}
     if if_name:
         for n, i in s.ifaces.items():
             if n.lower() == if_name.lower() or _short_if(n).lower() == if_name.lower():
                 ifaces[n] = i
         if not ifaces:
-            return f"% {if_name} not found"
+            return f"% {if_name}: no such interface (use 'show ip interface brief' to list interfaces)"
     else:
         ifaces = s.ifaces
 
+    if not ifaces:
+        return "(no interfaces configured — use 'interface <type><slot/port>' to create one)"
+
     lines = []
     for name, iface in sorted(ifaces.items()):
-        speed_str = "1000Mb/s" if "Giga" in name else "100Mb/s"
-        bw_kbps   = 1000000    if "Giga" in name else 100000
-        ip_line   = (f"  Internet address is {iface.ip}/{_cidr(iface.mask)}"
-                     if iface.ip else "  Internet address is not set")
-        nat_line  = (f"  IP access group {iface.acl_in} in" if iface.acl_in else "")
+        a = _if_type_attrs(name, iface)
+
+        lines.append(f"{name} is {iface.status}, line protocol is {iface.protocol}")
+
+        # Hardware line — only show MAC for Ethernet types
+        if a["mac"]:
+            lines.append(f"  Hardware is {a['hw']}, address is {a['mac']} (bia {a['mac']})")
+        else:
+            lines.append(f"  Hardware is {a['hw']}")
+
+        # Description
+        if iface.description:
+            lines.append(f"  Description: {iface.description}")
+
+        # IP address
+        if iface.ip:
+            lines.append(f"  Internet address is {iface.ip}/{_cidr(iface.mask)}")
+        else:
+            lines.append("  Internet address is not set")
+
+        # MTU / BW / DLY
+        lines.append(f"  MTU {a['mtu']} bytes, BW {a['bw']} Kbit/sec, DLY {a['dly']} usec,")
+        lines.append("     reliability 255/255, txload 1/255, rxload 1/255")
+
+        # Encapsulation
+        encap_suffix = ", loopback not set" if a["encap"] not in ("Loopback", "GRE/IP") else ""
+        lines.append(f"  Encapsulation {a['encap']}{encap_suffix}")
+
+        # Keepalive
+        lines.append(f"  {a['keepalive']}")
+
+        # Duplex/speed/media (Ethernet only)
+        if a["duplex"]:
+            media_str = f", media type is {a['media']}" if a["media"] else ""
+            lines.append(f"  {a['duplex']}{media_str}")
+            lines.append("  output flow-control is off, input flow-control is off")
+
+        # Type-specific extra lines
+        for extra in a["extra"]:
+            lines.append(extra)
+
+        # Switchport info
+        if iface.mode == "access":
+            lines.append(f"  Switchport: access, VLAN {iface.access_vlan}")
+        elif iface.mode == "trunk":
+            lines.append(f"  Switchport: trunk, allowed VLANs {iface.trunk_allowed}")
+
+        # ACLs
+        if iface.acl_in:
+            lines.append(f"  Inbound  access list is {iface.acl_in}")
+        if iface.acl_out:
+            lines.append(f"  Outbound access list is {iface.acl_out}")
+
+        # NAT
+        if iface.nat:
+            lines.append(f"  IP NAT {iface.nat}")
+
+        # ARP (Ethernet types only)
+        if a["mac"]:
+            lines.append("  ARP type: ARPA, ARP Timeout 04:00:00")
+
         lines += [
-            f"{name} is {iface.status}, line protocol is {iface.protocol}",
-            f"  Hardware is iGbE, address is aabb.cc00.{abs(hash(name)) % 0xFFFF:04x}"
-            f" (bia aabb.cc00.{abs(hash(name)) % 0xFFFF:04x})",
-        ]
-        if ip_line:
-            lines.append(ip_line)
-        lines += [
-            f"  MTU 1500 bytes, BW {bw_kbps} Kbit/sec, DLY 10 usec,",
-            f"     reliability 255/255, txload 1/255, rxload 1/255",
-            f"  Encapsulation ARPA, loopback not set",
-            f"  Keepalive set (10 sec)",
-            f"  Full Duplex, {speed_str}, media type is RJ45",
-            f"  output flow-control is off, input flow-control is off",
-            f"  ARP type: ARPA, ARP Timeout 04:00:00",
-            f"  Last input 00:00:01, output 00:00:00, output hang never",
-            f"  Last clearing of \"show interface\" counters never",
-            f"  Input queue: 0/75/0/0 (size/max/drops/flushes); Total output drops: 0",
-            f"  Queueing strategy: fifo",
-            f"  Output queue: 0/40 (size/max)",
-            f"  5 minute input rate 0 bits/sec, 0 packets/sec",
-            f"  5 minute output rate 0 bits/sec, 0 packets/sec",
-            f"     0 packets input, 0 bytes, 0 no buffer",
-            f"     0 input errors, 0 CRC, 0 frame, 0 overrun, 0 ignored",
-            f"     0 packets output, 0 bytes, 0 underruns",
-            f"",
+            "  Last input 00:00:01, output 00:00:00, output hang never",
+            "  Last clearing of \"show interface\" counters never",
+            "  Input queue: 0/75/0/0 (size/max/drops/flushes); Total output drops: 0",
+            "  Queueing strategy: fifo",
+            "  Output queue: 0/40 (size/max)",
+            "  5 minute input rate 0 bits/sec, 0 packets/sec",
+            "  5 minute output rate 0 bits/sec, 0 packets/sec",
+            "     0 packets input, 0 bytes, 0 no buffer",
+            "     0 input errors, 0 CRC, 0 frame, 0 overrun, 0 ignored",
+            "     0 packets output, 0 bytes, 0 underruns",
+            "",
         ]
     return "\n".join(lines)
 
