@@ -310,6 +310,20 @@ export default function TerminalEmulator({
       return;
     }
 
+    // show history — handled client-side like a real IOS terminal
+    // Real IOS shows last 10 commands from the current session, numbered.
+    if (trimmed.toLowerCase() === 'show history') {
+      const recent = cmdHistory.slice(-10);
+      const histText = recent.length > 0
+        ? recent.map(c => `  ${c}`).join('\n')
+        : '  (no commands in history)';
+      setHistory(prev => [...prev,
+        { type: 'input', prompt, text: trimmed },
+        { type: 'output', text: histText },
+      ]);
+      return;
+    }
+
     try {
       const res = await api.executeCommand({
         lab_slug: labSlug, device_name: deviceName,

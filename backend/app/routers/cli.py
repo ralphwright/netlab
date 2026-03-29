@@ -356,6 +356,7 @@ _SHOW_TREE = {
     "etherchannel":         {"_desc": "EtherChannel information",
                              "summary": "One line summary per channel-group"},
     "flash:":               "display information about flash: file system",
+    "history":              "Show the session command history",
     "hosts":                "Host name-to-address mapping table",
     "interfaces":           {"_desc": "Interface status and configuration",
                              "brief": "Brief summary of all interfaces",

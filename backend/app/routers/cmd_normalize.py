@@ -169,6 +169,8 @@ _add(r"^sh(?:ow)?\s+zone-pair\s+sec(?:urity)?$",
      "show zone-pair security")
 _add(r"^sh(?:ow)?\s+acc(?:ess)?(?:-list(?:s)?)?$",
      "show access-lists")
+_add(r"^sh(?:ow)?\s+hi(?:st(?:ory)?)?$",
+     "show history")
 _add(r"^sh(?:ow)?\s+ho(?:sts?)?$",
      "show hosts")
 _add(r"^sh(?:ow)?\s+run(?:ning)?(?:-config)?$",
