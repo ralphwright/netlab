@@ -883,7 +883,13 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
         return (_help_output(help_raw.strip(), current_mode), current_mode)
 
     # ── Universal commands — always allowed regardless of mode ──
-    if cmd in ("end", "exit") and current_mode.startswith("config"):
+    # end — always jumps to privileged EXEC from any config depth (like Ctrl-Z)
+    if cmd == "end" and current_mode.startswith("config"):
+        DEVICE_MODES[key] = "privileged"
+        return ("", "privileged")
+
+    # exit — goes up exactly one level
+    if cmd == "exit" and current_mode.startswith("config"):
         new = "config" if current_mode != "config" else "privileged"
         DEVICE_MODES[key] = new
         return ("", new)
@@ -1150,9 +1156,11 @@ async def _replay_history(scope_key: str, device_name: str, user_id: str,
                 replay_modes[rkey] = "config-acl"
             elif re.match(r"^zone\s+security", lcmd):
                 replay_modes[rkey] = "config-zone"
-            elif lcmd in ("end", "exit"):
+            elif lcmd == "end":
+                replay_modes[rkey] = "privileged"
+            elif lcmd == "exit":
                 m = replay_modes.get(rkey, "privileged")
-                replay_modes[rkey] = "config" if (m.startswith("config-")) else "privileged"
+                replay_modes[rkey] = "config" if m.startswith("config-") else "privileged"
 
             parse_command(rkey, dev, norm, mode)
 
