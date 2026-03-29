@@ -1054,10 +1054,16 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
             current_mode,
         )
 
-    # Generic config commands — accept silently
+    # Commands that give interface state feedback
+    if re.match(r"no\s+shutdown", cmd):
+        return ("%LINK-5-CHANGED: Interface changed state to up", current_mode)
+    if cmd == "shutdown":
+        return ("%LINK-5-CHANGED: Interface changed state to administratively down", current_mode)
+
+    # Generic config commands — accepted silently (real IOS behaviour)
     config_patterns = [
-        r"hostname\s+", r"name\s+", r"switchport\s+", r"no\s+shutdown",
-        r"shutdown", r"ip\s+address", r"ipv6\s+(address|unicast-routing|ospf)",
+        r"hostname\s+", r"name\s+", r"switchport\s+",
+        r"ip\s+address", r"ipv6\s+(address|unicast-routing|ospf)",
         r"network\s+", r"neighbor\s+", r"remote-as\s+", r"channel-group",
         r"spanning-tree", r"mpls\s+ip", r"tunnel\s+(source|destination|mode)",
         r"crypto\s+", r"transport\s+input", r"login\s+", r"password\s+",
@@ -1067,7 +1073,8 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
         r"encapsulation\s+", r"overload", r"ip\s+route\s+", r"no\s+",
         r"banner\s+", r"enable\s+secret", r"service\s+", r"logging\s+",
         r"ntp\s+", r"snmp-server", r"access-class", r"exec-timeout",
-        r"ip\s+routing", r"ip\s+domain",
+        r"ip\s+routing", r"ip\s+domain", r"router-id\s+", r"ip\s+ssh",
+        r"ip\s+access-group", r"access-list\s+",
     ]
     for pat in config_patterns:
         if re.match(pat, cmd):
