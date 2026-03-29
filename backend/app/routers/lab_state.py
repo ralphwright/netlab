@@ -849,7 +849,7 @@ def _show_ip_int_brief(s: DeviceState) -> str:
     HDR = f"{'Interface':<23}{'IP-Address':<16}{'OK?':<4}{'Method':<8}{'Status':<22}Protocol"
     lines = [HDR]
     if not s.ifaces:
-        return HDR + "\\n(no interfaces configured)"
+        return HDR + "\n(no interfaces configured)"
     for name, iface in sorted(s.ifaces.items()):
         ip   = iface.ip or "unassigned"
         ok   = "YES"
@@ -857,7 +857,7 @@ def _show_ip_int_brief(s: DeviceState) -> str:
         stat = iface.status
         prot = iface.protocol
         lines.append(f"{name:<23}{ip:<16}{ok:<4}{meth:<8}{stat:<22}{prot}")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_interfaces_detail(s: DeviceState, if_name: str | None = None) -> str:
@@ -906,7 +906,7 @@ def _show_interfaces_detail(s: DeviceState, if_name: str | None = None) -> str:
             f"     0 packets output, 0 bytes, 0 underruns",
             f"",
         ]
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_ip_route(s: DeviceState) -> str:
@@ -972,7 +972,7 @@ def _show_ip_route(s: DeviceState) -> str:
     if not s.ifaces and not static and not s.ospf:
         lines.append("(routing table is empty — configure interfaces and routes)")
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_route_summary(s: DeviceState) -> str:
@@ -980,11 +980,11 @@ def _show_route_summary(s: DeviceState) -> str:
     static    = len(getattr(s, '_static_routes', []))
     total     = connected + static
     return (
-        "IP routing table summary\\n"
-        "Route Source    Networks    Subnets   Overhead   Memory (bytes)\\n"
-        f"{'connected':<16}{0:<12}{connected:<10}{connected*56:<11}{connected*212}\\n"
-        f"{'static':<16}{0:<12}{static:<10}{static*56:<11}{static*212}\\n"
-        f"{'Total':<16}{0:<12}{total:<10}{total*56:<11}{total*212}\\n"
+        "IP routing table summary\n"
+        "Route Source    Networks    Subnets   Overhead   Memory (bytes)\n"
+        f"{'connected':<16}{0:<12}{connected:<10}{connected*56:<11}{connected*212}\n"
+        f"{'static':<16}{0:<12}{static:<10}{static*56:<11}{static*212}\n"
+        f"{'Total':<16}{0:<12}{total:<10}{total*56:<11}{total*212}\n"
     )
 
 
@@ -1012,7 +1012,7 @@ def _show_vlan_brief(s: DeviceState) -> str:
                       (1004,"fddinet-default"),(1005,"trnet-default")]:
         lines.append(f"{vid:<5} {name:<32} act/unsup")
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_spanning_tree(s: DeviceState) -> str:
@@ -1060,7 +1060,7 @@ def _show_spanning_tree(s: DeviceState) -> str:
                 lines.append(f"{sif:<20}{role:<5}{sts:<4}{cost:<10}128.1    {ptype}")
         lines.append("")
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_etherchannel(s: DeviceState) -> str:
@@ -1086,12 +1086,12 @@ def _show_etherchannel(s: DeviceState) -> str:
         "------+-------------+-----------+---------------------------------------",
     ]
     if not s.po_members:
-        return "\\n".join(hdr) + "\\n(none)"
+        return "\n".join(hdr) + "\n(none)"
     lines = list(hdr)
     for po_num, members in sorted(s.po_members.items()):
         ports_s = "  ".join(f"{_short_if(m)}(P)" for m in sorted(members))
         lines.append(f"{po_num:<7}Po{po_num}(SU)          LACP      {ports_s}")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_ospf_neighbor(s: DeviceState) -> str:
@@ -1100,7 +1100,7 @@ def _show_ospf_neighbor(s: DeviceState) -> str:
     lines = [HDR]
 
     if not s.ospf:
-        return HDR + "\\n(no OSPF process configured)"
+        return HDR + "\n(no OSPF process configured)"
 
     nbr_count = 0
     for pid, proc in s.ospf.items():
@@ -1119,7 +1119,7 @@ def _show_ospf_neighbor(s: DeviceState) -> str:
 
     if nbr_count == 0:
         lines.append("(no OSPF adjacencies formed — check network statements and interface config)")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_ip_bgp(s: DeviceState) -> str:
@@ -1149,7 +1149,7 @@ def _show_ip_bgp(s: DeviceState) -> str:
     if not s.bgp.prefixes and not s.bgp.neighbors:
         lines.append(" (BGP table is empty — configure network statements or neighbors)")
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_bgp_summary(s: DeviceState) -> str:
@@ -1174,7 +1174,7 @@ def _show_bgp_summary(s: DeviceState) -> str:
         )
     if not s.bgp.neighbors:
         lines.append("(no BGP neighbors configured — use: neighbor <ip> remote-as <asn>)")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_nat_translations(s: DeviceState) -> str:
@@ -1197,9 +1197,9 @@ def _show_nat_translations(s: DeviceState) -> str:
     if not s.nat_rules:
         lines.append(
             "--- ---                    ---                    ---                    ---"
-            "\\n(no NAT translations — configure NAT inside/outside and translation rules)"
+            "\n(no NAT translations — configure NAT inside/outside and translation rules)"
         )
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_nat_statistics(s: DeviceState) -> str:
@@ -1207,19 +1207,19 @@ def _show_nat_statistics(s: DeviceState) -> str:
     outside_ifs = [n for n, i in s.ifaces.items() if i.nat == "outside"]
     hits = len(s.nat_rules) * 12
     return (
-        f"Total active translations: {len(s.nat_rules) * 2} (0 static, {len(s.nat_rules) * 2} dynamic; {len(s.nat_rules)} extended)\\n"
-        f"Peak translations: {hits}, occurred 00:01:00 ago\\n"
-        f"Outside interfaces:\\n"
-        + ("\\n".join(f"  {n}" for n in outside_ifs) or "  (none)") + "\\n"
-        + "Inside interfaces:\\n"
-        + ("\\n".join(f"  {n}" for n in inside_ifs) or "  (none)") + "\\n"
-        + f"Hits: {hits}  Misses: 0\\n"
-        + "CEF Translated packets: 0, CEF Punted packets: 0\\n"
-        + "Expired translations: 0\\n"
-        + "Dynamic mappings:\\n"
-        + ("\\n".join(
-            f"-- Inside Source\\n"
-            f"[Id: 1] access-list {r.acl} interface {r.interface} overload\\n"
+        f"Total active translations: {len(s.nat_rules) * 2} (0 static, {len(s.nat_rules) * 2} dynamic; {len(s.nat_rules)} extended)\n"
+        f"Peak translations: {hits}, occurred 00:01:00 ago\n"
+        f"Outside interfaces:\n"
+        + ("\n".join(f"  {n}" for n in outside_ifs) or "  (none)") + "\n"
+        + "Inside interfaces:\n"
+        + ("\n".join(f"  {n}" for n in inside_ifs) or "  (none)") + "\n"
+        + f"Hits: {hits}  Misses: 0\n"
+        + "CEF Translated packets: 0, CEF Punted packets: 0\n"
+        + "Expired translations: 0\n"
+        + "Dynamic mappings:\n"
+        + ("\n".join(
+            f"-- Inside Source\n"
+            f"[Id: 1] access-list {r.acl} interface {r.interface} overload\n"
             f" refcount 2"
             for r in s.nat_rules if r.kind == "overload"
           ) or " (none)")
@@ -1228,13 +1228,13 @@ def _show_nat_statistics(s: DeviceState) -> str:
 
 def _show_dhcp_binding(s: DeviceState) -> str:
     HDR  = (
-        "Bindings from all pools not associated with VRF:\\n"
-        f"{'IP address':<17}{'Client-ID/':<24}{'Lease expiration':<24}{'Type':<12}State      Interface\\n"
-        f"{'':<17}{'Hardware address/':<24}\\n"
+        "Bindings from all pools not associated with VRF:\n"
+        f"{'IP address':<17}{'Client-ID/':<24}{'Lease expiration':<24}{'Type':<12}State      Interface\n"
+        f"{'':<17}{'Hardware address/':<24}\n"
         f"{'':<17}{'User name'}"
     )
     if not s.dhcp_pools:
-        return HDR + "\\n(no DHCP pools configured — use: ip dhcp pool <name>)"
+        return HDR + "\n(no DHCP pools configured — use: ip dhcp pool <name>)"
 
     lines = [HDR]
     for pool in s.dhcp_pools.values():
@@ -1248,12 +1248,12 @@ def _show_dhcp_binding(s: DeviceState) -> str:
                 lines.append(
                     f"{lease_ip:<17}{mac:<24}{'Mar 28 2026 08:00 AM':<24}{'Automatic':<12}Active"
                 )
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_dhcp_pool(s: DeviceState) -> str:
     if not s.dhcp_pools:
-        return "% DHCP is not running.\\n(no pools configured — use: ip dhcp pool <name>)"
+        return "% DHCP is not running.\n(no pools configured — use: ip dhcp pool <name>)"
     lines = []
     for pool in s.dhcp_pools.values():
         total = 2 ** _count_host_bits(pool.mask) - 2 if pool.mask else 0
@@ -1279,7 +1279,7 @@ def _show_dhcp_pool(s: DeviceState) -> str:
         if pool.dns_server:
             lines.append(f" DNS server list       : {pool.dns_server}")
         lines.append("")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_hosts(s: DeviceState) -> str:
@@ -1298,7 +1298,7 @@ def _show_hosts(s: DeviceState) -> str:
         lines.append(f"{host:<26}perm       0    IP     {ip}")
     if not s.host_table and not s.name_servers:
         lines.append("(no static host entries)")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_acls(s: DeviceState) -> str:
@@ -1318,7 +1318,7 @@ def _show_acls(s: DeviceState) -> str:
             for e in entries:
                 lines.append(f"    {e.seq} {e.action} {e.rest} ({e.seq} matches)")
         lines.append("")
-    return "\\n".join(lines).rstrip()
+    return "\n".join(lines).rstrip()
 
 
 def _show_ip_interface_detail(s: DeviceState, if_name: str) -> str:
@@ -1335,42 +1335,42 @@ def _show_ip_interface_detail(s: DeviceState, if_name: str) -> str:
     acl_out = iface.acl_out or "not set"
     mask    = f"/{_cidr(iface.mask)}" if iface.mask else ""
     return (
-        f"{iface.name} is {iface.status}, line protocol is {iface.protocol}\\n"
-        f"  Internet address is {iface.ip or 'not set'}{mask}\\n"
-        f"  Broadcast address is 255.255.255.255\\n"
-        f"  Address determined by setup command\\n"
-        f"  MTU is 1500 bytes\\n"
-        f"  Helper address is not set\\n"
-        f"  Directed broadcast forwarding is disabled\\n"
-        f"  Outgoing Common access list is not set\\n"
-        f"  Outgoing access list is {acl_out}\\n"
-        f"  Inbound  Common access list is not set\\n"
-        f"  Inbound  access list is {acl_in}\\n"
-        f"  Proxy ARP is enabled\\n"
-        f"  Local Proxy ARP is disabled\\n"
-        f"  Security level is default\\n"
-        f"  Split horizon is enabled\\n"
-        f"  ICMP redirects are always sent\\n"
-        f"  ICMP unreachables are always sent\\n"
-        f"  ICMP mask replies are never sent\\n"
-        f"  IP fast switching is enabled\\n"
-        f"  IP Flow switching is disabled\\n"
-        f"  IP CEF switching is enabled\\n"
-        f"  IP CEF switching turbo vector\\n"
-        f"  IP Null turbo vector\\n"
-        f"  IP multicast fast switching is enabled\\n"
-        f"  Router Discovery is disabled\\n"
-        f"  IP output packet accounting is disabled\\n"
-        f"  IP access violation accounting is disabled\\n"
-        f"  TCP/IP header compression is disabled\\n"
-        f"  RTP/IP header compression is disabled\\n"
-        f"  Probe proxy name replies are disabled\\n"
-        f"  Policy routing is disabled\\n"
-        f"  Network address translation is {iface.nat or 'disabled'}\\n"
-        f"  BGP Policy Mapping is disabled\\n"
-        f"  Input features: MCI Check\\n"
-        f"  IPv4 WCCP Redirect outbound is disabled\\n"
-        f"  IPv4 WCCP Redirect inbound is disabled\\n"
+        f"{iface.name} is {iface.status}, line protocol is {iface.protocol}\n"
+        f"  Internet address is {iface.ip or 'not set'}{mask}\n"
+        f"  Broadcast address is 255.255.255.255\n"
+        f"  Address determined by setup command\n"
+        f"  MTU is 1500 bytes\n"
+        f"  Helper address is not set\n"
+        f"  Directed broadcast forwarding is disabled\n"
+        f"  Outgoing Common access list is not set\n"
+        f"  Outgoing access list is {acl_out}\n"
+        f"  Inbound  Common access list is not set\n"
+        f"  Inbound  access list is {acl_in}\n"
+        f"  Proxy ARP is enabled\n"
+        f"  Local Proxy ARP is disabled\n"
+        f"  Security level is default\n"
+        f"  Split horizon is enabled\n"
+        f"  ICMP redirects are always sent\n"
+        f"  ICMP unreachables are always sent\n"
+        f"  ICMP mask replies are never sent\n"
+        f"  IP fast switching is enabled\n"
+        f"  IP Flow switching is disabled\n"
+        f"  IP CEF switching is enabled\n"
+        f"  IP CEF switching turbo vector\n"
+        f"  IP Null turbo vector\n"
+        f"  IP multicast fast switching is enabled\n"
+        f"  Router Discovery is disabled\n"
+        f"  IP output packet accounting is disabled\n"
+        f"  IP access violation accounting is disabled\n"
+        f"  TCP/IP header compression is disabled\n"
+        f"  RTP/IP header compression is disabled\n"
+        f"  Probe proxy name replies are disabled\n"
+        f"  Policy routing is disabled\n"
+        f"  Network address translation is {iface.nat or 'disabled'}\n"
+        f"  BGP Policy Mapping is disabled\n"
+        f"  Input features: MCI Check\n"
+        f"  IPv4 WCCP Redirect outbound is disabled\n"
+        f"  IPv4 WCCP Redirect inbound is disabled\n"
         f"  IPv4 WCCP Redirect exclude is disabled"
     )
 
@@ -1384,25 +1384,25 @@ def _show_tunnel(s: DeviceState, tun_num: int) -> str:
     dst  = getattr(s, '_tunnel_dest',   {}).get(tun_num, "not set")
     mode = getattr(s, '_tunnel_mode',   {}).get(tun_num, "gre ip")
     return (
-        f"Tunnel{tun_num} is {iface.status}, line protocol is {iface.protocol}\\n"
-        f"  Hardware is Tunnel\\n"
-        + (f"  Internet address is {iface.ip}/{_cidr(iface.mask)}\\n" if iface.ip else "") +
-        f"  MTU 17916 bytes, BW 100 Kbit/sec, DLY 50000 usec,\\n"
-        f"     reliability 255/255, txload 1/255, rxload 1/255\\n"
-        f"  Encapsulation {mode.upper()}, loopback not set\\n"
-        f"  Keepalive not set\\n"
-        f"  Tunnel linestate evaluation up\\n"
-        f"  Tunnel source {src}, destination {dst}\\n"
-        f"  Tunnel Subblocks:\\n"
-        f"      src-track:\\n"
-        f"         Tunnel{tun_num} source tracking subblock associated with 0\\n"
-        f"  Tunnel protocol/transport GRE/IP\\n"
-        f"    Key disabled, sequencing disabled\\n"
-        f"    Checksumming of packets disabled\\n"
-        f"  Tunnel TTL 255, Fast tunneling enabled\\n"
-        f"  Tunnel transport MTU 1476 bytes\\n"
-        f"  Tunnel transmit bandwidth 8000 (kbps)\\n"
-        f"  Tunnel receive  bandwidth 8000 (kbps)\\n"
+        f"Tunnel{tun_num} is {iface.status}, line protocol is {iface.protocol}\n"
+        f"  Hardware is Tunnel\n"
+        + (f"  Internet address is {iface.ip}/{_cidr(iface.mask)}\n" if iface.ip else "") +
+        f"  MTU 17916 bytes, BW 100 Kbit/sec, DLY 50000 usec,\n"
+        f"     reliability 255/255, txload 1/255, rxload 1/255\n"
+        f"  Encapsulation {mode.upper()}, loopback not set\n"
+        f"  Keepalive not set\n"
+        f"  Tunnel linestate evaluation up\n"
+        f"  Tunnel source {src}, destination {dst}\n"
+        f"  Tunnel Subblocks:\n"
+        f"      src-track:\n"
+        f"         Tunnel{tun_num} source tracking subblock associated with 0\n"
+        f"  Tunnel protocol/transport GRE/IP\n"
+        f"    Key disabled, sequencing disabled\n"
+        f"    Checksumming of packets disabled\n"
+        f"  Tunnel TTL 255, Fast tunneling enabled\n"
+        f"  Tunnel transport MTU 1476 bytes\n"
+        f"  Tunnel transmit bandwidth 8000 (kbps)\n"
+        f"  Tunnel receive  bandwidth 8000 (kbps)\n"
         f"  Last input never, output never, output hang never"
     )
 
@@ -1419,29 +1419,29 @@ def _show_ipv6_brief(s: DeviceState) -> str:
         lines.append(f"    FE80::{ll_suffix}")
     if not s.ifaces:
         return "(no interfaces configured)"
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_ip_ssh(s: DeviceState) -> str:
     if not s.ssh_enabled:
         return (
-            "SSH Disabled - version 2.0\\n"
-            "Please create RSA keys (of at least 768 bits size) to enable SSH v2.\\n"
+            "SSH Disabled - version 2.0\n"
+            "Please create RSA keys (of at least 768 bits size) to enable SSH v2.\n"
             "(Hint: crypto key generate rsa modulus 2048)"
         )
     return (
-        "SSH Enabled - version 2.0\\n"
-        "Authentication methods: publickey,keyboard-interactive,password\\n"
-        "Authentication Publickey Algorithms:x509v3-ssh-rsa,ecdsa-sha2-nistp256,\\n"
-        "                                    ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,\\n"
-        "                                    rsa-sha2-256,rsa-sha2-512,ssh-rsa,ssh-dss\\n"
-        "Hostkey Algorithms:rsa-sha2-512,rsa-sha2-256,ssh-rsa\\n"
-        "Encryption Algorithms:aes128-ctr,aes192-ctr,aes256-ctr\\n"
-        "MAC Algorithms:hmac-sha2-256,hmac-sha2-512,hmac-sha1\\n"
-        "KEX Algorithms:diffie-hellman-group-exchange-sha256\\n"
-        "Authentication timeout: 120 secs; Authentication retries: 3\\n"
-        "Minimum expected Diffie Hellman key size : 2048 bits\\n"
-        f"IOS Keys in SECSH format(ssh-rsa, base64 encoded): {s.hostname or 'Router'}\\n"
+        "SSH Enabled - version 2.0\n"
+        "Authentication methods: publickey,keyboard-interactive,password\n"
+        "Authentication Publickey Algorithms:x509v3-ssh-rsa,ecdsa-sha2-nistp256,\n"
+        "                                    ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,\n"
+        "                                    rsa-sha2-256,rsa-sha2-512,ssh-rsa,ssh-dss\n"
+        "Hostkey Algorithms:rsa-sha2-512,rsa-sha2-256,ssh-rsa\n"
+        "Encryption Algorithms:aes128-ctr,aes192-ctr,aes256-ctr\n"
+        "MAC Algorithms:hmac-sha2-256,hmac-sha2-512,hmac-sha1\n"
+        "KEX Algorithms:diffie-hellman-group-exchange-sha256\n"
+        "Authentication timeout: 120 secs; Authentication retries: 3\n"
+        "Minimum expected Diffie Hellman key size : 2048 bits\n"
+        f"IOS Keys in SECSH format(ssh-rsa, base64 encoded): {s.hostname or 'Router'}\n"
         "  ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCnVUoQN7tZ3DcK"
     )
 
@@ -1449,8 +1449,8 @@ def _show_ip_ssh(s: DeviceState) -> str:
 def _show_mpls_forwarding(s: DeviceState) -> str:
     if not s.mpls_interfaces:
         return (
-            "Local      Outgoing   Prefix           Bytes Label   Outgoing   Next Hop\\n"
-            "Label      Label      or Tunnel Id     Switched      interface\\n"
+            "Local      Outgoing   Prefix           Bytes Label   Outgoing   Next Hop\n"
+            "Label      Label      or Tunnel Id     Switched      interface\n"
             "(MPLS not enabled on any interface — use: mpls ip on each interface)"
         )
     lines = [
@@ -1467,12 +1467,12 @@ def _show_mpls_forwarding(s: DeviceState) -> str:
                 f"{label:<11}{'Pop Label':<11}{net}/{cidr:<17}{'0':<14}{_short_if(name):<11}point2point"
             )
             label += 1
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_mpls_ldp(s: DeviceState) -> str:
     if not s.mpls_interfaces:
-        return "% LDP is not enabled\\n(enable MPLS with: mpls ip on each interface)"
+        return "% LDP is not enabled\n(enable MPLS with: mpls ip on each interface)"
     lines = [
         "    Peer LDP Ident: 2.2.2.2:0; Local LDP Ident 1.1.1.1:0",
         "        TCP connection: 2.2.2.2.646 - 1.1.1.1.37416",
@@ -1483,7 +1483,7 @@ def _show_mpls_ldp(s: DeviceState) -> str:
         "        Addresses bound to peer LDP Ident:",
         "          10.0.0.2        10.0.1.2",
     ]
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_crypto_isakmp(s: DeviceState) -> str:
@@ -1498,12 +1498,12 @@ def _show_crypto_isakmp(s: DeviceState) -> str:
             lines.append(f"{outside:<16}198.51.100.1    QM_IDLE           1001 ACTIVE")
         else:
             lines.append("(no active ISAKMP SAs)")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_zones(s: DeviceState) -> str:
     if not s.zones:
-        return "% No security zones configured\\n(use: zone security <name>)"
+        return "% No security zones configured\n(use: zone security <name>)"
     lines = []
     for zname, ifaces in sorted(s.zones.items()):
         lines += [
@@ -1513,12 +1513,12 @@ def _show_zones(s: DeviceState) -> str:
         for i in ifaces:
             lines.append(f"      Zone Member: {i}")
         lines.append("")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_zone_pairs(s: DeviceState) -> str:
     if not s.zone_pairs:
-        return "% No zone-pairs configured\\n(use: zone-pair security <name> source <z> destination <z>)"
+        return "% No zone-pairs configured\n(use: zone-pair security <name> source <z> destination <z>)"
     lines = []
     for zp_name, zp in s.zone_pairs.items():
         policy = zp.policy or "(none)"
@@ -1528,7 +1528,7 @@ def _show_zone_pairs(s: DeviceState) -> str:
             f"    service-policy inspect {policy}",
             "",
         ]
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_dot11(s: DeviceState) -> str:
@@ -1541,7 +1541,7 @@ def _show_dot11(s: DeviceState) -> str:
     else:
         for ssid in s.wlan_ssids:
             lines.append(f"{ssid:<18}[aabb.cc00.0001]            10.0.0.100  Client  wlan-client-1")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_vlans_subif(s: DeviceState) -> str:
@@ -1557,7 +1557,7 @@ def _show_vlans_subif(s: DeviceState) -> str:
             ]
     if not lines:
         return "(no 802.1Q subinterfaces configured — use: interface Gi0/0.<vlan>)"
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _show_running_config(s: DeviceState) -> str:
@@ -1727,7 +1727,7 @@ def _show_running_config(s: DeviceState) -> str:
         lines += [" transport input none"]
     lines += ["!", "end"]
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _get_access_ports(s: DeviceState) -> list:
