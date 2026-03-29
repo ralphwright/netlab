@@ -858,6 +858,73 @@ def _ambiguous_error(partial: str) -> str:
     """% Ambiguous command: "sh"."""
     return f'% Ambiguous command:  \"{partial}\"'
 
+
+def _can_reach(scope_key: str, device_name: str, target: str) -> bool:
+    """
+    Return True if the device's routing table has a route to target.
+    Performs a longest-prefix match across:
+      - connected routes (interfaces with IP and status up)
+      - static routes (including default 0.0.0.0/0)
+      - OSPF-learned networks
+    """
+    from app.routers.lab_state import get_state as _gs, _network_addr, _cidr
+
+    # Validate target looks like an IP
+    parts = target.split(".")
+    if len(parts) != 4:
+        return True   # hostname/domain — assume reachable
+    try:
+        t_int = sum(int(p) << (24 - 8 * i) for i, p in enumerate(parts))
+    except ValueError:
+        return True
+
+    state = _gs(scope_key, device_name)
+    best_prefix_len = -1
+
+    def _matches(network: str, mask: str) -> bool:
+        """True if target falls within network/mask."""
+        nonlocal best_prefix_len
+        try:
+            n_parts = [int(x) for x in network.split(".")]
+            m_parts = [int(x) for x in mask.split(".")]
+            n_int   = sum(n_parts[i] << (24 - 8 * i) for i in range(4))
+            m_int   = sum(m_parts[i] << (24 - 8 * i) for i in range(4))
+            prefix_len = bin(m_int).count("1")
+            if (t_int & m_int) == (n_int & m_int):
+                if prefix_len > best_prefix_len:
+                    best_prefix_len = prefix_len
+                return True
+        except (ValueError, AttributeError):
+            pass
+        return False
+
+    # Connected routes
+    for iface in state.ifaces.values():
+        if iface.ip and iface.status == "up" and iface.mask:
+            net = _network_addr(iface.ip, iface.mask)
+            _matches(net, iface.mask)
+            # Also match the interface IP itself (ping the router)
+            if iface.ip == target:
+                return True
+
+    # Static routes
+    for net, mask, nh in getattr(state, "_static_routes", []):
+        _matches(net, mask)
+
+    # OSPF networks (treat configured networks as reachable)
+    for proc in state.ospf.values():
+        for ospf_net in proc.networks:
+            # Convert wildcard to mask
+            try:
+                wc_parts = [int(x) for x in ospf_net.wildcard.split(".")]
+                mask_parts = [255 - x for x in wc_parts]
+                mask = ".".join(str(x) for x in mask_parts)
+                _matches(ospf_net.network, mask)
+            except (ValueError, AttributeError):
+                pass
+
+    return best_prefix_len >= 0
+
 def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple[str, str]:
     """Return (output_text, new_mode)."""
     # Strip 'do ' prefix — allows exec commands from any config mode
@@ -1013,28 +1080,51 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
             output = outputs.get(device_name, outputs.get("_default", ""))
             return (output, current_mode)
 
-    # Ping
+    # Ping — check routing table for reachability
     if cmd.startswith("ping "):
         target = cmd.split()[-1]
-        return (
-            f"Type escape sequence to abort.\n"
-            f"Sending 5, 100-byte ICMP Echos to {target}, timeout is 2 seconds:\n"
-            f"!!!!!\n"
-            f"Success rate is 100 percent (5/5), round-trip min/avg/max = 1/2/4 ms",
-            current_mode,
-        )
+        if _can_reach(key, device_name, target):
+            return (
+                f"Type escape sequence to abort.\n"
+                f"Sending 5, 100-byte ICMP Echos to {target}, timeout is 2 seconds:\n"
+                f"!!!!!\n"
+                f"Success rate is 100 percent (5/5), round-trip min/avg/max = 1/2/4 ms",
+                current_mode,
+            )
+        else:
+            return (
+                f"Type escape sequence to abort.\n"
+                f"Sending 5, 100-byte ICMP Echos to {target}, timeout is 2 seconds:\n"
+                f"U.U.U.U.U\n"
+                f"Success rate is 0 percent (0/5)",
+                current_mode,
+            )
 
-    # Traceroute
+    # Traceroute — check routing table for reachability
     if cmd.startswith("traceroute "):
         target = cmd.split()[-1]
-        return (
-            f"Type escape sequence to abort.\n"
-            f"Tracing the route to {target}\n"
-            f"  1 10.0.1.1 1 msec 1 msec 1 msec\n"
-            f"  2 10.255.0.2 4 msec 3 msec 4 msec\n"
-            f"  3 {target} 6 msec 5 msec 6 msec",
-            current_mode,
-        )
+        if _can_reach(key, device_name, target):
+            return (
+                f"Type escape sequence to abort.\n"
+                f"Tracing the route to {target}\n"
+                f"  1 10.0.1.1 1 msec 1 msec 1 msec\n"
+                f"  2 10.255.0.2 4 msec 3 msec 4 msec\n"
+                f"  3 {target} 6 msec 5 msec 6 msec",
+                current_mode,
+            )
+        else:
+            return (
+                f"Type escape sequence to abort.\n"
+                f"Tracing the route to {target}\n"
+                f"  1  *  *  *\n"
+                f"  2  *  *  *\n"
+                f"  3  *  *  *\n"
+                f"  4  *  *  *\n"
+                f"  5  *  *  *\n"
+                f"  ...\n"
+                f"Destination unreachable",
+                current_mode,
+            )
 
     # write memory / write / copy running-config startup-config
     if cmd in ("write memory", "write", "wr") or re.match(r"copy\s+running-config\s+startup-config", cmd):
