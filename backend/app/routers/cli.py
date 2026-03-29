@@ -1036,6 +1036,24 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
             current_mode,
         )
 
+    # write memory / write / copy running-config startup-config
+    if cmd in ("write memory", "write", "wr") or re.match(r"copy\s+running-config\s+startup-config", cmd):
+        return (
+            "Building configuration...\n[OK]",
+            current_mode,
+        )
+
+    # copy running-config tftp / other copy variants
+    if re.match(r"copy\s+running-config\s+", cmd):
+        dest = cmd.split()[-1]
+        return (
+            "Address or name of remote host []? \n"
+            "Destination filename [running-config]? \n"
+            "!!\n"
+            f"{abs(hash(dest)) % 2000 + 500} bytes copied in 1.234 secs (408 bytes/sec)",
+            current_mode,
+        )
+
     # Generic config commands — accept silently
     config_patterns = [
         r"hostname\s+", r"name\s+", r"switchport\s+", r"no\s+shutdown",
