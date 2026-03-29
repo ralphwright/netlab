@@ -226,6 +226,7 @@ export default function TerminalEmulator({
 }) {
   const [history, setHistory]           = useState([]);
   const [input, setInput]               = useState('');
+  const [cliReady, setCliReady]          = useState(false); // true once reset-mode confirms
   const [prompt, setPrompt]             = useState('');
   const [cmdHistory, setCmdHistory]     = useState([]);
   const [historyIdx, setHistoryIdx]     = useState(-1);
@@ -247,11 +248,18 @@ export default function TerminalEmulator({
     ]);
     setEnteredCommands([]);
 
-    // Reset backend mode to privileged so stale state from a prior session
-    // doesn't bleed through when the terminal reconnects to a device.
+    // Reset backend mode to privileged and wait for confirmation before
+    // allowing input — ensures backend and frontend mode agree from the start.
     if (!isQuiz && labSlug && userId) {
+      setCliReady(false);
       api.resetDeviceMode({ lab_slug: labSlug, device_name: deviceName, user_id: userId })
-        .catch(() => {}); // silent — non-critical
+        .then(res => {
+          if (res?.prompt) setPrompt(res.prompt);
+          setCliReady(true);
+        })
+        .catch(() => setCliReady(true)); // fail open — still allow use
+    } else {
+      setCliReady(true);
     }
   }, [deviceName, labSlug, userId]);
 
@@ -422,8 +430,8 @@ export default function TerminalEmulator({
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="none"
-              disabled={!deviceName}
-              placeholder={deviceName ? '' : 'Select a device from the topology...'}
+              disabled={!deviceName || !cliReady}
+              placeholder={!deviceName ? 'Select a device from the topology...' : !cliReady ? 'Connecting…' : ''}
             />
           </div>
         </div>
