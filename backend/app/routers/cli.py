@@ -697,6 +697,8 @@ _HELP_TREES = {
                        "service-policy": {"_desc": "Configure zone-pair service policy",
                                           "type": {"_desc": "Policy type",
                                                    "inspect": "Inspect policy"}}},
+    # Tunnel interface uses same sub-mode commands as config-if
+    "config-tunnel":  _CONFIG_IF_TREE,
 }
 
 
@@ -1076,6 +1078,11 @@ async def _replay_history(scope_key: str, device_name: str, user_id: str,
                 replay_modes[rkey] = "config" if (m.startswith("config-")) else "privileged"
 
             parse_command(rkey, dev, norm, mode)
+
+        # Flush replayed modes into DEVICE_MODES so ? help and mode
+        # enforcement reflect the correct mode after a server restart.
+        for rkey, final_mode in replay_modes.items():
+            DEVICE_MODES[rkey] = final_mode
 
     except Exception as e:
         import logging
