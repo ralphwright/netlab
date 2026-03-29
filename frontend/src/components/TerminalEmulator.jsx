@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../api';
+import { complete, formatAmbiguous } from './cliComplete';
 
 // ── Client-side IOS command normalization ─────────────────────
 // Mirrors the backend normalize() function for offline matching.
@@ -366,16 +367,35 @@ export default function TerminalEmulator({
       }
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      const completions = [
-        'configure terminal', 'show vlan brief', 'show ip interface brief',
-        'show ip ospf neighbor', 'show ip bgp', 'show running-config',
-        'show interfaces', 'show spanning-tree', 'show etherchannel summary',
-        'show ip nat translations', 'show access-lists', 'show ip ssh',
-        'show mpls forwarding-table', 'show interfaces tunnel 0',
-        'show ipv6 interface brief', 'show ip dhcp binding', 'show crypto isakmp sa',
-      ];
-      const match = completions.find((c) => c.startsWith(input.toLowerCase()));
-      if (match) setInput(match);
+      // Derive current IOS mode from prompt string
+      const modeFromPrompt = (() => {
+        if (!prompt) return 'privileged';
+        if (prompt.endsWith('>'))            return 'user';
+        if (prompt.includes('(config-if)')) return 'config-if';
+        if (prompt.includes('(config-router)')) return 'config-router';
+        if (prompt.includes('(config-vlan)'))  return 'config-vlan';
+        if (prompt.includes('(config-line)'))  return 'config-line';
+        if (prompt.includes('(dhcp-config)'))  return 'config-dhcp';
+        if (prompt.includes('(config-ext-nacl)') || prompt.includes('(config-std-nacl)')) return 'config-acl';
+        if (prompt.includes('(config-sec-zone)')) return 'config-zone';
+        if (prompt.includes('(config)'))     return 'config';
+        return 'privileged';
+      })();
+
+      const result = complete(input, modeFromPrompt);
+
+      if (result.completed !== input) {
+        setInput(result.completed);
+      }
+
+      if (result.ambiguous && result.ambiguous.length > 1) {
+        // Show ambiguous options inline like real IOS
+        setHistory(prev => [
+          ...prev,
+          { type: 'input', prompt, text: input },
+          { type: 'output', text: formatAmbiguous(result.ambiguous) },
+        ]);
+      }
     }
   };
 
