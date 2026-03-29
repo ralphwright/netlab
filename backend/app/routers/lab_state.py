@@ -86,6 +86,8 @@ class IfaceState:
     bpduguard: bool = False
     acl_in: str = ""
     acl_out: str = ""
+    description: str = ""
+    vlan_id: int = 0        # for subinterfaces e.g. Gi0/0.10
     # Tunnel fields
     tun_src: str = ""
     tun_dst: str = ""
@@ -144,8 +146,8 @@ class NatRule:
 @dataclass
 class ZonePair:
     name: str
-    src: str
-    dst: str
+    src_zone: str = ""
+    dst_zone: str = ""
     policy: str = ""
 
 @dataclass
@@ -176,6 +178,7 @@ class DeviceState:
     ssids: dict = field(default_factory=dict)         # ssid_name -> {}
     wlans: dict = field(default_factory=dict)         # wlan_id -> {}
     dot11_radios: dict = field(default_factory=dict)  # iface -> {channel}
+    wlan_ssids: list = field(default_factory=list)    # configured SSID names
 
 
 # ── Global state store ─────────────────────────────────────────
@@ -271,6 +274,7 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
             vid = int(m.group(1))
             if vid not in state.vlans:
                 state.vlans[vid] = VlanEntry(vid=vid, name=f"VLAN{vid:04d}")
+            state._current_vlan = vid   # track for 'name' command in config-vlan mode
             return
 
         # spanning-tree vlan <id> priority <val>
@@ -279,7 +283,15 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
             state.stp_priority[int(m.group(1))] = int(m.group(2))
             return
 
-        # spanning-tree portfast default
+        # username <name> [privilege <p>] secret/password <pw>
+        m_user = re.match(r"username\s+(\S+)", cmd, re.I)
+        if m_user:
+            if not hasattr(state, '_usernames'):
+                state._usernames = {}
+            state._usernames[m_user.group(1)] = "cisco"
+            return
+
+                # spanning-tree portfast default
         if re.match(r"spanning-tree\s+portfast\s+default", low):
             state.stp_portfast_default = True
             return
@@ -372,6 +384,12 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
             return
 
         iface = state.ifaces.setdefault(iface_name, IfaceState(name=iface_name))
+
+        # description <text>
+        m_desc = re.match(r"description\s+(.+)", cmd, re.I)
+        if m_desc:
+            iface.description = m_desc.group(1).strip()
+            return
 
         # ip address <ip> <mask>
         m = re.match(r"ip\s+address\s+(\S+)\s+(\S+)", cmd, re.I)
@@ -1569,6 +1587,11 @@ def _show_running_config(s: DeviceState) -> str:
     if hasattr(s, '_usernames') and s._usernames:
         lines.append("!")
 
+    # Domain name (global)
+    if s.domain_name:
+        lines.append(f"ip domain-name {s.domain_name}")
+        lines.append("!")
+
     # Interfaces
     lines.append("!")
     for name, iface in sorted(s.ifaces.items()):
@@ -1689,8 +1712,9 @@ def _show_running_config(s: DeviceState) -> str:
 
     # SSH / Line config
     if s.ssh_enabled:
-        lines += ["ip domain-name " + (s.domain_name or "lab.local"), "!"]
-        lines += ["crypto key generate rsa modulus 2048", "ip ssh version 2", "!"]
+        if not s.domain_name:
+            lines += ["ip domain-name lab.local", "!"]
+        lines += ["ip ssh version 2", "!"]
     lines += [
         "line con 0",
         " logging synchronous",
