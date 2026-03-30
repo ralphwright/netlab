@@ -189,6 +189,10 @@ _add(r"^sh(?:ow)?\s+run(?:ning)?(?:-config)?$",
      "show running-config")
 _add(r"^sh(?:ow)?\s+dot11\s+ass(?:oc(?:iation)?s?)?$",
      "show dot11 associations")
+_add(r"^sh(?:ow)?\s+sta(?:ndby)?\s+br(?:ief)?$",
+     "show standby brief")
+_add(r"^sh(?:ow)?\s+sta(?:ndby)?$",
+     "show standby")
 _add(r"^sh(?:ow)?\s+wlan\s+sum(?:mary)?$",
      "show wlan summary")
 _add(r"^sh(?:ow)?\s+ap\s+sum(?:mary)?$",
