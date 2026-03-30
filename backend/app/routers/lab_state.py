@@ -179,6 +179,7 @@ class DeviceState:
     wlans: dict = field(default_factory=dict)         # wlan_id -> {}
     dot11_radios: dict = field(default_factory=dict)  # iface -> {channel}
     wlan_ssids: list = field(default_factory=list)    # configured SSID names
+    banner_motd: str = ""                            # banner motd text
 
 
 # ── Global state store ─────────────────────────────────────────
@@ -425,6 +426,13 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
 
     # ── Global config commands ─────────────────────────────────
     if current_mode in ("config", "privileged"):
+
+        # banner motd <delim> text <delim>
+        # Supports: banner motd # text # or banner motd ^ text ^
+        m_banner = re.match(r"banner\s+motd\s*(\S)(.*?)(?:|$)", cmd, re.I | re.DOTALL)
+        if m_banner:
+            state.banner_motd = m_banner.group(2).strip().strip(m_banner.group(1)).strip()
+            return
 
         # ip routing
         if low == "ip routing":
@@ -2239,6 +2247,13 @@ def _show_running_config(s: DeviceState) -> str:
     # Domain name (global)
     if s.domain_name:
         lines.append(f"ip domain-name {s.domain_name}")
+        lines.append("!")
+
+    # Banner MOTD
+    if s.banner_motd:
+        lines.append(f"banner motd ^")
+        lines.append(s.banner_motd)
+        lines.append("^")
         lines.append("!")
 
     # Interfaces

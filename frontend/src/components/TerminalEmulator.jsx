@@ -256,6 +256,12 @@ export default function TerminalEmulator({
       api.resetDeviceMode({ lab_slug: labSlug, device_name: deviceName, user_id: userId })
         .then(res => {
           if (res?.prompt) setPrompt(res.prompt);
+          // Display banner MOTD if configured — shown before the first prompt
+          if (res?.banner) {
+            setHistory(prev => [...prev,
+              { type: 'output', text: res.banner },
+            ]);
+          }
           setCliReady(true);
         })
         .catch(() => setCliReady(true)); // fail open — still allow use

@@ -1458,4 +1458,11 @@ async def reset_device_mode(req: CommandRequest, db: AsyncSession = Depends(get_
 
     # Force mode to privileged AFTER replay so replay cannot override it
     DEVICE_MODES[key] = "privileged"
-    return {"status": "ok", "prompt": get_prompt(req.device_name, "privileged")}
+    # Return the banner so the frontend can display it on connect
+    from app.routers.lab_state import get_state as _gs2
+    _s = _gs2(key, req.device_name)
+    return {
+        "status": "ok",
+        "prompt": get_prompt(req.device_name, "privileged"),
+        "banner": _s.banner_motd or "",
+    }
