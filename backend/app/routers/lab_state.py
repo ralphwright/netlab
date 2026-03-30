@@ -1090,6 +1090,10 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
     if re.match(r"show\s+interfaces?$", cmd):
         return _show_interfaces_detail(state)
 
+    # ── show clock ────────────────────────────────────────────
+    if re.match(r"show\s+clock(?:\s+detail)?$", cmd):
+        return _show_clock(state)
+
     # ── show version ──────────────────────────────────────────
     if re.match(r"show\s+version$", cmd):
         return _show_version(state, device_name)
@@ -1506,6 +1510,33 @@ def _show_version(s: DeviceState, device_name: str) -> str:
         f"  License Type: Permanent\n"
         f"  Next reload license Level: ipservices\n"
     )
+
+
+def _show_clock(s: DeviceState) -> str:
+    """
+    show clock — returns the device clock.
+    If the student has used 'clock set', returns that time.
+    Otherwise returns the real server UTC time, formatted like IOS.
+    """
+    import datetime as _dt
+
+    clock_set = getattr(s, "_clock_set", None)
+    if clock_set:
+        # Student set the clock — parse and display it
+        # Typical format: "14:30:00 28 Mar 2026"
+        try:
+            parts = clock_set.split()
+            time_str = parts[0] if parts else "00:00:00"
+            day      = parts[1] if len(parts) > 1 else "1"
+            month    = parts[2] if len(parts) > 2 else "Jan"
+            year     = parts[3] if len(parts) > 3 else "2026"
+            return f"*{time_str}.000 UTC {_dt.datetime.now(tz=_dt.timezone.utc).strftime('%a')} {month} {day} {year}"
+        except Exception:
+            return f"*{clock_set}"
+    else:
+        # Return real UTC time in IOS format: *14:30:00.000 UTC Fri Mar 28 2026
+        now = _dt.datetime.now(tz=_dt.timezone.utc)
+        return f"*{now.strftime('%H:%M:%S')}.000 UTC {now.strftime('%a %b %-d %Y')}"
 
 
 def _show_processes_cpu(s: DeviceState, device_name: str) -> str:

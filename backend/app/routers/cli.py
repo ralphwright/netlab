@@ -1142,6 +1142,15 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
                 current_mode,
             )
 
+    # clock set <hh:mm:ss> <day> <month> <year>
+    if re.match(r"clock\s+set\s+", cmd):
+        from app.routers.lab_state import get_state as _gs_clk
+        _st_clk = _gs_clk(key, device_name)
+        # Store the raw time string for show clock
+        time_part = cmd[len("clock set "):].strip()
+        _st_clk._clock_set = time_part
+        return ("", current_mode)
+
     # debug — acknowledge and note output would appear here
     if cmd.startswith("debug ") or cmd == "debug all":
         # Parse what's being debugged for a specific acknowledgement
