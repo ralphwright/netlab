@@ -1003,6 +1003,11 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
     if re.match(r"show\s+ip\s+bgp$", cmd):
         return _show_ip_bgp(state)
 
+    # ── show ip bgp neighbors [<ip>] ──────────────────────────
+    m = re.match(r"show\s+ip\s+bgp\s+neigh(?:bors?)?(?:\s+(\S+))?$", cmd)
+    if m:
+        return _show_bgp_neighbors(state, m.group(1))
+
     # ── show ip bgp summary ────────────────────────────────────
     if re.match(r"show\s+ip\s+bgp\s+summary$", cmd):
         return _show_bgp_summary(state)
@@ -2058,6 +2063,120 @@ def _show_ip_bgp(s: DeviceState) -> str:
 
     if not s.bgp.prefixes and not s.bgp.neighbors:
         lines.append(" (BGP table is empty — configure network statements or neighbors)")
+
+    return "\n".join(lines)
+
+
+def _show_bgp_neighbors(s: DeviceState, filter_ip: str | None = None) -> str:
+    """show ip bgp neighbors [<ip>] — full per-neighbor state output."""
+    if not s.bgp:
+        return "% BGP not configured (use: router bgp <asn>)"
+
+    if not s.bgp.neighbors:
+        return (
+            "% No BGP neighbors configured\n"
+            "(use: neighbor <ip> remote-as <asn>)"
+        )
+
+    router_id = "1.1.1.1"
+    lines = []
+
+    for nbr_ip, remote_as in s.bgp.neighbors:
+        if filter_ip and nbr_ip != filter_ip:
+            continue
+
+        # Determine session type
+        session_type = "external" if remote_as != s.bgp.asn else "internal"
+        ebgp_or_ibgp = "eBGP" if session_type == "external" else "iBGP"
+
+        lines += [
+            f"BGP neighbor is {nbr_ip},  remote AS {remote_as}, {session_type} link",
+            f"  BGP version 4, remote router ID {nbr_ip}",
+            f"  BGP state = Established, up for 01:00:00",
+            f"  Last read 00:00:10, last write 00:00:10, hold time is 180, keepalive interval is 60 seconds",
+            f"  Neighbor sessions:",
+            f"    1 active, is not multisession capable (disabled)",
+            f"  Neighbor capabilities:",
+            f"    Route refresh: advertised and received(new)",
+            f"    Four-octets ASN Capability: advertised and received",
+            f"    Address family IPv4 Unicast: advertised and received",
+            f"    Enhanced Refresh Capability: advertised and received",
+            f"  Message statistics:",
+            f"    InQ depth is 0",
+            f"    OutQ depth is 0",
+            f"                         Sent       Rcvd",
+            f"    Opens:                  1          1",
+            f"    Notifications:          0          0",
+            f"    Updates:                3          2",
+            f"    Keepalives:            60         60",
+            f"    Route Refresh:          0          0",
+            f"    Total:                 64         63",
+            f"  Default minimum time between advertisement runs is 0 seconds",
+            f"",
+            f" For address family: IPv4 Unicast",
+            f"  Session: {nbr_ip}",
+            f"  BGP table version 3, neighbor version 3/0",
+            f"  Output queue size : 0",
+            f"  Index 1, Advertise bit 0",
+            f"  1 update-group member",
+            f"  Slow-peer detection is disabled",
+            f"  Slow-peer split-update-group dynamic is disabled",
+            f"                                 Sent       Rcvd",
+            f"  Prefix activity:               ----       ----",
+            f"    Prefixes Current:               {len(s.bgp.prefixes)}          1 (Consumes {len(s.bgp.prefixes) * 48} bytes)",
+            f"    Prefixes Total:                 {len(s.bgp.prefixes)}          1",
+            f"    Implicit Withdraw:              0          0",
+            f"    Explicit Withdraw:              0          0",
+            f"    Used as bestpath:               n/a         1",
+            f"    Used as multipath:              n/a         0",
+            f"    Used as secondary:              n/a         0",
+            f"",
+            f"  Local Policy Denied Prefixes:    --------    -------",
+            f"    Total:                          0          0",
+            f"  Number of NLRIs in the update sent: max 1, min 0",
+            f"  Last detected as dynamic slow peer: never",
+            f"  Dynamic slow peer recovered: never",
+            f"  Refresh Epoch: 1",
+            f"  Last Sent Refresh Start-of-rib: never",
+            f"  Last Sent Refresh End-of-rib: never",
+            f"  Last Received Refresh Start-of-rib: never",
+            f"  Last Received Refresh End-of-rib: never",
+            f"                                       Sent       Rcvd",
+            f"        Refresh activity:              ----       ----",
+            f"          Refresh Start-of-RIB          0          0",
+            f"          Refresh End-of-RIB             0          0",
+            f"",
+            f"  Address tracking is enabled, the RIB does have a route to {nbr_ip}",
+            f"  Route to peer address reachability Up: 1; Down: 0",
+            f"    Last notification 00:00:01",
+            f"  Connections established 1; dropped 0",
+            f"  Last reset never",
+            f"  Connection state is ESTAB, I/O status: 1, unread input bytes: 0",
+            f"  Connection is ECN Disabled, Mininum incoming TTL 0, Outgoing TTL 1",
+            f"  Local host: {router_id}, Local port: 179",
+            f"  Foreign host: {nbr_ip}, Foreign port: {49152 + abs(hash(nbr_ip)) % 1000}",
+            f"  Connection tableid (VRF): 0",
+            f"  Maximum output segment queue size: 50",
+            f"",
+            f"  Enqueued packets for retransmit: 0, input: 0  mis-ordered: 0 (0 bytes)",
+            f"",
+            f"  Event Timers (current time is 0x{abs(hash(nbr_ip)) % 0xFFFF:X}):",
+            f"  Timer          Starts    Wakeups            Next",
+            f"  Retrans            64          0             0x0",
+            f"  TimeWait            0          0             0x0",
+            f"  AckHold            63         60             0x0",
+            f"  SendWnd             0          0             0x0",
+            f"  KeepAlive           0          0             0x0",
+            f"  GiveUp              0          0             0x0",
+            f"  PmtuAger            1          1             0x0",
+            f"  DeadWait            0          0             0x0",
+            f"  Linger              0          0             0x0",
+            f"  ProcessQ            0          0             0x0",
+            f"",
+        ]
+
+    if not lines:
+        return f"% BGP neighbor {filter_ip} not found"
 
     return "\n".join(lines)
 
