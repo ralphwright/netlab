@@ -1780,31 +1780,82 @@ def _show_nat_statistics(s: DeviceState) -> str:
     )
 
 
+def _ip_to_int(ip: str) -> int:
+    """Convert dotted-decimal IP to integer."""
+    try:
+        return sum(int(x) << (24 - 8 * i) for i, x in enumerate(ip.split(".")))
+    except (ValueError, AttributeError):
+        return 0
+
+
+def _int_to_ip(n: int) -> str:
+    """Convert integer to dotted-decimal IP."""
+    return ".".join(str((n >> (24 - 8 * i)) & 0xFF) for i in range(4))
+
+
+def _first_available_after_exclusions(network: str, mask: str,
+                                      excluded: list) -> list[str]:
+    """
+    Return up to 5 available host IPs in the subnet that fall outside
+    any excluded ranges stored in state.dhcp_excluded [(start, end), ...].
+    """
+    try:
+        net_i  = _ip_to_int(network)
+        mask_i = _ip_to_int(mask)
+        first  = (net_i & mask_i) + 1
+        last   = (net_i | (~mask_i & 0xFFFFFFFF)) - 1
+    except Exception:
+        return []
+
+    excluded_ints: set[int] = set()
+    for start_ip, end_ip in excluded:
+        try:
+            for x in range(_ip_to_int(start_ip), _ip_to_int(end_ip) + 1):
+                excluded_ints.add(x)
+        except Exception:
+            pass
+
+    available = []
+    for host_i in range(first, last + 1):
+        if host_i not in excluded_ints:
+            available.append(_int_to_ip(host_i))
+        if len(available) >= 5:
+            break
+    return available
+
+
 def _show_dhcp_binding(s: DeviceState) -> str:
-    HDR  = (
+    HDR = (
         "Bindings from all pools not associated with VRF:\n"
         f"{'IP address':<17}{'Client-ID/':<24}{'Lease expiration':<24}{'Type':<12}State      Interface\n"
         f"{'':<17}{'Hardware address/':<24}\n"
         f"{'':<17}{'User name'}"
     )
     if not s.dhcp_pools:
-        return HDR + "\n(no DHCP pools configured — use: ip dhcp pool <name>)"
+        return HDR + "\n(no DHCP pools configured — use: ip dhcp pool <n>)"
+
+    has_active = any(p.network and p.mask for p in s.dhcp_pools.values())
+    if not has_active:
+        return HDR + "\n(no network configured in DHCP pool — use: network <ip> <mask>)"
 
     lines = [HDR]
+    lease_num = 1
     for pool in s.dhcp_pools.values():
-        if pool.network and pool.mask:
-            parts = pool.network.split(".")
-            for i in range(1, 3):
-                parts_l    = parts[:]
-                parts_l[-1] = str(int(parts_l[-1]) + 10 + i)
-                lease_ip   = ".".join(parts_l)
-                mac        = f"0100.5079.6668.{i:02x}"
-                lines.append(
-                    f"{lease_ip:<17}{mac:<24}{'Mar 28 2026 08:00 AM':<24}{'Automatic':<12}Active"
-                )
+        if not (pool.network and pool.mask):
+            continue
+        available = _first_available_after_exclusions(
+            pool.network, pool.mask, s.dhcp_excluded
+        )
+        for lease_ip in available[:2]:
+            mac = f"0100.5079.6668.{lease_num:02x}"
+            lines.append(
+                f"{lease_ip:<17}{mac:<24}{'Mar 28 2026 08:00 AM':<24}{'Automatic':<12}Active"
+            )
+            lease_num += 1
+
+    if len(lines) == 1:
+        lines.append("(no active bindings)")
     return "\n".join(lines)
-
-
 def _show_dhcp_pool(s: DeviceState) -> str:
     if not s.dhcp_pools:
         return "% DHCP is not running.\n(no pools configured — use: ip dhcp pool <name>)"
