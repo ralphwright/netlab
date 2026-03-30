@@ -1735,27 +1735,71 @@ def _show_nat_translations(s: DeviceState) -> str:
     HDR = "Pro Inside global          Inside local           Outside local          Outside global"
     lines = [HDR]
 
+    if not s.nat_rules:
+        lines += [
+            "--- ---                    ---                    ---                    ---",
+            "(no NAT translations — configure:",
+            "  ip nat inside  on inside interface",
+            "  ip nat outside on outside interface",
+            "  ip nat inside source list <acl> interface <if> overload)",
+        ]
+        return "\n".join(lines)
+
+    # Resolve actual outside IP from the configured outside interface
+    outside_ifs = {n: i for n, i in s.ifaces.items() if i.nat == "outside"}
+    inside_ifs  = {n: i for n, i in s.ifaces.items() if i.nat == "inside"}
+
     for rule in s.nat_rules:
         if rule.kind == "static":
             lines.append(
-                f"--- {rule.inside_global:<27}{rule.inside_local:<23}---                    ---"
+                f"--- {rule.inside_global:<27}{rule.inside_local:<23}"
+                f"---                    ---"
             )
+
         elif rule.kind == "overload":
-            outside_ip = (s.ifaces.get(rule.interface, IfaceState(name="")).ip
-                          or "203.0.113.1")
-            lines += [
-                f"tcp {outside_ip}:1025        {' ':>20}10.0.1.10:1025         8.8.8.8:443            8.8.8.8:443",
-                f"udp {outside_ip}:1026        {' ':>20}10.0.1.11:53           8.8.4.4:53             8.8.4.4:53",
+            # Resolve outside IP: prefer the configured interface, fall back to
+            # any outside interface, then a placeholder
+            outside_ip = None
+            if rule.interface and rule.interface in s.ifaces:
+                outside_ip = s.ifaces[rule.interface].ip
+            if not outside_ip:
+                outside_ip = next((i.ip for i in outside_ifs.values() if i.ip), None)
+            outside_ip = outside_ip or "203.0.113.1"
+
+            # Derive simulated inside local IPs from actual inside subnet(s)
+            inside_locals: list[str] = []
+            for iface in inside_ifs.values():
+                if iface.ip and iface.mask:
+                    try:
+                        net_i  = _ip_to_int(_network_addr(iface.ip, iface.mask))
+                        inside_locals.append(_int_to_ip(net_i + 10))
+                        inside_locals.append(_int_to_ip(net_i + 11))
+                        inside_locals.append(_int_to_ip(net_i + 12))
+                    except Exception:
+                        pass
+
+            if not inside_locals:
+                # No inside interfaces configured — use generic placeholder
+                inside_locals = ["10.0.0.10", "10.0.0.11", "10.0.0.12"]
+
+            # Simulate a few typical translations
+            simulated = [
+                ("tcp",  inside_locals[0] if len(inside_locals) > 0 else "10.0.0.10",
+                 1025, "8.8.8.8",    443),
+                ("udp",  inside_locals[1] if len(inside_locals) > 1 else "10.0.0.11",
+                 1026, "8.8.4.4",    53),
+                ("tcp",  inside_locals[2] if len(inside_locals) > 2 else "10.0.0.12",
+                 1027, "1.1.1.1",    80),
             ]
+            for proto, inside_local, sport, outside_dst, dport in simulated:
+                ig  = f"{outside_ip}:{sport}"
+                il  = f"{inside_local}:{sport}"
+                og  = f"{outside_dst}:{dport}"
+                lines.append(
+                    f"{proto:<4} {ig:<26} {il:<22} {og:<22} {og}"
+                )
 
-    if not s.nat_rules:
-        lines.append(
-            "--- ---                    ---                    ---                    ---"
-            "\n(no NAT translations — configure NAT inside/outside and translation rules)"
-        )
     return "\n".join(lines)
-
-
 def _show_nat_statistics(s: DeviceState) -> str:
     inside_ifs  = [n for n, i in s.ifaces.items() if i.nat == "inside"]
     outside_ifs = [n for n, i in s.ifaces.items() if i.nat == "outside"]
