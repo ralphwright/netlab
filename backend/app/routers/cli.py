@@ -1395,6 +1395,26 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
     if cmd == "shutdown":
         return ("%LINK-5-CHANGED: Interface changed state to administratively down", current_mode)
 
+    # crypto key generate rsa — requires ip domain-name first (real IOS behaviour)
+    if re.match(r"crypto\s+key\s+generate\s+rsa", cmd):
+        from app.routers.lab_state import get_state
+        _st = get_state(mode_key, device_name)
+        if not _st.domain_name:
+            return (
+                "% Please define a domain-name first.\n"
+                "  (use: ip domain-name <name>)",
+                current_mode,
+            )
+        # Domain name is set — accept the command (parse_command will enable SSH)
+        _mod = re.search(r"modulus\s+(\d+)", cmd)
+        _bits = _mod.group(1) if _mod else "1024"
+        return (
+            f"The name for the keys will be: {_st.hostname or device_name}.{_st.domain_name}\n"
+            f"% Generating {_bits} bit RSA keys, keys will be non-exportable...\n"
+            f"% SSH has been enabled on the device.",
+            current_mode,
+        )
+
     # Generic config commands — accepted silently (real IOS behaviour)
     config_patterns = [
         r"hostname\s+", r"name\s+", r"switchport\s+",
