@@ -233,6 +233,7 @@ export default function TerminalEmulator({
   const [historyIdx, setHistoryIdx]     = useState(-1);
   const [enteredCommands, setEnteredCommands] = useState([]);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [awaitingReload, setAwaitingReload]   = useState(false); // true after 'reload' typed
 
   const inputRef  = useRef(null);
   const bodyRef   = useRef(null);
@@ -310,6 +311,52 @@ export default function TerminalEmulator({
 
     // ? and 'help' are forwarded to the backend which returns
     // mode-aware IOS-style help output (do not intercept here)
+
+    // reload — two-step confirmation like real IOS
+    if (awaitingReload) {
+      setAwaitingReload(false);
+      const confirm = trimmed.toLowerCase();
+      if (confirm === '' || confirm === 'y' || confirm === 'yes') {
+        setHistory(prev => [...prev,
+          { type: 'input', prompt, text: trimmed || '' },
+          { type: 'system', text: 'Proceed with reload? [confirm]' },
+          { type: 'output', text: 'System Bootstrap, Version 15.0(1r)M16\nLoading...' },
+          { type: 'system', text: '--- Reloading ' + deviceName + ' ---' },
+          { type: 'system', text: 'System returned to ROM by reload' },
+          { type: 'system', text: '--- Connected to ' + deviceName + ' ---' },
+          { type: 'system', text: 'Type Cisco IOS commands. Use "?" for help.' },
+        ]);
+        // Reset all session state
+        setEnteredCommands([]);
+        setCmdHistory([]);
+        setHistoryIdx(-1);
+        setInput('');
+        // Re-run reset-mode so backend mode returns to privileged
+        if (labSlug && userId) {
+          setCliReady(false);
+          api.resetDeviceMode({ lab_slug: labSlug, device_name: deviceName, user_id: userId })
+            .then(res => {
+              if (res?.prompt) setPrompt(res.prompt);
+              setCliReady(true);
+            })
+            .catch(() => setCliReady(true));
+        }
+      } else {
+        setHistory(prev => [...prev,
+          { type: 'input', prompt, text: trimmed },
+          { type: 'output', text: 'Reload aborted!' },
+        ]);
+      }
+      return;
+    }
+
+    if (trimmed.toLowerCase() === 'reload') {
+      setAwaitingReload(true);
+      setHistory(prev => [...prev,
+        { type: 'output', text: 'Proceed with reload? [confirm]' },
+      ]);
+      return;
+    }
 
     if (trimmed === 'clear') {
       setHistory([{ type: 'system', text: `--- ${deviceName} terminal cleared ---` }]);
@@ -485,7 +532,7 @@ export default function TerminalEmulator({
               autoCorrect="off"
               autoCapitalize="none"
               disabled={!deviceName || !cliReady}
-              placeholder={!deviceName ? 'Select a device from the topology...' : !cliReady ? 'Connecting…' : ''}
+              placeholder={!deviceName ? 'Select a device from the topology...' : !cliReady ? 'Connecting…' : awaitingReload ? '[confirm] or n to abort' : ''}
             />
           </div>
         </div>
