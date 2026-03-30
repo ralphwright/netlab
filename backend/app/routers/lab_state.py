@@ -502,9 +502,10 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
         if re.match(r"ip\s+domain-lookup", low):
             return
 
-        # crypto key generate rsa — enables SSH
+        # crypto key generate rsa — enables SSH (only if domain-name is set)
         if re.match(r"crypto\s+key\s+generate\s+rsa", low):
-            state.ssh_enabled = True
+            if state.domain_name:
+                state.ssh_enabled = True
             return
 
         # ip route <network> <mask> <nexthop>
