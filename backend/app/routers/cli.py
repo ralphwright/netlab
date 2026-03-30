@@ -1126,6 +1126,51 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
                 current_mode,
             )
 
+    # debug — acknowledge and note output would appear here
+    if cmd.startswith("debug ") or cmd == "debug all":
+        # Parse what's being debugged for a specific acknowledgement
+        sub = cmd[6:].strip() if cmd.startswith("debug ") else "all"
+        # Map common debug targets to their IOS acknowledgement strings
+        debug_msgs = {
+            "ip ospf":          "OSPF events debugging is on",
+            "ip ospf events":   "OSPF events debugging is on",
+            "ip ospf adj":      "OSPF adjacency debugging is on",
+            "ip ospf packet":   "OSPF packet debugging is on",
+            "ip bgp":           "BGP debugging is on for address family IPv4 Unicast",
+            "ip bgp events":    "BGP events debugging is on",
+            "ip bgp updates":   "BGP updates debugging is on",
+            "ip nat":           "IP NAT debugging is on",
+            "ip nat detailed":  "IP NAT detailed debugging is on",
+            "ip nat translations": "IP NAT translations debugging is on",
+            "ip rip":           "RIP event debugging is on",
+            "ip dhcp":          "DHCP client activity debugging is on",
+            "ip icmp":          "ICMP packet debugging is on",
+            "ip packet":        "IP packet debugging is on (detailed)",
+            "spanning-tree":    "Spanning tree debugging is on",
+            "eigrp":            "EIGRP debugging is on",
+            "crypto isakmp":    "Crypto ISAKMP debugging is on",
+            "crypto ipsec":     "Crypto IPsec debugging is on",
+            "all":              "All possible debugging has been turned on",
+        }
+        # Find longest matching key
+        msg = None
+        for key_pat, key_msg in sorted(debug_msgs.items(), key=lambda x: -len(x[0])):
+            if sub.startswith(key_pat):
+                msg = key_msg
+                break
+        if msg is None:
+            msg = f"{sub.upper()} debugging is on"
+        return (
+            f"{msg}\n"
+            f"  (Debug output would appear here on a real device.\n"
+            f"   Use 'undebug all' or 'no debug all' to disable.)",
+            current_mode,
+        )
+
+    # undebug / no debug
+    if cmd.startswith("undebug") or cmd == "no debug all":
+        return ("All possible debugging has been turned off", current_mode)
+
     # write memory / write / copy running-config startup-config
     if cmd in ("write memory", "write", "wr") or re.match(r"copy\s+running-config\s+startup-config", cmd):
         return (
