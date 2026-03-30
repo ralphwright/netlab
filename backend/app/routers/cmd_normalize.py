@@ -143,6 +143,8 @@ _add(r"^sh(?:ow)?\s+ip\s+ssh$",
      "show ip ssh")
 _add(r"^sh(?:ow)?\s+ip\s+int(?:erface)?\s+(\S+)$",
      r"show ip interface \1")
+_add(r"^sh(?:ow)?\s+cdp\s+nei(?:gh(?:bors?)?)?(?:\s+det(?:ail)?)?$",
+     "show cdp neighbors")
 _add(r"^sh(?:ow)?\s+cl(?:ock)?(?:\s+det(?:ail)?)?$",
      "show clock")
 _add(r"^sh(?:ow)?\s+proc(?:esses?)?(?:\s+cpu)?$",

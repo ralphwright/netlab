@@ -1090,6 +1090,12 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
     if re.match(r"show\s+interfaces?$", cmd):
         return _show_interfaces_detail(state)
 
+    # ── show cdp neighbors [detail] ───────────────────────────
+    if re.match(r"show\s+cdp\s+neigh(?:bors?)?(?:\s+detail)?$", cmd):
+        detail = "detail" in cmd
+        return _show_cdp_neighbors(state, scope_key=scope_key,
+                                   device_name=device_name, detail=detail)
+
     # ── show clock ────────────────────────────────────────────
     if re.match(r"show\s+clock(?:\s+detail)?$", cmd):
         return _show_clock(state)
@@ -1510,6 +1516,128 @@ def _show_version(s: DeviceState, device_name: str) -> str:
         f"  License Type: Permanent\n"
         f"  Next reload license Level: ipservices\n"
     )
+
+
+def _show_cdp_neighbors(s: DeviceState, scope_key: str = "",
+                         device_name: str = "", detail: bool = False) -> str:
+    """
+    show cdp neighbors [detail] — discovers adjacent devices by finding peers
+    in the same lab that share a subnet on any up interface.
+    CDP requires no configuration — it runs on all Cisco interfaces by default.
+    """
+    if not scope_key:
+        return "% CDP not enabled"
+
+    parts      = scope_key.split(":")
+    lab_prefix = ":".join(parts[:-1])
+
+    # Build our interface→subnet map  {iface_name: (ip, network, mask)}
+    our_subnets: dict[str, tuple[str, str, str]] = {}
+    for iface_name, iface in s.ifaces.items():
+        if iface.ip and iface.status == "up" and iface.mask:
+            net = _network_addr(iface.ip, iface.mask)
+            our_subnets[iface_name] = (iface.ip, net, iface.mask)
+
+    # Detect device type for CDP platform string
+    def _platform(dev_name: str) -> str:
+        n = dev_name.upper()
+        if any(x in n for x in ("SW", "SWITCH", "CAT")):
+            return "cisco WS-C2960X"
+        return "cisco CISCO2911/K9"
+
+    def _capabilities(dev_name: str) -> str:
+        n = dev_name.upper()
+        if any(x in n for x in ("SW", "SWITCH", "CAT")):
+            return "Switch"
+        return "Router"
+
+    neighbors: list[dict] = []
+
+    for peer_key, peer_state in LAB_STATES.items():
+        if not peer_key.startswith(lab_prefix + ":"):
+            continue
+        peer_dev = peer_key.split(":")[-1]
+        if peer_dev == device_name:
+            continue
+
+        # Find shared subnet between us and this peer
+        for our_iface, (our_ip, our_net, our_mask) in our_subnets.items():
+            for peer_iface, peer_if_obj in peer_state.ifaces.items():
+                if not (peer_if_obj.ip and peer_if_obj.status == "up" and peer_if_obj.mask):
+                    continue
+                peer_net = _network_addr(peer_if_obj.ip, peer_if_obj.mask)
+                if peer_net == our_net:
+                    # Found a shared subnet — they are CDP neighbors
+                    neighbors.append({
+                        "device_id": peer_state.hostname or peer_dev,
+                        "local_intf": our_iface,
+                        "holdtime":   142,
+                        "capability": _capabilities(peer_dev),
+                        "platform":   _platform(peer_dev),
+                        "port_id":    peer_iface,
+                        "peer_ip":    peer_if_obj.ip,
+                        "peer_dev":   peer_dev,
+                    })
+                    break  # one entry per peer device
+            else:
+                continue
+            break
+
+    if not detail:
+        # Brief output
+        if not neighbors:
+            return (
+                "Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge\n"
+                "                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone\n"
+                "\n"
+                "Device ID        Local Intrfce     Holdtme    Capability  Platform  Port ID\n"
+                "(no CDP neighbors found — ensure both devices have overlapping subnets and interfaces up)"
+            )
+        lines = [
+            "Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge",
+            "                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone",
+            "",
+            f"{'Device ID':<17}{'Local Intrfce':<18}{'Holdtme':<11}{'Capability':<12}{'Platform':<18}Port ID",
+        ]
+        for nbr in neighbors:
+            dev_id   = nbr["device_id"][:16]
+            loc_if   = _short_if(nbr["local_intf"])[:17]
+            port_id  = _short_if(nbr["port_id"])
+            cap      = "R S" if nbr["capability"] == "Switch" else "R"
+            platform = nbr["platform"].split()[-1][:17]
+            lines.append(
+                f"{dev_id:<17}{loc_if:<18}{nbr['holdtime']:<11}{cap:<12}{platform:<18}{port_id}"
+            )
+        lines.append("")
+        lines.append(f"Total cdp entries displayed : {len(neighbors)}")
+        return "\n".join(lines)
+
+    else:
+        # Detail output
+        if not neighbors:
+            return "(no CDP neighbors found)"
+        lines = []
+        for nbr in neighbors:
+            lines += [
+                "-" * 26,
+                f"Device ID: {nbr['device_id']}",
+                f"Entry address(es):",
+                f"  IP address: {nbr['peer_ip']}",
+                f"Platform: {nbr['platform']},  Capabilities: {nbr['capability']}",
+                f"Interface: {_short_if(nbr['local_intf'])},  Port ID (outgoing port): {_short_if(nbr['port_id'])}",
+                f"Holdtime : {nbr['holdtime']} sec",
+                f"",
+                f"Version :",
+                f"Cisco IOS Software, Version 15.7(3)M8, RELEASE SOFTWARE (fc3)",
+                f"",
+                f"advertisement version: 2",
+                f"Duplex: full",
+                f"Management address(es):",
+                f"  IP address: {nbr['peer_ip']}",
+                "",
+            ]
+        lines.append(f"Total cdp entries displayed : {len(neighbors)}")
+        return "\n".join(lines)
 
 
 def _show_clock(s: DeviceState) -> str:
