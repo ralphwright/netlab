@@ -180,6 +180,7 @@ class DeviceState:
     dot11_radios: dict = field(default_factory=dict)  # iface -> {channel}
     wlan_ssids: list = field(default_factory=list)    # configured SSID names
     banner_motd: str = ""                            # banner motd text
+    enable_secret: str = ""                          # enable secret/password
 
 
 # ── Global state store ─────────────────────────────────────────
@@ -426,6 +427,12 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
 
     # ── Global config commands ─────────────────────────────────
     if current_mode in ("config", "privileged"):
+
+        # enable secret <pw> / enable password <pw>
+        m_en = re.match(r"enable\s+(?:secret|password)\s+\d*\s*(\S+)", cmd, re.I)
+        if m_en:
+            state.enable_secret = m_en.group(1)
+            return
 
         # banner motd <delim> text <delim>
         # Supports: banner motd # text # or banner motd ^ text ^

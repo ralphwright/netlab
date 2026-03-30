@@ -234,6 +234,7 @@ export default function TerminalEmulator({
   const [enteredCommands, setEnteredCommands] = useState([]);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [awaitingReload, setAwaitingReload]   = useState(false); // true after 'reload' typed
+  const [awaitingEnable, setAwaitingEnable]   = useState(false); // true when enable password needed
 
   const inputRef  = useRef(null);
   const bodyRef   = useRef(null);
@@ -312,6 +313,32 @@ export default function TerminalEmulator({
     // ? and 'help' are forwarded to the backend which returns
     // mode-aware IOS-style help output (do not intercept here)
 
+    // enable password prompt — send as 'enable <password>' to backend
+    if (awaitingEnable) {
+      setAwaitingEnable(false);
+      // Show asterisks instead of the actual password (real IOS hides password input)
+      setHistory(prev => [...prev,
+        { type: 'output', text: '*'.repeat(trimmed.length || 1) },
+      ]);
+      // Send as 'enable <password>' — backend validates against stored secret
+      try {
+        const res = await api.executeCommand({
+          lab_slug: labSlug, device_name: deviceName,
+          command: `enable ${trimmed}`, step_number: step?.step_number, user_id: userId,
+        });
+        if (res.output && res.output !== '__ENABLE_PASSWORD_REQUIRED__') {
+          setHistory(prev => [...prev, {
+            type: res.output.includes('% Access') ? 'error' : 'output',
+            text: res.output,
+          }]);
+        }
+        if (res.prompt) setPrompt(res.prompt);
+      } catch (err) {
+        setHistory(prev => [...prev, { type: 'error', text: `Error: ${err.message}` }]);
+      }
+      return;
+    }
+
     // reload — two-step confirmation like real IOS
     if (awaitingReload) {
       setAwaitingReload(false);
@@ -383,7 +410,13 @@ export default function TerminalEmulator({
         command: trimmed, step_number: step?.step_number, user_id: userId,
       });
 
-      if (res.output) {
+      if (res.output === '__ENABLE_PASSWORD_REQUIRED__') {
+        // Backend signals that enable secret is set — prompt for password
+        setAwaitingEnable(true);
+        setHistory(prev => [...prev,
+          { type: 'output', text: 'Password: ' },
+        ]);
+      } else if (res.output) {
         setHistory((prev) => [...prev, {
           type: ['% Invalid', '% Incomplete', '% Ambiguous', '% Unknown', '% Error'].some(e => res.output.includes(e)) ? 'error' : 'output',
           text: res.output,
@@ -532,7 +565,7 @@ export default function TerminalEmulator({
               autoCorrect="off"
               autoCapitalize="none"
               disabled={!deviceName || !cliReady}
-              placeholder={!deviceName ? 'Select a device from the topology...' : !cliReady ? 'Connecting…' : awaitingReload ? '[confirm] or n to abort' : ''}
+              placeholder={!deviceName ? 'Select a device from the topology...' : !cliReady ? 'Connecting…' : awaitingReload ? '[confirm] or n to abort' : awaitingEnable ? 'Enter enable password' : ''}
             />
           </div>
         </div>

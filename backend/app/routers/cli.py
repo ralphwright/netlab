@@ -964,9 +964,25 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
     if cmd == "exit":
         return ("", "user")
 
-    if cmd in ("enable", "en"):
-        DEVICE_MODES[key] = "privileged"
-        return ("", "privileged")
+    if cmd in ("enable", "en") or re.match(r"^enable\s+\S+", cmd):
+        from app.routers.lab_state import get_state as _gs_en
+        _st_en = _gs_en(key, device_name)
+        secret = getattr(_st_en, "enable_secret", "")
+
+        if re.match(r"^enable\s+(\S+)", cmd):
+            # User submitted enable <password> — validate it
+            supplied = re.match(r"^enable\s+(\S+)", cmd).group(1)
+            if secret and supplied != secret:
+                return ("% Access denied", current_mode)
+            DEVICE_MODES[key] = "privileged"
+            return ("", "privileged")
+        elif secret:
+            # enable typed with no password — signal frontend to prompt
+            return ("__ENABLE_PASSWORD_REQUIRED__", current_mode)
+        else:
+            # No secret configured — go straight to privileged
+            DEVICE_MODES[key] = "privileged"
+            return ("", "privileged")
 
     # ── Mode enforcement ─────────────────────────────────────────
     # Commands in exec mode only (privileged / user)
