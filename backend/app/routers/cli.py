@@ -1142,6 +1142,67 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
                 current_mode,
             )
 
+    # clear commands
+    if cmd.startswith("clear ") or cmd == "clear":
+        from app.routers.lab_state import get_state as _gs_clr
+
+        # clear ip nat translations * — wipe NAT table
+        if re.match(r"clear\s+ip\s+nat\s+trans", cmd):
+            _st = _gs_clr(key, device_name)
+            # Remove dynamic/overload translations, keep static
+            _st.nat_rules = [r for r in _st.nat_rules if r.kind == "static"]
+            return ("", current_mode)
+
+        # clear ip ospf process — reset OSPF (real IOS prompts; we just acknowledge)
+        if re.match(r"clear\s+ip\s+ospf\s+(process|\d+)", cmd):
+            return (
+                "Reset ALL OSPF processes? [no]: yes\n"
+                "% OSPF: process reset requested",
+                current_mode,
+            )
+
+        # clear ip bgp * / clear ip bgp <asn> — reset BGP sessions
+        if re.match(r'clear\s+ip\s+bgp', cmd):
+            return (
+                "% BGP: cleared all peer sessions",
+                current_mode,
+            )
+
+        # clear arp-cache / clear arp
+        if re.match(r"clear\s+arp", cmd):
+            return ("", current_mode)  # silent on real IOS
+
+        # clear counters [interface]
+        if re.match(r"clear\s+counters?", cmd):
+            iface_part = re.match(r"clear\s+counters?\s*(.*)", cmd)
+            target = iface_part.group(1).strip() if iface_part else ""
+            if target:
+                return (f"Clear \"{target}\" counters on this interface [confirm]\n%Cleared", current_mode)
+            return ("Clear counters on all interfaces [confirm]\n%Cleared", current_mode)
+
+        # clear ip route * / clear ip route <net>
+        if re.match(r"clear\s+ip\s+route", cmd):
+            return (
+                "% Warning: Clearing IP route table. Routes will be re-learned.",
+                current_mode,
+            )
+
+        # clear line <n> — disconnect a terminal line
+        m_line = re.match(r"clear\s+line\s+(\S+)", cmd)
+        if m_line:
+            return (f"[confirm]\n[OK]", current_mode)
+
+        # clear crypto isakmp / clear crypto sa
+        if re.match(r"clear\s+crypto", cmd):
+            return ("% Crypto SA cleared", current_mode)
+
+        # clear logging
+        if re.match(r"clear\s+logging", cmd):
+            return ("Clear logging buffer [confirm]\n[OK]", current_mode)
+
+        # Generic clear — acknowledge with [OK]
+        return ("[OK]", current_mode)
+
     # clock set <hh:mm:ss> <day> <month> <year>
     if re.match(r"clock\s+set\s+", cmd):
         from app.routers.lab_state import get_state as _gs_clk
