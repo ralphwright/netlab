@@ -94,6 +94,8 @@ class IfaceState:
     tun_mode: str = "gre ip"
     # OSPF
     ospf_area: int = -1
+    # HSRP
+    hsrp_groups: dict = field(default_factory=dict)  # group -> HsrpGroup
 
 @dataclass
 class VlanEntry:
@@ -149,6 +151,16 @@ class ZonePair:
     src_zone: str = ""
     dst_zone: str = ""
     policy: str = ""
+
+@dataclass
+class HsrpGroup:
+    group: int = 0
+    virtual_ip: str = ""
+    priority: int = 100
+    preempt: bool = False
+    version: int = 1
+    timers_hello: int = 3
+    timers_hold: int = 10
 
 @dataclass
 class DeviceState:
@@ -393,6 +405,16 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
                     return
                 if sub.startswith("zone-member"):
                     _no_apply(lambda i: setattr(i, "zone", ""))
+                    return
+                # no standby <group> — remove HSRP group
+                m_hsrp = re.match(r"standby\s+(\d+)", sub)
+                if m_hsrp:
+                    grp = int(m_hsrp.group(1))
+                    _no_apply(lambda i: i.hsrp_groups.pop(grp, None))
+                    return
+                # no standby (all groups)
+                if sub == "standby":
+                    _no_apply(lambda i: i.hsrp_groups.clear())
                     return
                 # no shutdown → shutdown (handled below, fall through)
                 if sub.startswith("shut"):
@@ -782,6 +804,48 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
             state.dot11_radios[iface_name] = {"channel": int(m.group(1))}
             return
 
+        # standby <group> ip <virtual_ip>
+        m = re.match(r"standby\s+(\d+)\s+ip\s+(\S+)", cmd, re.I)
+        if m:
+            grp = int(m.group(1))
+            vip = m.group(2)
+            hsrp = iface.hsrp_groups.setdefault(grp, HsrpGroup(group=grp))
+            hsrp.virtual_ip = vip
+            return
+
+        # standby <group> priority <priority>
+        m = re.match(r"standby\s+(\d+)\s+priority\s+(\d+)", low)
+        if m:
+            grp = int(m.group(1))
+            pri = int(m.group(2))
+            hsrp = iface.hsrp_groups.setdefault(grp, HsrpGroup(group=grp))
+            hsrp.priority = pri
+            return
+
+        # standby <group> preempt
+        m = re.match(r"standby\s+(\d+)\s+preempt", low)
+        if m:
+            grp = int(m.group(1))
+            hsrp = iface.hsrp_groups.setdefault(grp, HsrpGroup(group=grp))
+            hsrp.preempt = True
+            return
+
+        # standby <group> timers <hello> <hold>
+        m = re.match(r"standby\s+(\d+)\s+timers\s+(\d+)\s+(\d+)", low)
+        if m:
+            grp = int(m.group(1))
+            hsrp = iface.hsrp_groups.setdefault(grp, HsrpGroup(group=grp))
+            hsrp.timers_hello = int(m.group(2))
+            hsrp.timers_hold = int(m.group(3))
+            return
+
+        # standby version <1|2>
+        m = re.match(r"standby\s+version\s+(\d+)", low)
+        if m:
+            ver = int(m.group(1))
+            _apply(lambda i: [setattr(h, 'version', ver) for h in i.hsrp_groups.values()])
+            return
+
     # ── Interface range — track current interface ──────────────
     # We handle the "interface <name>" command specially since it sets context
     m = re.match(r"interface(?:\s+range)?\s+(.+)", cmd, re.I)
@@ -1102,6 +1166,12 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
         detail = "detail" in cmd
         return _show_cdp_neighbors(state, scope_key=scope_key,
                                    device_name=device_name, detail=detail)
+
+    # ── show standby [brief] ─────────────────────────────────
+    if re.match(r"show\s+standby\s+brief$", cmd):
+        return _show_standby_brief(state)
+    if re.match(r"show\s+standby$", cmd):
+        return _show_standby(state)
 
     # ── show clock ────────────────────────────────────────────
     if re.match(r"show\s+clock(?:\s+detail)?$", cmd):
@@ -1645,6 +1715,62 @@ def _show_cdp_neighbors(s: DeviceState, scope_key: str = "",
             ]
         lines.append(f"Total cdp entries displayed : {len(neighbors)}")
         return "\n".join(lines)
+
+
+def _show_standby_brief(s: DeviceState) -> str:
+    """show standby brief — one-line summary per HSRP group per interface."""
+    hdr = (f"                     P indicates configured to preempt.\n"
+           f"                     |\n"
+           f"{'Interface':<23}{'Grp':<5}{'Pri':<5}P {'State':<10}{'Active':<16}{'Standby':<16}{'Virtual IP'}")
+    lines = [hdr]
+    found = False
+    for if_name, iface in sorted(s.ifaces.items()):
+        for grp_id, hsrp in sorted(iface.hsrp_groups.items()):
+            found = True
+            short = _short_if(if_name)
+            pre = "P" if hsrp.preempt else " "
+            # Determine state: if virtual IP is set, assume Active for the
+            # device that configured it (simulated single-device view)
+            st = "Active" if hsrp.virtual_ip else "Init"
+            active = "local" if st == "Active" else "unknown"
+            standby = "unknown"
+            vip = hsrp.virtual_ip or "-"
+            lines.append(
+                f"{short:<23}{grp_id:<5}{hsrp.priority:<5}{pre} {st:<10}{active:<16}{standby:<16}{vip}"
+            )
+    if not found:
+        lines.append("(no HSRP groups configured — use: standby <group> ip <virtual-ip>)")
+    return "\n".join(lines)
+
+
+def _show_standby(s: DeviceState) -> str:
+    """show standby — detailed HSRP output per interface/group."""
+    sections: list[str] = []
+    found = False
+    for if_name, iface in sorted(s.ifaces.items()):
+        for grp_id, hsrp in sorted(iface.hsrp_groups.items()):
+            found = True
+            st = "Active" if hsrp.virtual_ip else "Init"
+            active_router = "local" if st == "Active" else "unknown"
+            ver = hsrp.version
+            lines = [
+                f"{if_name} - Group {grp_id} (version {ver})",
+                f"  State is {st}",
+                f"    {('2 state changes' if st == 'Active' else '0 state changes')}, last state change 00:00:01",
+                f"  Virtual IP address is {hsrp.virtual_ip or 'not configured'}",
+                f"  Active virtual MAC address is {'0000.0c9f.f0' + format(grp_id, '02x') if ver == 1 else '0000.0c9f.f0' + format(grp_id, '02x')}",
+                f"    Local virtual MAC address is {'0000.0c9f.f0' + format(grp_id, '02x') if ver == 1 else '0000.0c9f.f0' + format(grp_id, '02x')} (v{ver} default)",
+                f"  Hello time {hsrp.timers_hello} sec, hold time {hsrp.timers_hold} sec",
+                f"  Preemption {'enabled' if hsrp.preempt else 'disabled'}",
+                f"  Active router is {active_router}",
+                f"  Standby router is unknown",
+                f"  Priority {hsrp.priority}",
+                f"  Group name is \"hsrp-{_short_if(if_name)}-{grp_id}\" (default)",
+            ]
+            sections.append("\n".join(lines))
+    if not found:
+        return "(no HSRP groups configured — use: standby <group> ip <virtual-ip>)"
+    return "\n".join(sections)
 
 
 def _show_clock(s: DeviceState) -> str:

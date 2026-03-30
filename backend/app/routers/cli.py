@@ -383,6 +383,8 @@ _SHOW_TREE = {
     "protocols":            "Active network routing protocols",
     "running-config":       "Current operating configuration",
     "spanning-tree":        "Spanning tree topology",
+    "standby":              {"_desc": "Hot Standby Router Protocol (HSRP)",
+                             "brief": "One line per standby group"},
     "startup-config":       "Startup configuration",
     "users":                "Display information about terminal lines",
     "version":              "System hardware and software status",
@@ -573,6 +575,12 @@ _CONFIG_IF_TREE = {
                              "bpduguard": {"_desc": "Don't accept BPDUs on this interface",
                                            "enable": "Enable BPDU guard for this interface"},
                              "portfast":  "Portfast options for the interface"},
+    "standby":              {"_desc": "HSRP interface configuration commands",
+                             "0": "HSRP group number",
+                             "1": "HSRP group number",
+                             "version": {"_desc": "HSRP version",
+                                         "1": "HSRPv1",
+                                         "2": "HSRPv2"}},
     "speed":                {"_desc": "Configure speed operation",
                              "auto": "Enable AUTO speed configuration",
                              "10":   "Force 10 Mbps operation",
@@ -1110,7 +1118,7 @@ def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple
         r"^(ip\s+address|no\s+shutdown|shutdown|switchport|encapsulation|"
         r"channel-group|spanning-tree\s+portf|spanning-tree\s+bpdu|"
         r"ip\s+nat\s+(inside|outside)$|mpls\s+ip|tunnel\s+(source|destination|mode)|"
-        r"ip\s+access-group|zone-member|ipv6\s+address|ipv6\s+ospf)\b", re.I
+        r"ip\s+access-group|zone-member|ipv6\s+address|ipv6\s+ospf|standby)\b", re.I
     )
 
     in_exec   = current_mode in ("privileged", "user")
