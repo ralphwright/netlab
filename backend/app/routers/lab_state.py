@@ -536,6 +536,7 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
             name = m.group(1)
             if name not in state.acls:
                 state.acls[name] = []
+            state._current_acl = name
             return
 
         # access-list <number> permit/deny ...
@@ -897,13 +898,14 @@ def parse_command(scope_key: str, device_name: str, command: str, current_mode: 
     # ── ACL entry commands ─────────────────────────────────────
     if current_mode == "config-acl":
         acl_name = getattr(state, '_current_acl', None)
-        m = re.match(r"(permit|deny)\s+(.+)", cmd, re.I)
+        m = re.match(r"(\d+\s+)?(permit|deny)\s+(.+)", cmd, re.I)
         if m and acl_name:
             entries = state.acls.setdefault(acl_name, [])
+            explicit_seq = int(m.group(1).strip()) if m.group(1) else len(entries) * 10 + 10
             entries.append(AclEntry(
-                seq=len(entries) * 10 + 10,
-                action=m.group(1).lower(),
-                rest=m.group(2),
+                seq=explicit_seq,
+                action=m.group(2).lower(),
+                rest=m.group(3),
             ))
             return
 

@@ -923,7 +923,113 @@ def _can_reach(scope_key: str, device_name: str, target: str) -> bool:
             except (ValueError, AttributeError):
                 pass
 
-    return best_prefix_len >= 0
+    if best_prefix_len < 0:
+        return False
+
+    # ACL enforcement — find egress interface via LPM, then check outbound ACL
+    egress_iface = None
+    egress_prefix = -1
+
+    # Step 1: check directly connected subnets
+    for iface in state.ifaces.values():
+        if iface.ip and iface.status == "up" and iface.mask:
+            net = _network_addr(iface.ip, iface.mask)
+            try:
+                n_i = sum(int(x) << (24-8*i) for i, x in enumerate(net.split(".")))
+                m_i = sum(int(x) << (24-8*i) for i, x in enumerate(iface.mask.split(".")))
+                pl  = bin(m_i).count("1")
+                if (t_int & m_i) == (n_i & m_i) and pl > egress_prefix:
+                    egress_prefix = pl
+                    egress_iface  = iface
+            except (ValueError, AttributeError):
+                pass
+
+    # Step 2: if no connected match, find egress via static route next-hop
+    if egress_iface is None:
+        for s_net, s_mask, s_nh in getattr(state, "_static_routes", []):
+            try:
+                sn_i = sum(int(x) << (24-8*i) for i, x in enumerate(s_net.split(".")))
+                sm_i = sum(int(x) << (24-8*i) for i, x in enumerate(s_mask.split(".")))
+                pl   = bin(sm_i).count("1")
+                if (t_int & sm_i) == (sn_i & sm_i) and pl > egress_prefix:
+                    # Found matching static route — find which iface the next-hop is reachable via
+                    nh_i = sum(int(x) << (24-8*i) for i, x in enumerate(s_nh.split(".")))
+                    for iface in state.ifaces.values():
+                        if iface.ip and iface.status == "up" and iface.mask:
+                            nh_net = _network_addr(iface.ip, iface.mask)
+                            nn_i   = sum(int(x) << (24-8*i) for i, x in enumerate(nh_net.split(".")))
+                            nm_i   = sum(int(x) << (24-8*i) for i, x in enumerate(iface.mask.split(".")))
+                            if (nh_i & nm_i) == (nn_i & nm_i):
+                                egress_prefix = pl
+                                egress_iface  = iface
+                                break
+            except (ValueError, AttributeError):
+                pass
+
+    if egress_iface and egress_iface.acl_out:
+        if not _acl_permits(state, egress_iface.acl_out, target):
+            return False
+
+    return True
+
+
+def _acl_permits(state, acl_name: str, src_ip: str) -> bool:
+    """
+    Evaluate an ACL against a source IP.
+    Returns True if permitted (or ACL not found — fail open).
+    Standard ACL: matches on source IP only.
+    Extended ACL: only checks source for simplicity.
+    """
+    from app.routers.lab_state import _ip_to_int
+    entries = state.acls.get(acl_name)
+    if not entries:
+        return True   # ACL not found — permit (fail open)
+
+    try:
+        src_int = _ip_to_int(src_ip)
+    except Exception:
+        return True
+
+    for entry in entries:
+        rest = entry.rest.strip().lower()
+
+        # "any" — matches everything
+        if rest.startswith("any"):
+            return entry.action == "permit"
+
+        # "host <ip>"
+        host_m = re.match(r"host\s+(\S+)", rest)
+        if host_m:
+            try:
+                if _ip_to_int(host_m.group(1)) == src_int:
+                    return entry.action == "permit"
+            except Exception:
+                pass
+            continue
+
+        # "<network> <wildcard>" — standard ACL source match
+        parts = rest.split()
+        if len(parts) >= 2:
+            try:
+                net_i  = _ip_to_int(parts[0])
+                wc_i   = _ip_to_int(parts[1])
+                mask_i = 0xFFFFFFFF ^ wc_i
+                if (src_int & mask_i) == (net_i & mask_i):
+                    return entry.action == "permit"
+            except Exception:
+                pass
+
+        # "<ip>" alone — exact host match (standard numbered ACL shorthand)
+        if len(parts) == 1:
+            try:
+                if _ip_to_int(parts[0]) == src_int:
+                    return entry.action == "permit"
+            except Exception:
+                pass
+
+    # Implicit deny at end of ACL
+    return False
+
 
 def simulate_output(command: str, device_name: str, mode_key: str = "") -> tuple[str, str]:
     """Return (output_text, new_mode)."""
