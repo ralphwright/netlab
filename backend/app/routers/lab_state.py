@@ -1087,6 +1087,14 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
     if re.match(r"show\s+version$", cmd):
         return _show_version(state, device_name)
 
+    # ── show processes cpu ─────────────────────────────────────
+    if re.match(r"show\s+processes?\s+(?:cpu)?$", cmd):
+        return _show_processes_cpu(state, device_name)
+
+    # ── show memory ────────────────────────────────────────────
+    if re.match(r"show\s+memory(?:\s+\S+)?$", cmd):
+        return _show_memory(state, device_name)
+
     return None  # not handled — caller uses canned output
 
 
@@ -1402,6 +1410,90 @@ def _show_version(s: DeviceState, device_name: str) -> str:
         f"  License Level: ipservices\n"
         f"  License Type: Permanent\n"
         f"  Next reload license Level: ipservices\n"
+    )
+
+
+def _show_processes_cpu(s: DeviceState, device_name: str) -> str:
+    """Plausible show processes cpu output."""
+    name_upper = device_name.upper()
+    is_switch  = any(x in name_upper for x in ('SW', 'SWITCH', 'CAT', 'CS'))
+    platform   = "C2960X" if is_switch else "2911"
+
+    # Deterministic but plausible CPU % based on device name hash
+    h = abs(hash(device_name)) % 100
+    five_sec  = (h % 4) + 1          # 1-4%
+    one_min   = (h % 3) + 1          # 1-3%
+    five_min  = (h % 2) + 1          # 1-2%
+
+    lines = [
+        f"CPU utilization for five seconds: {five_sec}%/{five_sec // 2}%; "
+        f"one minute: {one_min}%; five minutes: {five_min}%",
+        f" PID Runtime(ms)  Invoked  uSecs     5Sec   1Min   5Min TTY Process",
+        f"   1         520    52476     10       0.00%  0.00%  0.00%   0 Chunk Manager",
+        f"   2           0        1      0       0.00%  0.00%  0.00%   0 Load Meter",
+        f"   3         124    26238      4       0.00%  0.00%  0.00%   0 BGP Scheduler" if s.bgp else
+        f"   3           0        1      0       0.00%  0.00%  0.00%   0 RF Slave Main Th",
+        f"   4          32     4372      7       0.00%  0.00%  0.00%   0 Retransmission o",
+        f"   5         372    26238     14       0.00%  0.00%  0.00%   0 ARP Input",
+        f"   6           0        1      0       0.00%  0.00%  0.00%   0 HC Counter Timer",
+        f"   7      {five_sec * 120:6d}   262380     {five_sec * 4}       {five_sec / 100:.2f}%  {one_min / 100:.2f}%  {five_min / 100:.2f}%   0 OSPF-{list(s.ospf.keys())[0] if s.ospf else 1} Router" if s.ospf else
+        f"   7          16    26238      0       0.00%  0.00%  0.00%   0 OSPF Hello",
+        f"   8          24    26238      0       0.00%  0.00%  0.00%   0 IP Input",
+        f"   9         464    26238     17       0.00%  0.00%  0.00%   0 TCP Timer",
+        f"  10          64    26238      2       0.00%  0.00%  0.00%   0 TCP Protocols",
+        f"  11           0        1      0       0.00%  0.00%  0.00%   0 DHCP Server" if s.dhcp_pools else
+        f"  11           0        1      0       0.00%  0.00%  0.00%   0 Timers",
+        f"  12           0        1      0       0.00%  0.00%  0.00%   0 SNMP Timers",
+        f"  13         108   262380      0       0.00%  0.00%  0.00%   0 IP SNMP",
+        f"  14          32    26238      1       0.00%  0.00%  0.00%   0 CDP Protocol",
+        f"  15         276    52476      5       0.00%  0.00%  0.00%   0 Spanning Tree",
+        f"  16           4        8    500       0.00%  0.00%  0.00%   0 IPC Seat Manager",
+        f"  17          40    52476      0       0.00%  0.00%  0.00%   0 IOS Licensing Sp",
+        f"  18          12    26238      0       0.00%  0.00%  0.00%   0 IP SNMP",
+        f"  19         348   262380      1       0.00%  0.00%  0.00%   0 Net Background",
+    ]
+    return "\n".join(lines)
+
+
+def _show_memory(s: DeviceState, device_name: str) -> str:
+    """Plausible show memory output."""
+    name_upper = device_name.upper()
+    is_switch  = any(x in name_upper for x in ('SW', 'SWITCH', 'CAT', 'CS'))
+
+    total_kb  = 524288   # 512 MB
+    # Used increases with configured features
+    used_base = 98304    # ~96 MB base
+    used_kb   = (used_base
+                 + len(s.ifaces) * 64
+                 + len(s.vlans) * 16
+                 + len(s.ospf) * 256
+                 + (512 if s.bgp else 0)
+                 + len(s.dhcp_pools) * 128
+                 + len(s.acls) * 64)
+    free_kb   = total_kb - used_kb
+
+    proc_used = used_kb * 1024
+    proc_free = free_kb * 1024
+    io_total  = 65536 * 1024
+    io_used   = 8192  * 1024
+    io_free   = io_total - io_used
+
+    return (
+        f"                Head    Total(b)     Used(b)     Free(b)   Lowest(b)  Largest(b)\n"
+        f"Processor  {proc_used + io_total:10X} {proc_used + io_total:11,} {proc_used:11,} {proc_free:11,} {proc_free - 4096:11,} {proc_free - 8192:11,}\n"
+        f"      I/O  {io_total:10X} {io_total:11,}  {io_used:10,}  {io_free:10,}  {io_free - 512:10,}  {io_free - 1024:10,}\n"
+        f"\n"
+        f" Processor memory\n"
+        f"\n"
+        f"  Address    Bytes  Prev    Next    Ref  PrevF   NextF  Alloc PC  what\n"
+        f"  1BA30010   {proc_used:8}    0       0     1      0       0  0x4059A068  *Init*\n"
+        f"  1BA30030     {used_kb * 12:6}    0       0     1      0       0  0x40FE9B7C  List Elements\n"
+        f"  1BA30080     {used_kb * 8:6}    0       0     1      0       0  0x40FE9CBC  *Packet Header*\n"
+        f"\n"
+        f" I/O memory\n"
+        f"\n"
+        f"  Address    Bytes  Prev    Next    Ref  PrevF   NextF  Alloc PC  what\n"
+        f"  1D000000  {io_used:8}    0       0     1      0       0  0x00000000  *I/O Memory*\n"
     )
 
 

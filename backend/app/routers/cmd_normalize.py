@@ -143,6 +143,10 @@ _add(r"^sh(?:ow)?\s+ip\s+ssh$",
      "show ip ssh")
 _add(r"^sh(?:ow)?\s+ip\s+int(?:erface)?\s+(\S+)$",
      r"show ip interface \1")
+_add(r"^sh(?:ow)?\s+proc(?:esses?)?(?:\s+cpu)?$",
+     "show processes cpu")
+_add(r"^sh(?:ow)?\s+mem(?:ory)?$",
+     "show memory")
 _add(r"^sh(?:ow)?\s+ver(?:sion)?$",
      "show version")
 _add(r"^sh(?:ow)?\s+vlan\s+br(?:ief)?$",
