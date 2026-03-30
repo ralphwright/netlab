@@ -979,7 +979,7 @@ def generate_show(scope_key: str, device_name: str, command: str) -> str | None:
 
     # ── show ip route ──────────────────────────────────────────
     if re.match(r"show\s+ip\s+route$", cmd):
-        return _show_ip_route(state)
+        return _show_ip_route(state, scope_key=scope_key, device_name=device_name)
 
     # ── show vlan brief ────────────────────────────────────────
     if re.match(r"show\s+vlan\s+brief$", cmd):
@@ -1286,7 +1286,95 @@ def _show_interfaces_detail(s: DeviceState, if_name: str | None = None) -> str:
     return "\n".join(lines)
 
 
-def _show_ip_route(s: DeviceState) -> str:
+def _build_ospf_routes(s: DeviceState, scope_key: str, device_name: str) -> list[str]:
+    """
+    Build OSPF route entries for _show_ip_route by cross-referencing
+    actual peer devices that have formed OSPF adjacencies.
+
+    For each formed adjacency:
+      - Find the shared subnet (the one both peers are on)
+      - Collect all the peer's OTHER connected subnets as O routes
+      - Set via = peer's IP on the shared subnet
+      - Set outgoing interface = our interface on the shared subnet
+    """
+    if not scope_key or not s.ospf:
+        return []
+
+    neighbors = _find_ospf_neighbors(scope_key, device_name)
+    if not neighbors:
+        return []
+
+    # Build a set of our own connected networks so we don't re-advertise them
+    our_nets: set[str] = set()
+    for iface in s.ifaces.values():
+        if iface.ip and iface.status == "up" and iface.mask:
+            our_nets.add(_network_addr(iface.ip, iface.mask))
+
+    # Parse scope_key to find peer states
+    parts      = scope_key.split(":")
+    lab_prefix = ":".join(parts[:-1])
+
+    route_lines: list[str] = []
+    seen_routes: set[str]  = set()  # deduplicate
+
+    for nbr in neighbors:
+        # nbr keys: neighbor_id, address (peer IP on shared link), interface (our iface)
+        peer_ip  = nbr["address"]
+        our_iface = nbr["interface"]
+
+        # Find the peer's DeviceState
+        peer_state = None
+        for peer_key, pstate in LAB_STATES.items():
+            if not peer_key.startswith(lab_prefix + ":"):
+                continue
+            if peer_key == scope_key:
+                continue
+            # Check if this peer has peer_ip as one of its interface IPs
+            for piface in pstate.ifaces.values():
+                if piface.ip == peer_ip:
+                    peer_state = pstate
+                    break
+            if peer_state:
+                break
+
+        if not peer_state:
+            continue
+
+        # Get the shared subnet (the one our_iface is on)
+        our_if_obj = s.ifaces.get(our_iface)
+        shared_net = None
+        if our_if_obj and our_if_obj.ip and our_if_obj.mask:
+            shared_net = _network_addr(our_if_obj.ip, our_if_obj.mask)
+
+        # Collect peer's connected subnets — advertise as O routes
+        for piface in peer_state.ifaces.values():
+            if not (piface.ip and piface.status == "up" and piface.mask):
+                continue
+            peer_net  = _network_addr(piface.ip, piface.mask)
+            peer_cidr = _cidr(piface.mask)
+
+            # Skip subnets we're already directly connected to
+            if peer_net in our_nets:
+                continue
+            # Skip the shared transit link (we already have it as C)
+            if peer_net == shared_net:
+                continue
+            # Skip duplicates
+            route_key = f"{peer_net}/{peer_cidr}"
+            if route_key in seen_routes:
+                continue
+            seen_routes.add(route_key)
+
+            # Calculate OSPF cost — default 110 admin dist, cost 2 (one hop)
+            route_lines.append(
+                f"O        {peer_net}/{peer_cidr} [110/2] via {peer_ip}, "
+                f"00:01:00, {our_iface}"
+            )
+
+    return sorted(route_lines)
+
+
+def _show_ip_route(s: DeviceState, scope_key: str = "", device_name: str = "") -> str:
     lines = ["Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP",
              "       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area",
              "       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2",
@@ -1341,12 +1429,12 @@ def _show_ip_route(s: DeviceState) -> str:
             cidr = _cidr(mask)
             lines.append(f"S        {net}/{cidr} [1/0] via {nh}")
 
-    # OSPF
-    for pid, proc in s.ospf.items():
-        for ospf_net in proc.networks:
-            lines.append(f"O        {ospf_net.network} [110/2] via 10.0.0.2, 00:01:00, GigabitEthernet0/0")
+    # OSPF — only add routes from actual formed adjacencies
+    ospf_routes = _build_ospf_routes(s, scope_key, device_name)
+    for route in ospf_routes:
+        lines.append(route)
 
-    if not s.ifaces and not static and not s.ospf:
+    if not s.ifaces and not static and not ospf_routes:
         lines.append("(routing table is empty — configure interfaces and routes)")
 
     return "\n".join(lines)
